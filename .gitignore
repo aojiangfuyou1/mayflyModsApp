@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+release/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dev-server.err.log
+dev-server.out.log
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# TypeScript and Vite cache
+*.tsbuildinfo
+.vite/
+
+# Electron builder
+*.blockmap
+builder-debug.yml
+builder-effective-config.yaml
+
+# DLSS payload binaries (large offline assets)
+dlss/
+resources/dlss-payload/
+scratch/
+
+# Workshop Core build outputs, cache manifests & debug symbols
+resources/workshop-core/src/bin/
+resources/workshop-core/src/obj/
+resources/workshop-core/*.manifest
+resources/workshop-core/*.pdb
+resources/workshop-core/test_*
+
