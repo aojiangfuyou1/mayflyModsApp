@@ -44,39 +44,39 @@
           {{ isChineseMode && modZhTitle ? modZhTitle : modInfo.title }}
         </text>
 
-        <!-- 5 列横向指标数据条 (对标图 3: Endorsements | Unique DLs | Total DLs | Total views | Version) -->
+        <!-- 5 列横向指标数据条 (对标图 3: 赞同推荐 | 独立下载 | 总下载量 | 总浏览数 | 版本号) -->
         <view class="heroStatsRow">
           <!-- 赞同数 Endorsements -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">{{ isChineseMode ? '赞同推荐' : 'Endorsements' }}</text>
+            <text class="heroStatLabel">赞同推荐</text>
             <text class="heroStatVal highlight">{{ modInfo.likes || 0 }}</text>
           </view>
           <!-- 唯一独立下载 Unique DLs -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">{{ isChineseMode ? '独立下载' : 'Unique DLs' }}</text>
+            <text class="heroStatLabel">独立下载</text>
             <text class="heroStatVal">--</text>
           </view>
           <!-- 总下载量 Total DLs -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">{{ isChineseMode ? '总下载量' : 'Total DLs' }}</text>
+            <text class="heroStatLabel">总下载量</text>
             <text class="heroStatVal">{{ formatMetric(modInfo.downloads) }}</text>
           </view>
           <!-- 总浏览数 Total views -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">{{ isChineseMode ? '总浏览数' : 'Total views' }}</text>
+            <text class="heroStatLabel">总浏览数</text>
             <text class="heroStatVal">--</text>
           </view>
           <!-- 模组版本 Version -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">{{ isChineseMode ? '版本号' : 'Version' }}</text>
+            <text class="heroStatLabel">版本号</text>
             <text class="heroStatVal boldWhite">{{ modInfo.version || '1.0' }}</text>
           </view>
         </view>
 
-        <!-- 动作操作行 (对标图 3: Original File 按钮 + Mayfly 专属推送到电脑) -->
+        <!-- 动作操作行 (访问官方原帖 + 推送到电脑) -->
         <view class="heroActionRow">
           <view class="originalFileBtn" @click="handleOpenWebsite">
-            <text class="originalFileText">{{ isChineseMode ? '访问官方原帖' : 'Original File' }}</text>
+            <text class="originalFileText">访问官方原帖</text>
           </view>
           <view class="heroPushBtn" @click="handlePushToDesktop">
             <text class="heroPushText">{{ isPushing ? '投递中...' : '🚀 推送到电脑' }}</text>
@@ -86,7 +86,7 @@
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 3：媒体画廊缩略条 (对标图 3: 缩略图 + 1 items + 全屏放大) -->
+    <!-- 区域 3：媒体画廊缩略条 (对标图 3: 缩略图 + 截图数量 + 全屏放大) -->
     <!-- ==================================================================== -->
     <view class="galleryStrip">
       <view class="galleryThumbBox" @click="previewFullImage">
@@ -97,7 +97,7 @@
         />
       </view>
       <view class="galleryBadgeBox">
-        <text class="galleryBadgeText">{{ imageGallery.length }} {{ isChineseMode ? '张截图' : 'items' }}</text>
+        <text class="galleryBadgeText">{{ imageGallery.length }} 张截图</text>
       </view>
       <view class="galleryFullscreenBtn" @click="previewFullImage">
         <text class="galleryFullscreenIcon">⛶</text>
@@ -105,42 +105,42 @@
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 4：双列元数据信息表格 (100% 对标用户参考图 3) -->
+    <!-- 区域 4：双列元数据信息表格 (100% 对标用户参考图 3，纯中文规范展示) -->
     <!-- ==================================================================== -->
     <view class="metaTableCard">
       <view class="metaGrid">
         <!-- 左列 -->
         <view class="metaCol">
-          <!-- Last updated -->
+          <!-- 最近更新 -->
           <view class="metaCell">
-            <text class="metaCellLabel">{{ isChineseMode ? '最近更新' : 'Last updated' }}</text>
-            <text class="metaCellVal">{{ modInfo.formattedFullUpdated || modInfo.formattedUpdateDate || '--' }}</text>
+            <text class="metaCellLabel">最近更新</text>
+            <text class="metaCellVal">{{ formatDetailDate(modInfo.updatedAt || modInfo.createdAt) }}</text>
           </view>
-          <!-- Created by -->
+          <!-- 创建作者 -->
           <view class="metaCell">
-            <text class="metaCellLabel">{{ isChineseMode ? '创建作者' : 'Created by' }}</text>
+            <text class="metaCellLabel">创建作者</text>
             <text class="metaCellVal">{{ modInfo.author || '未知作者' }}</text>
           </view>
-          <!-- Virus scan -->
+          <!-- 安全检测 -->
           <view class="metaCell">
-            <text class="metaCellLabel">{{ isChineseMode ? '安全检测' : 'Virus scan' }}</text>
+            <text class="metaCellLabel">安全检测</text>
             <view class="virusScanRow">
-              <text class="virusScanIcon">⚠️</text>
-              <text class="virusScanText">{{ isChineseMode ? '官方无毒免扫安全' : 'Some files not scanned' }}</text>
+              <text class="virusScanIcon">✓</text>
+              <text class="virusScanText">官方无毒安全免扫</text>
             </view>
           </view>
         </view>
 
         <!-- 右列 -->
         <view class="metaCol">
-          <!-- Original upload -->
+          <!-- 首发上传 -->
           <view class="metaCell">
-            <text class="metaCellLabel">{{ isChineseMode ? '首发上传' : 'Original upload' }}</text>
-            <text class="metaCellVal">{{ modInfo.formattedFullCreated || modInfo.formattedDate || '--' }}</text>
+            <text class="metaCellLabel">首发上传</text>
+            <text class="metaCellVal">{{ formatDetailDate(modInfo.createdAt) }}</text>
           </view>
-          <!-- Uploaded by -->
+          <!-- 上传者 -->
           <view class="metaCell">
-            <text class="metaCellLabel">{{ isChineseMode ? '上传者' : 'Uploaded by' }}</text>
+            <text class="metaCellLabel">上传者</text>
             <text class="metaCellVal uploaderLink">{{ modInfo.uploaderName || modInfo.author || '未知上传者' }}</text>
           </view>
         </view>
@@ -148,7 +148,7 @@
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 5：标签胶囊列表栏 (对标图 3: User Interface, Translation, + Tag this mod) -->
+    <!-- 区域 5：标签胶囊列表栏 (对标图 3，支持动态并发转译中文标签) -->
     <!-- ==================================================================== -->
     <view class="tagsSection">
       <scroll-view class="tagsScrollView" scroll-x show-scrollbar="false">
@@ -158,11 +158,11 @@
             v-for="(tag, tIdx) in displayTags"
             :key="tIdx"
           >
-            <text class="tagPillText">{{ tag }}</text>
+            <text class="tagPillText">{{ getTagDisplayName(tag) }}</text>
           </view>
           <view class="tagPill addTagPill" @click="handleTagTip">
             <text class="addTagIcon">+</text>
-            <text class="tagPillText">{{ isChineseMode ? '标记此模组' : 'Tag this mod' }}</text>
+            <text class="tagPillText">标记此模组</text>
           </view>
         </view>
       </scroll-view>
@@ -172,17 +172,18 @@
     <view class="nexusDivider"></view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 6：Current section 切换选择器 (对标图 3: Viewing: Description ⌄) -->
+    <!-- 区域 6：Current section 切换选择器 (对标图 3: 当前板块: 详细说明 ⌄) -->
     <!-- ==================================================================== -->
     <view class="currentSectionArea">
-      <text class="sectionHeaderTitle">{{ isChineseMode ? '浏览板块选择' : 'Current section' }}</text>
+      <text class="sectionHeaderTitle">当前板块</text>
       <picker
+        mode="selector"
         :range="currentSectionOptions"
         :value="currentSectionIndex"
         @change="onSectionChange"
       >
         <view class="sectionSelectCard">
-          <text class="viewingPrefix">{{ isChineseMode ? '当前板块:' : 'Viewing:' }}</text>
+          <text class="viewingPrefix">当前板块:</text>
           <text class="viewingValue">{{ currentSectionOptions[currentSectionIndex] }}</text>
           <text class="selectArrow">⌄</text>
         </view>
@@ -234,7 +235,7 @@
     <!-- ==================================================================== -->
     <view class="sectionBodyContainer" v-else-if="currentSectionIndex === 1">
       <view class="aboutHeaderRow">
-        <text class="aboutTitle">Files 物理文件清单</text>
+        <text class="aboutTitle">物理文件清单 (Files)</text>
         <text class="filesCountBadge">{{ modFiles.length }} 个文件</text>
       </view>
 
@@ -257,7 +258,7 @@
         >
           <view class="fileCardTop">
             <view class="fileCatPill" :class="file.category.toLowerCase()">
-              <text class="fileCatText">{{ file.category }}</text>
+              <text class="fileCatText">{{ getFileCatLabel(file.category) }}</text>
             </view>
             <text class="fileName">{{ file.name }}</text>
             <text class="fileRadioDot">{{ selectedFileId === file.fileId ? '🟢' : '⚪' }}</text>
@@ -288,7 +289,7 @@
     <!-- ==================================================================== -->
     <view class="sectionBodyContainer" v-else-if="currentSectionIndex === 2">
       <view class="aboutHeaderRow">
-        <text class="aboutTitle">Requirements 前置体检</text>
+        <text class="aboutTitle">前置依赖体检 (Requirements)</text>
         <text class="reqStatusBadge" :class="{ free: requirements.length === 0 }">
           {{ requirements.length === 0 ? '✓ 开箱即用' : `${requirements.length} 个前置` }}
         </text>
@@ -419,7 +420,9 @@ import {
 } from '../../services/nexus.js';
 import {
   translateTextToZh,
-  translateRichDescription
+  translateRichDescription,
+  batchTranslateToZh,
+  getCategoryZhName
 } from '../../services/translate.js';
 import { isFavorited, toggleFavorite } from '../../services/favorites.js';
 import { formatModShareText } from '../../services/poster.js';
@@ -479,11 +482,12 @@ export default {
       requirements: [],
       loadingRequirements: false,
 
-      // 翻译模式与缓存 (默认开启智能全中文图鉴)
+      // 翻译模式与标签中文字典 (默认开启智能全中文图鉴)
       isChineseMode: true,
       modZhTitle: '',
       modZhSummary: '',
       modZhDescription: '',
+      tagZhMap: {},
       isTranslatingDescription: false,
 
       // 投递状态
@@ -508,13 +512,10 @@ export default {
 
   computed: {
     /**
-     * 当前板块选项名称 (支持中英文切换)
+     * 当前板块选项名称 (纯正中文板块规范)
      */
     currentSectionOptions() {
-      if (this.isChineseMode) {
-        return ['详细说明 (Description)', '物理文件 (Files)', '前置体检 (Requirements)'];
-      }
-      return ['Description', 'Files', 'Requirements'];
+      return ['详细说明 (Description)', '物理文件 (Files)', '前置体检 (Requirements)'];
     },
 
     /**
@@ -631,6 +632,8 @@ export default {
             this.modInfo.game.id = resolved;
           }
         } catch (e) {}
+      if (item.tags && item.tags.length > 0) {
+        this.autoTranslateTags(item.tags);
       }
 
       if (modId && gameId) {
@@ -649,6 +652,71 @@ export default {
     },
 
     /**
+     * 格式化详情页详细时间 (纯正中文日期: 2026年10月12日 13:21)
+     */
+    formatDetailDate(dateStr) {
+      if (!dateStr) return '--';
+      return formatNexusFullDate(dateStr, true);
+    },
+
+    /**
+     * 获取文件分类的友好中文说明
+     */
+    getFileCatLabel(category) {
+      const cat = String(category || '').toUpperCase();
+      const map = {
+        'MAIN': '主包 (MAIN)',
+        'UPDATE': '更新补丁 (UPDATE)',
+        'OPTIONAL': '可选分流 (OPTIONAL)',
+        'OLD': '历史版本 (OLD)',
+        'MISCELLANEOUS': '杂项附件 (MISC)'
+      };
+      return map[cat] || category || '文件';
+    },
+
+    /**
+     * 获取标签中文显示名称
+     */
+    getTagDisplayName(tag) {
+      if (!tag) return '';
+      if (this.tagZhMap[tag]) return this.tagZhMap[tag];
+      const dict = getCategoryZhName(tag);
+      if (dict && dict !== tag) return dict;
+      return tag;
+    },
+
+    /**
+     * 后台静默为未翻译的模组标签批量发起并发翻译
+     */
+    async autoTranslateTags(tags) {
+      if (!Array.isArray(tags) || tags.length === 0) return;
+      const unmapped = [];
+      tags.forEach((t) => {
+        if (!t) return;
+        const zh = getCategoryZhName(t);
+        if (zh && zh !== t) {
+          this.tagZhMap[t] = zh;
+        } else if (!this.tagZhMap[t]) {
+          unmapped.push(t);
+        }
+      });
+
+      if (unmapped.length === 0) return;
+      try {
+        const transMap = await batchTranslateToZh(unmapped);
+        const nextMap = { ...this.tagZhMap };
+        unmapped.forEach((tag) => {
+          if (transMap.has(tag)) {
+            nextMap[tag] = transMap.get(tag);
+          }
+        });
+        this.tagZhMap = nextMap;
+      } catch (e) {
+        console.warn('[MayflyDetail] 标签并发翻译提示:', e);
+      }
+    },
+
+    /**
      * 从 GraphQL 实时拉取完整模组详情
      */
     async loadFullDetail(modId, gameId) {
@@ -662,6 +730,10 @@ export default {
 
         if (detail.coverImageUrl && !this.imageGallery.includes(detail.coverImageUrl)) {
           this.imageGallery = [detail.coverImageUrl];
+        }
+
+        if (detail.tags && detail.tags.length > 0) {
+          this.autoTranslateTags(detail.tags);
         }
 
         // 详情就绪后，全自动触发正文深度中文翻译

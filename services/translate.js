@@ -118,12 +118,27 @@ export const CATEGORY_ZH_MAP = {
   'Items & Objects': '物品道具与收藏',
   'Collectibles': '收集品与纪念物',
   'Immersion': '沉浸真实感体验',
-  'Miscellaneous': '综合杂项'
+  'Miscellaneous': '综合杂项',
+  'Models/Meshes': '模型/网格',
+  'Meshes': '模型网格',
+  'Models': '模型资产',
+  'Textures': '材质贴图',
+  'Related to Movies/TV/Books/Other Games': '影视/书籍/其他联动',
+  'Related to Movies, TV, Books, and Other Games': '影视/书籍/其他联动',
+  'Translation': '汉化翻译',
+  'English': '英文原版',
+  'Armor': '护甲防具',
+  'Weapons and Armor': '武器与护甲',
+  'Poses': '动作姿势',
+  'Audio - SFX': '音效补丁',
+  'Audio - Music': '背景音乐',
+  'Audio - Voice': '语音配音',
+  'Guilds/Factions': '阵营与公会'
 };
 
 /**
- * 获取分类的友好中文名称 (支持复合词拆解与模糊匹配)
- * @param {string} category - 英文分类名
+ * 获取分类或标签的友好中文名称 (支持复合词拆解与模糊匹配)
+ * @param {string} category - 英文分类或标签名
  * @returns {string} 中文分类名
  */
 export function getCategoryZhName(category) {
@@ -132,6 +147,14 @@ export function getCategoryZhName(category) {
   if (CATEGORY_ZH_MAP[clean]) return CATEGORY_ZH_MAP[clean];
   for (const [en, zh] of Object.entries(CATEGORY_ZH_MAP)) {
     if (clean.toLowerCase() === en.toLowerCase()) return zh;
+  }
+  // 针对包含 / 的标签智能拆解匹配 (如 Models/Meshes -> 模型/网格)
+  if (clean.includes('/')) {
+    const slashParts = clean.split('/').map(p => p.trim());
+    if (slashParts.length >= 2) {
+      const zhParts = slashParts.map(p => getCategoryZhName(p));
+      return zhParts.join('/');
+    }
   }
   // 针对包含 & 或 and 的复合短语智能分段匹配
   if (clean.includes('&') || clean.toLowerCase().includes(' and ')) {
