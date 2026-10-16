@@ -127,45 +127,55 @@ export function getGameShortZhName(domainName, originalName = '') {
 }
 
 /**
- * 格式化时间为友好相对时间 (如 "2 minutes ago", "3 hours ago", "5 days ago")
+ * 格式化时间为友好相对时间 (如 "刚刚", "2分钟前", "3小时前", "5天前")
+ * 杜绝任何写死的英文假数据
  */
-export function formatTimeAgo(dateStr) {
-  if (!dateStr) return '2 minutes ago';
+export function formatTimeAgo(dateStr, isZh = true) {
+  if (!dateStr) return isZh ? '刚刚' : 'recently';
   const time = new Date(dateStr).getTime();
-  if (isNaN(time)) return 'recently';
+  if (isNaN(time)) return isZh ? '刚刚' : 'recently';
   const diff = Date.now() - time;
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} minutes ago`;
+  if (minutes < 1) return isZh ? '刚刚' : 'just now';
+  if (minutes < 60) return isZh ? `${minutes}分钟前` : `${minutes} minutes ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hours ago`;
+  if (hours < 24) return isZh ? `${hours}小时前` : `${hours} hours ago`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} days ago`;
+  if (days < 30) return isZh ? `${days}天前` : `${days} days ago`;
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months} months ago`;
-  return `${Math.floor(days / 365)} years ago`;
+  if (months < 12) return isZh ? `${months}个月前` : `${months} months ago`;
+  return isZh ? `${Math.floor(days / 365)}年前` : `${Math.floor(days / 365)} years ago`;
 }
 
 /**
- * 格式化为 Nexus 官方标准日期 (如 "16 Oct 2026")
+ * 格式化为 Nexus 官方标准日期 (如 "2026年10月16日" / "16 Oct 2026")
  */
-export function formatNexusDate(dateStr) {
+export function formatNexusDate(dateStr, isZh = true) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return String(dateStr).slice(0, 10);
+  if (isZh) {
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  }
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /**
- * 格式化为 Nexus 官方完整详细时间 (如 "16 October 2026, 1:20PM")
+ * 格式化为 Nexus 官方完整详细时间 (如 "2026年10月16日 13:20")
  * @param {string|number} dateStr
+ * @param {boolean} [isZh=true]
  * @returns {string}
  */
-export function formatNexusFullDate(dateStr) {
+export function formatNexusFullDate(dateStr, isZh = true) {
   if (!dateStr) return '--';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return String(dateStr);
+  if (isZh) {
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${hours}:${minutes}`;
+  }
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
