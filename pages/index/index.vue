@@ -317,11 +317,11 @@
             <!-- 模组类型 (对标图 2 Patches, Audio 等，中文友好映射) -->
             <text class="modCategoryText">{{ getCategoryDisplayName(item.category) }}</text>
 
-            <!-- 更新与创建时间 (对标图 2: ⟳ 2 minutes ago / ⬆ 16 Oct 2026) -->
+            <!-- 更新与创建时间 (跟随本地化显示) -->
             <view class="modTimeRow">
               <view class="timeCol">
                 <text class="timeIcon">⟳</text>
-                <text class="timeVal">{{ item.timeAgo || 'recently' }}</text>
+                <text class="timeVal">{{ item.timeAgo || (enableAutoTranslate ? '刚刚' : 'recently') }}</text>
               </view>
               <view class="timeCol" v-if="item.formattedDate">
                 <text class="timeIcon">⬆</text>
@@ -419,7 +419,7 @@
           <view class="drawerNavItem" @click="switchView('games'); closeDrawer()">
             <view class="navItemLeft">
               <text class="itemIcon">🎮</text>
-              <text class="itemText">Games 热门游戏专区</text>
+              <text class="itemText">热门游戏专区 (Games)</text>
             </view>
             <text class="drawerNavArrow">›</text>
           </view>
@@ -427,7 +427,7 @@
           <view class="drawerNavItem" @click="switchView('mods'); closeDrawer()">
             <view class="navItemLeft">
               <text class="itemIcon">◆</text>
-              <text class="itemText">Mods 模组流水线</text>
+              <text class="itemText">精选模组库 (Mods)</text>
             </view>
             <view class="navItemRight">
               <text class="currentTag" v-if="selectedGameDomain">{{ activeGameDisplayName }}</text>
@@ -438,7 +438,7 @@
           <view class="drawerNavItem" @click="changeSort('favorites'); switchView('mods'); closeDrawer()">
             <view class="navItemLeft">
               <text class="itemIcon">❤️</text>
-              <text class="itemText">Wishlist 装机心愿单</text>
+              <text class="itemText">装机心愿单 (Wishlist)</text>
             </view>
             <view class="navItemRight">
               <text class="itemBadge" v-if="favoritesCount > 0">{{ favoritesCount }}</text>
@@ -449,7 +449,7 @@
           <view class="drawerNavItem" @click="openHistoryModal">
             <view class="navItemLeft">
               <text class="itemIcon">📋</text>
-              <text class="itemText">History 推送任务清单</text>
+              <text class="itemText">推送任务清单 (History)</text>
             </view>
             <view class="navItemRight">
               <text class="itemBadge" v-if="historyList.length > 0">{{ historyList.length }}</text>
