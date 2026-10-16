@@ -142,7 +142,7 @@ export default {
     async rePushItem(item) {
       uni.showLoading({ title: '正在重新投递...' });
       try {
-        const res = await pushModToDesktop(item);
+        const res = await pushModToDesktop(item, this.desktopConfig);
         uni.hideLoading();
         if (res.success) {
           uni.showToast({ title: '重推成功！', icon: 'success' });

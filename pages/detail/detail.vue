@@ -519,9 +519,6 @@ export default {
   async onLoad(options) {
     this.refreshNexusUser();
     this.desktopConfig = getDesktopConfig();
-    this.deviceForm.host = this.desktopConfig.host;
-    this.deviceForm.port = this.desktopConfig.port;
-    this.deviceForm.deviceToken = this.desktopConfig.deviceToken;
 
     let targetItem = null;
 

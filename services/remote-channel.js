@@ -27,8 +27,8 @@ export function buildRemoteInstallPayload(modItem, deviceToken = 'MF-PC-8891') {
   return {
     action: 'remote_install',
     deviceToken,
-    gameId: modItem.game?.domainName || '',
-    gameName: modItem.game?.name || '',
+    gameId: modItem.game?.domainName || modItem.gameDomain || '',
+    gameName: modItem.game?.name || modItem.gameName || '',
     sourceType: modItem.sourceType || 'nexus',
     sourceModId: String(modItem.modId || modItem.id),
     title: modItem.title || '未知模组',

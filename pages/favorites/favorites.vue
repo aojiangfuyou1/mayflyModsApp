@@ -225,7 +225,7 @@ export default {
     async quickPushToDesktop(item) {
       this.pushingModId = item.id;
       try {
-        const res = await pushModToDesktop(item);
+        const res = await pushModToDesktop(item, this.desktopConfig);
         if (res.success) {
           uni.showToast({ title: '已推送到电脑端安装', icon: 'success' });
         } else {
@@ -256,7 +256,7 @@ export default {
       let successCount = 0;
       for (const item of list) {
         try {
-          const res = await pushModToDesktop(item);
+          const res = await pushModToDesktop(item, this.desktopConfig);
           if (res.success) successCount++;
         } catch (e) {}
       }
