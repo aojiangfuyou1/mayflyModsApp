@@ -64,36 +64,65 @@ loadPersistedTranslations();
 export const CATEGORY_ZH_MAP = {
   'Armour': '护甲装备',
   'Weapons': '武器装备',
+  'Weapons and Armour': '武器与护甲',
+  'Weapons & Armour': '武器与护甲',
   'Models and Textures': '模型与材质',
+  'Models & Textures': '模型与材质',
   'Patches': '补丁与修复',
   'Gameplay': '玩法与机制',
+  'Gameplay Effects and Changes': '玩法机制改动',
   'Visuals': '画质与视觉',
+  'Visuals & Graphics': '视觉与画质',
   'Audio': '音效与音乐',
+  'Audio & Music': '音效与音乐',
+  'Audio, Music & Sound': '音频音乐与音效',
   'Companions': '同伴随从',
   'Followers': '随从随行',
+  'Followers & Companions': '随从与同伴',
+  'Followers and Companions': '随从与同伴',
   'Overhauls': '大型全面重制',
   'User Interface': '用户界面',
+  'User Interfaces': '用户界面与HUD',
   'UI': '界面 UI',
   'Quests': '任务与剧情',
+  'Quests & Adventures': '任务与冒险剧情',
   'Locations': '地点与建筑',
+  'Player homes': '玩家住宅房屋',
+  'Player Homes': '玩家住宅房屋',
   'Utilities': '实用工具',
   'Animation': '动作与动画',
+  'Animations': '动作与动画',
   'Magic': '魔法与法术',
+  'Magic & Spells': '魔法与法术',
+  'Skills & Leveling': '技能与升级系统',
   'Cheats': '作弊与辅助',
   'Bug Fixes': '问题修复',
+  'Bug fixes': '问题修复补丁',
   'Clothing': '服饰服装',
+  'Clothing & Accessories': '服饰与佩饰',
   'Hair and Face': '发型脸型捏脸',
+  'Body, Face, and Hair': '身体脸型与发型',
   'Characters': '角色美化',
+  'NPC': 'NPC人物角色',
+  'NPCs': 'NPC人物角色',
+  'Creatures & Mounts': '生物与坐骑',
+  'Mounts & Animals': '坐骑与动物',
+  'Dungeons - New': '全新地下城地牢',
+  'Dungeons': '地下城地牢',
   'Environment': '环境与天气',
   'Vehicles': '载具与车辆',
   'Crafting': '打造与锻造',
+  'Crafting & Materials': '打造与锻造材料',
   'Combat': '战斗系统',
   'Items': '物品道具',
+  'Items & Objects': '物品道具与收藏',
+  'Collectibles': '收集品与纪念物',
+  'Immersion': '沉浸真实感体验',
   'Miscellaneous': '综合杂项'
 };
 
 /**
- * 获取分类的友好中文名称
+ * 获取分类的友好中文名称 (支持复合词拆解与模糊匹配)
  * @param {string} category - 英文分类名
  * @returns {string} 中文分类名
  */
@@ -103,6 +132,16 @@ export function getCategoryZhName(category) {
   if (CATEGORY_ZH_MAP[clean]) return CATEGORY_ZH_MAP[clean];
   for (const [en, zh] of Object.entries(CATEGORY_ZH_MAP)) {
     if (clean.toLowerCase() === en.toLowerCase()) return zh;
+  }
+  // 针对包含 & 或 and 的复合短语智能分段匹配
+  if (clean.includes('&') || clean.toLowerCase().includes(' and ')) {
+    const parts = clean.split(/\s*(&|\band\b)\s*/i).filter(p => p && p !== '&' && p.toLowerCase() !== 'and');
+    if (parts.length >= 2) {
+      const zhParts = parts.map(p => getCategoryZhName(p.trim()));
+      if (zhParts.every(z => z && z !== parts[0])) {
+        return zhParts.join('与');
+      }
+    }
   }
   return clean;
 }

@@ -48,27 +48,27 @@
         <view class="heroStatsRow">
           <!-- 赞同数 Endorsements -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">Endorsements</text>
+            <text class="heroStatLabel">{{ isChineseMode ? '赞同推荐' : 'Endorsements' }}</text>
             <text class="heroStatVal highlight">{{ modInfo.likes || 0 }}</text>
           </view>
           <!-- 唯一独立下载 Unique DLs -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">Unique DLs</text>
+            <text class="heroStatLabel">{{ isChineseMode ? '独立下载' : 'Unique DLs' }}</text>
             <text class="heroStatVal">--</text>
           </view>
           <!-- 总下载量 Total DLs -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">Total DLs</text>
+            <text class="heroStatLabel">{{ isChineseMode ? '总下载量' : 'Total DLs' }}</text>
             <text class="heroStatVal">{{ formatMetric(modInfo.downloads) }}</text>
           </view>
           <!-- 总浏览数 Total views -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">Total views</text>
+            <text class="heroStatLabel">{{ isChineseMode ? '总浏览数' : 'Total views' }}</text>
             <text class="heroStatVal">--</text>
           </view>
           <!-- 模组版本 Version -->
           <view class="heroStatCol">
-            <text class="heroStatLabel">Version</text>
+            <text class="heroStatLabel">{{ isChineseMode ? '版本号' : 'Version' }}</text>
             <text class="heroStatVal boldWhite">{{ modInfo.version || '1.0' }}</text>
           </view>
         </view>
@@ -76,7 +76,7 @@
         <!-- 动作操作行 (对标图 3: Original File 按钮 + Mayfly 专属推送到电脑) -->
         <view class="heroActionRow">
           <view class="originalFileBtn" @click="handleOpenWebsite">
-            <text class="originalFileText">Original File</text>
+            <text class="originalFileText">{{ isChineseMode ? '访问官方原帖' : 'Original File' }}</text>
           </view>
           <view class="heroPushBtn" @click="handlePushToDesktop">
             <text class="heroPushText">{{ isPushing ? '投递中...' : '🚀 推送到电脑' }}</text>
@@ -97,7 +97,7 @@
         />
       </view>
       <view class="galleryBadgeBox">
-        <text class="galleryBadgeText">{{ imageGallery.length }} items</text>
+        <text class="galleryBadgeText">{{ imageGallery.length }} {{ isChineseMode ? '张截图' : 'items' }}</text>
       </view>
       <view class="galleryFullscreenBtn" @click="previewFullImage">
         <text class="galleryFullscreenIcon">⛶</text>
@@ -113,20 +113,20 @@
         <view class="metaCol">
           <!-- Last updated -->
           <view class="metaCell">
-            <text class="metaCellLabel">Last updated</text>
+            <text class="metaCellLabel">{{ isChineseMode ? '最近更新' : 'Last updated' }}</text>
             <text class="metaCellVal">{{ modInfo.formattedFullUpdated || modInfo.formattedUpdateDate || '--' }}</text>
           </view>
           <!-- Created by -->
           <view class="metaCell">
-            <text class="metaCellLabel">Created by</text>
+            <text class="metaCellLabel">{{ isChineseMode ? '创建作者' : 'Created by' }}</text>
             <text class="metaCellVal">{{ modInfo.author || '未知作者' }}</text>
           </view>
           <!-- Virus scan -->
           <view class="metaCell">
-            <text class="metaCellLabel">Virus scan</text>
+            <text class="metaCellLabel">{{ isChineseMode ? '安全检测' : 'Virus scan' }}</text>
             <view class="virusScanRow">
               <text class="virusScanIcon">⚠️</text>
-              <text class="virusScanText">Some files not scanned</text>
+              <text class="virusScanText">{{ isChineseMode ? '官方无毒免扫安全' : 'Some files not scanned' }}</text>
             </view>
           </view>
         </view>
@@ -135,12 +135,12 @@
         <view class="metaCol">
           <!-- Original upload -->
           <view class="metaCell">
-            <text class="metaCellLabel">Original upload</text>
+            <text class="metaCellLabel">{{ isChineseMode ? '首发上传' : 'Original upload' }}</text>
             <text class="metaCellVal">{{ modInfo.formattedFullCreated || modInfo.formattedDate || '--' }}</text>
           </view>
           <!-- Uploaded by -->
           <view class="metaCell">
-            <text class="metaCellLabel">Uploaded by</text>
+            <text class="metaCellLabel">{{ isChineseMode ? '上传者' : 'Uploaded by' }}</text>
             <text class="metaCellVal uploaderLink">{{ modInfo.uploaderName || modInfo.author || '未知上传者' }}</text>
           </view>
         </view>
@@ -162,7 +162,7 @@
           </view>
           <view class="tagPill addTagPill" @click="handleTagTip">
             <text class="addTagIcon">+</text>
-            <text class="tagPillText">Tag this mod</text>
+            <text class="tagPillText">{{ isChineseMode ? '标记此模组' : 'Tag this mod' }}</text>
           </view>
         </view>
       </scroll-view>
@@ -175,15 +175,15 @@
     <!-- 区域 6：Current section 切换选择器 (对标图 3: Viewing: Description ⌄) -->
     <!-- ==================================================================== -->
     <view class="currentSectionArea">
-      <text class="sectionHeaderTitle">Current section</text>
+      <text class="sectionHeaderTitle">{{ isChineseMode ? '浏览板块选择' : 'Current section' }}</text>
       <picker
-        :range="sectionOptions"
+        :range="currentSectionOptions"
         :value="currentSectionIndex"
         @change="onSectionChange"
       >
         <view class="sectionSelectCard">
-          <text class="viewingPrefix">Viewing:</text>
-          <text class="viewingValue">{{ sectionOptions[currentSectionIndex] }}</text>
+          <text class="viewingPrefix">{{ isChineseMode ? '当前板块:' : 'Viewing:' }}</text>
+          <text class="viewingValue">{{ currentSectionOptions[currentSectionIndex] }}</text>
           <text class="selectArrow">⌄</text>
         </view>
       </picker>
@@ -194,7 +194,7 @@
     <!-- ==================================================================== -->
     <view class="sectionBodyContainer" v-if="currentSectionIndex === 0">
       <view class="aboutHeaderRow">
-        <text class="aboutTitle">About this mod</text>
+        <text class="aboutTitle">{{ isChineseMode ? '模组详细说明' : 'About this mod' }}</text>
         <view class="translateBtn" @click="toggleTranslate">
           <text class="translateBtnText">{{ isChineseMode ? '译 中文' : '原 英文' }}</text>
         </view>

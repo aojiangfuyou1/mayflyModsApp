@@ -51,9 +51,9 @@
       <view class="gamesHeaderRow">
         <view class="gamesHeaderLeft">
           <text class="gamesIcon">🎮</text>
-          <text class="gamesTitle">Games</text>
+          <text class="gamesTitle">{{ enableAutoTranslate ? '热门游戏专区' : 'Games' }}</text>
         </view>
-        <text class="gamesViewAllLink" @click="switchView('mods')">View all mods</text>
+        <text class="gamesViewAllLink" @click="switchView('mods')">{{ enableAutoTranslate ? '全网模组库 ›' : 'View all mods' }}</text>
       </view>
 
       <!-- 加载状态 -->
@@ -145,9 +145,9 @@
       <view class="modsHeaderRow">
         <view class="modsHeaderLeft">
           <text class="modsIcon">◆</text>
-          <text class="modsTitle">Mods</text>
+          <text class="modsTitle">{{ enableAutoTranslate ? '精选模组' : 'Mods' }}</text>
         </view>
-        <text class="modsViewAllLink" @click="clearGameFilterAndBack">View all games</text>
+        <text class="modsViewAllLink" @click="clearGameFilterAndBack">{{ enableAutoTranslate ? '全部游戏专区 ›' : 'View all games' }}</text>
       </view>
 
       <!-- 排序选项卡 (100% 对标图 2: ☀ New | ⟳ Updated | 📈 Trending | ★ Popular | ❤️ Favorites) -->
@@ -160,7 +160,7 @@
             @click="changeSort('createdAt')"
           >
             <text class="pillIcon">☀</text>
-            <text class="pillLabel">New</text>
+            <text class="pillLabel">{{ enableAutoTranslate ? '最新发布' : 'New' }}</text>
           </view>
 
           <!-- ⟳ Updated -->
@@ -170,7 +170,7 @@
             @click="changeSort('updatedAt')"
           >
             <text class="pillIcon">⟳</text>
-            <text class="pillLabel">Updated</text>
+            <text class="pillLabel">{{ enableAutoTranslate ? '最近更新' : 'Updated' }}</text>
           </view>
 
           <!-- 📈 Trending -->
@@ -180,7 +180,7 @@
             @click="changeSort('trending')"
           >
             <text class="pillIcon">📈</text>
-            <text class="pillLabel">Trending</text>
+            <text class="pillLabel">{{ enableAutoTranslate ? '飙升排行' : 'Trending' }}</text>
           </view>
 
           <!-- ★ Popular -->
@@ -190,7 +190,7 @@
             @click="changeSort('downloads')"
           >
             <text class="pillIcon">★</text>
-            <text class="pillLabel">Popular</text>
+            <text class="pillLabel">{{ enableAutoTranslate ? '热门下载' : 'Popular' }}</text>
           </view>
 
           <!-- ❤️ Favorites (装机心愿单) -->
@@ -200,7 +200,7 @@
             @click="changeSort('favorites')"
           >
             <text class="pillIcon">❤️</text>
-            <text class="pillLabel">Favorites{{ favoritesCount > 0 ? ` (${favoritesCount})` : '' }}</text>
+            <text class="pillLabel">{{ enableAutoTranslate ? '心愿单' : 'Favorites' }}{{ favoritesCount > 0 ? ` (${favoritesCount})` : '' }}</text>
           </view>
         </view>
       </scroll-view>
@@ -213,7 +213,7 @@
             :class="{ active: !selectedCategory }"
             @click="selectCategory('')"
           >
-            <text class="catPillText">全部 (All)</text>
+            <text class="catPillText">{{ enableAutoTranslate ? '全部分类' : 'All' }}</text>
           </view>
           <view
             class="catPill"
@@ -229,9 +229,9 @@
 
       <!-- 时间范围下拉筛选行 (对标图 2: All time ↕) -->
       <view class="timeFilterRow">
-        <picker :range="timeFilterOptions" :value="timeFilterIndex" @change="onTimeFilterChange">
+        <picker :range="currentTimeFilterOptions" :value="timeFilterIndex" @change="onTimeFilterChange">
           <view class="timeSelectBox">
-            <text class="timeSelectLabel">{{ timeFilterOptions[timeFilterIndex] }}</text>
+            <text class="timeSelectLabel">{{ currentTimeFilterOptions[timeFilterIndex] }}</text>
             <text class="timeSelectArrow">↕</text>
           </view>
         </picker>
@@ -786,6 +786,16 @@ export default {
         return this.filteredFavoritesList;
       }
       return this.modList;
+    },
+
+    /**
+     * 当前时间筛选文案 (跟随智能翻译模式，杜绝硬编码英文)
+     */
+    currentTimeFilterOptions() {
+      if (this.enableAutoTranslate) {
+        return ['全部时间 (All time)', '过去 24 小时', '过去 7 天', '过去 14 天', '过去 30 天', '过去 1 年'];
+      }
+      return ['All time', 'Last 24 hours', 'Last 7 days', 'Last 14 days', 'Last 30 days', '1 year'];
     }
   },
 
@@ -1016,6 +1026,9 @@ export default {
 
         if (result.dynamicCategories && result.dynamicCategories.length > 0) {
           this.dynamicCategories = result.dynamicCategories;
+          if (this.enableAutoTranslate) {
+            this.autoTranslateCategories(result.dynamicCategories);
+          }
         }
 
         if (this.enableAutoTranslate) {
@@ -1280,12 +1293,47 @@ export default {
       if (!cat || !cat.name) return '';
       const countStr = this.formatCount(cat.count);
       if (this.enableAutoTranslate) {
+        if (this.zhCategoryMap[cat.name]) {
+          return `${this.zhCategoryMap[cat.name]} (${countStr})`;
+        }
         const zh = getCategoryZhName(cat.name);
         if (zh && zh !== cat.name) {
           return `${zh} (${countStr})`;
         }
       }
       return `${cat.name} (${countStr})`;
+    },
+
+    /**
+     * 后台静默为 N网 动态返回的未识别官方分类并发翻译
+     */
+    async autoTranslateCategories(categories) {
+      if (!Array.isArray(categories) || categories.length === 0) return;
+      const unmapped = [];
+      categories.forEach((c) => {
+        if (!c.name) return;
+        const zh = getCategoryZhName(c.name);
+        if (zh && zh !== c.name) {
+          this.zhCategoryMap[c.name] = zh;
+        } else if (!this.zhCategoryMap[c.name]) {
+          unmapped.push(c.name);
+        }
+      });
+
+      if (unmapped.length === 0) return;
+
+      try {
+        const transMap = await batchTranslateToZh(unmapped);
+        const nextMap = { ...this.zhCategoryMap };
+        unmapped.forEach((name) => {
+          if (transMap.has(name)) {
+            nextMap[name] = transMap.get(name);
+          }
+        });
+        this.zhCategoryMap = nextMap;
+      } catch (e) {
+        console.warn('[MayflyIndex] 动态分类并发翻译提示:', e);
+      }
     },
 
     /**
@@ -1311,6 +1359,7 @@ export default {
         });
         await this.autoTranslateItems(this.modList);
         await this.autoTranslateGameNames(this.gamesList);
+        await this.autoTranslateCategories(this.dynamicCategories);
       } else {
         uni.showToast({
           title: '已切换为英文原版',
