@@ -14,10 +14,11 @@
 		{
 			"path": "pages/detail/detail",
 			"style": {
-				"navigationBarTitleText": "模组中文图鉴",
-				"navigationBarBackgroundColor": "#0b0f17",
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "Mayfly Nexus",
+				"navigationBarBackgroundColor": "#121212",
 				"navigationBarTextStyle": "white",
-				"backgroundColor": "#0b0f17"
+				"backgroundColor": "#121212"
 			}
 		}
 	],

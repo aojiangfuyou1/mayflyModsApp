@@ -983,9 +983,16 @@ export default {
      */
     openDetail(item) {
       if (!item || !item.id) return;
+      try {
+        uni.setStorageSync('mayfly_active_mod_cache', item);
+      } catch (e) {}
+
       const encoded = encodeURIComponent(JSON.stringify(item));
+      const modId = item.modId || item.id;
+      const gameId = item.game?.id || '';
+      const domain = item.game?.domainName || '';
       uni.navigateTo({
-        url: `/pages/detail/detail?modData=${encoded}`
+        url: `/pages/detail/detail?payload=${encoded}&modData=${encoded}&modId=${modId}&gameId=${gameId}&gameDomain=${domain}`
       });
     },
 

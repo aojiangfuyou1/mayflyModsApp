@@ -401,6 +401,7 @@ import {
   fetchModDetail,
   fetchModFiles,
   fetchModRequirements,
+  fetchGameIdByDomain,
   pushModToDesktop,
   getDesktopConfig,
   saveDesktopConfig,
@@ -517,19 +518,54 @@ export default {
     }
   },
 
-  onLoad(options) {
+  async onLoad(options) {
     this.desktopConfig = getDesktopConfig();
     this.deviceForm.host = this.desktopConfig.host;
     this.deviceForm.port = this.desktopConfig.port;
     this.deviceForm.deviceToken = this.desktopConfig.deviceToken;
 
-    if (options && options.payload) {
+    let targetItem = null;
+
+    // 1. 尝试从 options.payload 或 options.modData 中反序列化对象
+    const raw = options?.payload || options?.modData;
+    if (raw) {
       try {
-        const parsed = JSON.parse(decodeURIComponent(options.payload));
-        this.initBasicInfo(parsed);
+        targetItem = JSON.parse(decodeURIComponent(raw));
       } catch (e) {
-        console.error('[MayflyDetail] 详情载入入参解析失败:', e);
+        try {
+          targetItem = JSON.parse(raw);
+        } catch (e2) {}
       }
+    }
+
+    // 2. 如果入参没有或者在浏览器中按 F5 刷新了，从本地缓存恢复
+    if (!targetItem) {
+      try {
+        const cached = uni.getStorageSync('mayfly_active_mod_cache');
+        if (cached && (cached.id || cached.modId)) {
+          targetItem = cached;
+        }
+      } catch (e) {}
+    }
+
+    // 3. 如果通过直接链接进入（如 ?modId=107676&gameId=1704）
+    if (!targetItem && (options?.modId || options?.id)) {
+      targetItem = {
+        id: options.modId || options.id,
+        modId: options.modId || options.id,
+        title: options.title || '',
+        game: {
+          id: Number(options.gameId) || 0,
+          domainName: options.gameDomain || ''
+        }
+      };
+    }
+
+    if (targetItem) {
+      try {
+        uni.setStorageSync('mayfly_active_mod_cache', targetItem);
+      } catch (e) {}
+      await this.initBasicInfo(targetItem);
     }
   },
 
@@ -541,12 +577,14 @@ export default {
     /**
      * 初始化基础数据并触发并行 GraphQL 动态拉取
      */
-    initBasicInfo(item) {
+    async initBasicInfo(item) {
+      if (!item) return;
+
       this.modInfo = {
         ...this.modInfo,
         ...item,
-        id: String(item.modId || item.id),
-        modId: String(item.modId || item.id)
+        id: String(item.modId || item.id || ''),
+        modId: String(item.modId || item.id || '')
       };
 
       this.favorited = isFavorited(this.modInfo.id);
@@ -557,7 +595,19 @@ export default {
       }
 
       const modId = this.modInfo.modId;
-      const gameId = this.modInfo.game?.id;
+      let gameId = this.modInfo.game?.id;
+      const domainName = this.modInfo.game?.domainName;
+
+      // 如果缺少 gameId，自动通过域名检索补齐
+      if (!gameId && domainName) {
+        try {
+          const resolved = await fetchGameIdByDomain(domainName);
+          if (resolved) {
+            gameId = resolved;
+            this.modInfo.game.id = resolved;
+          }
+        } catch (e) {}
+      }
 
       if (modId && gameId) {
         // 动态加载完整详情 (描述、作者、标签、更新时间)

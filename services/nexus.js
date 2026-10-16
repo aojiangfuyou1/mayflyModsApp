@@ -607,6 +607,35 @@ export async function fetchModDetail(modId, gameId) {
   }
 }
 
+/**
+ * 根据游戏英文域名动态查询游戏数字 ID
+ * @param {string} domainName - 游戏域名
+ * @returns {Promise<number|null>}
+ */
+export async function fetchGameIdByDomain(domainName) {
+  if (!domainName) return null;
+  const gqlQuery = `
+    query GameByDomain($domain: String!) {
+      game(domainName: $domain) {
+        id
+        name
+      }
+    }
+  `;
+  try {
+    const res = await uni.request({
+      url: NEXUS_GRAPHQL_ENDPOINT,
+      method: 'POST',
+      header: { 'Content-Type': 'application/json' },
+      data: JSON.stringify({ query: gqlQuery, variables: { domain: domainName.trim() } }),
+      timeout: 8000
+    });
+    return res.data?.data?.game?.id || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // ----------------------------------------------------------------------------
 // 区域 4：推送到电脑端 Mayfly 安装信令服务 (接入双通道自适应调度)
 // ----------------------------------------------------------------------------
