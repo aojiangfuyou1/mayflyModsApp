@@ -96,7 +96,6 @@
           <view class="badgeDot" :class="{ online: desktopConfig.connected }"></view>
         </view>
         <text class="kingKongLabel">电脑配对</text>
-        <text class="kingKongSubLabel">{{ desktopConfig.connected ? '已连WiFi' : '未连接' }}</text>
       </view>
 
       <!-- 2. 装机心愿单 -->
@@ -107,8 +106,7 @@
             <text class="countBadgeText">{{ favoritesCount }}</text>
           </view>
         </view>
-        <text class="kingKongLabel">装机心愿单</text>
-        <text class="kingKongSubLabel">我的收藏</text>
+        <text class="kingKongLabel">装机心愿</text>
       </view>
 
       <!-- 3. AI 极简中文 -->
@@ -116,10 +114,7 @@
         <view class="kingKongIconWrap bgPurple" :class="{ activeGlow: enableAutoTranslate }">
           <text class="kingKongEmoji">🌐</text>
         </view>
-        <text class="kingKongLabel">AI 中文图鉴</text>
-        <text class="kingKongSubLabel" :class="{ textHighlight: enableAutoTranslate }">
-          {{ enableAutoTranslate ? '已开启' : '英文原版' }}
-        </text>
+        <text class="kingKongLabel" :class="{ textHighlight: enableAutoTranslate }">AI 中文</text>
       </view>
 
       <!-- 4. 推送任务清单 -->
@@ -131,49 +126,52 @@
           </view>
         </view>
         <text class="kingKongLabel">推送历史</text>
-        <text class="kingKongSubLabel">{{ historyList.length }} 个任务</text>
       </view>
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 3：热门大作模组推荐 (对标图 1 的四格大作展示) -->
+    <!-- 区域 3：热门大作专区 (100% 对标参考图地平线5/看门狗2四格展示) -->
     <!-- ==================================================================== -->
-    <view class="featuredSection" v-if="featuredTopMods.length > 0 && currentSort !== 'favorites'">
+    <view class="featuredSection" v-if="currentSort !== 'favorites'">
       <view class="sectionHeaderRow">
         <view class="sectionTitleLeft">
-          <text class="sectionIcon">🔥</text>
-          <text class="sectionMainTitle">热门大作模组</text>
+          <text class="sectionIcon">🎮</text>
+          <text class="sectionMainTitle">热门大作专区</text>
+          <text class="sectionActiveTag" v-if="selectedGameDomain">
+            已选: {{ getSelectedGameTitle() }}
+          </text>
         </view>
-        <text class="sectionSubHint">N网下载风向标</text>
+        <text class="sectionSubHint" @click="clearGameFilter">
+          {{ selectedGameDomain ? '✕ 取消筛选' : 'N网热门生态' }}
+        </text>
       </view>
 
       <!-- 四格大作卡片网格 -->
       <view class="featuredFourGrid">
         <view
           class="featuredCard"
-          v-for="item in featuredTopMods"
-          :key="item.id"
-          @click="openDetail(item)"
+          v-for="game in featuredGameHubs"
+          :key="game.domain"
+          :class="{ active: selectedGameDomain === game.domain }"
+          @click="toggleFeaturedGame(game)"
         >
           <view class="featuredCoverBox">
             <image
               class="featuredCover"
-              :src="item.coverImageUrl || '/static/logo.png'"
+              :src="game.coverUrl"
               mode="aspectFill"
               lazy-load
             />
-            <!-- 游戏角标 (仿图 1 绿色控制器角标) -->
+            <!-- 游戏角标 (仿参考图绿色控制器微角标) -->
             <view class="featuredGameBadge">
-              <text class="featuredGameText">🎮 {{ item.game.name }}</text>
+              <text class="featuredGameText">{{ game.badge }}</text>
             </view>
-            <!-- 收藏小爱心 -->
-            <view class="featuredFavBtn" @click.stop="toggleCardFavorite(item)">
-              <text class="favIcon">{{ favoriteIdMap[item.id] ? '❤️' : '🤍' }}</text>
+            <!-- 选中高亮状态标记 -->
+            <view class="gameSelectedMarker" v-if="selectedGameDomain === game.domain">
+              <text class="markerIcon">✓ 选中</text>
             </view>
           </view>
-          <text class="featuredTitle">
-            {{ enableAutoTranslate && zhTitleMap[item.id] ? zhTitleMap[item.id] : item.title }}
-          </text>
+          <text class="featuredTitle">{{ game.title }}</text>
         </view>
       </view>
     </view>
@@ -279,7 +277,7 @@
               lazy-load
             />
             <view class="gameTag">
-              <text class="gameTagText">{{ item.game.name }}</text>
+              <text class="gameTagText">🎮 {{ item.game.shortZhName || item.game.name }}</text>
             </view>
             <!-- 收藏小红心按钮 -->
             <view class="favTagBtn" @click.stop="toggleCardFavorite(item)">
@@ -561,39 +559,68 @@ export default {
         { label: '🛠️ 修复优化', query: 'patch' }
       ],
 
-      // 沉浸式 Hero 轮播大图 (对标参考图 1 泰坦陨落大图风格)
+      // 沉浸式 Hero 轮播大图 (100% 对标参考图 1 泰坦陨落主机级大图风格)
       heroBanners: [
         {
           title: '泰坦陨落 2',
-          subTitle: 'TITANFALL 2',
-          image: 'https://images.nexusmods.com/assets/games/banner/titanfall2.jpg',
+          subTitle: 'TITANFALL 2 · 机甲巅峰',
+          image: 'https://cdn.akamai.steamstatic.com/steam/apps/1237970/header.jpg',
           gameDomain: 'titanfall2',
-          tag: '机甲巅峰'
+          tag: '主机神作'
+        },
+        {
+          title: '极限竞速：地平线5',
+          subTitle: 'FORZA HORIZON 5 · 墨西哥狂欢',
+          image: 'https://cdn.akamai.steamstatic.com/steam/apps/1551360/header.jpg',
+          gameDomain: 'forzahorizon5',
+          tag: '竞速巅峰'
+        },
+        {
+          title: '看门狗 2',
+          subTitle: 'WATCH DOGS 2 · 黑客军团',
+          image: 'https://cdn.akamai.steamstatic.com/steam/apps/447040/header.jpg',
+          gameDomain: 'watchdogs2',
+          tag: '开放世界'
         },
         {
           title: '黑神话：悟空',
-          subTitle: 'BLACK MYTH: WUKONG',
-          image: 'https://images.nexusmods.com/assets/games/banner/blackmythwukong.jpg',
+          subTitle: 'BLACK MYTH: WUKONG · 东方史诗',
+          image: 'https://cdn.akamai.steamstatic.com/steam/apps/2358720/header.jpg',
           gameDomain: 'blackmythwukong',
-          tag: '动作大作'
-        },
-        {
-          title: '赛博朋克 2077',
-          subTitle: 'CYBERPUNK 2077',
-          image: 'https://images.nexusmods.com/assets/games/banner/cyberpunk2077.jpg',
-          gameDomain: 'cyberpunk2077',
-          tag: '夜之城'
-        },
-        {
-          title: '怪猎：荒野',
-          subTitle: 'MONSTER HUNTER WILDS',
-          image: 'https://images.nexusmods.com/assets/games/banner/monsterhunterwilds.jpg',
-          gameDomain: 'monsterhunterwilds',
-          tag: '全网期待'
+          tag: '国民神作'
         }
       ],
       currentHeroIndex: 0,
       searchExpanded: false,
+
+      // 热门大作四格专区 (100% 对标参考图地平线5/看门狗2四格展示)
+      featuredGameHubs: [
+        {
+          title: '极限竞速：地平线5',
+          domain: 'forzahorizon5',
+          badge: '🎮 7',
+          coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/1551360/header.jpg'
+        },
+        {
+          title: '看门狗2',
+          domain: 'watchdogs2',
+          badge: '🎮 2',
+          coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/447040/header.jpg'
+        },
+        {
+          title: '黑神话：悟空',
+          domain: 'blackmythwukong',
+          badge: '🎮 9.8',
+          coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/2358720/header.jpg'
+        },
+        {
+          title: '赛博朋克 2077',
+          domain: 'cyberpunk2077',
+          badge: '🎮 9.6',
+          coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/1091500/header.jpg'
+        }
+      ],
+      selectedGameDomain: '',
 
       // 详情弹窗
       detailVisible: false,
@@ -645,25 +672,11 @@ export default {
     },
 
     /**
-     * 前 4 款精选热门爆款模组 (对标图 1 的四格大作展示)
-     */
-    featuredTopMods() {
-      if (this.currentSort === 'favorites') return [];
-      if (this.modList && this.modList.length >= 4) {
-        return this.modList.slice(0, 4);
-      }
-      return this.modList || [];
-    },
-
-    /**
-     * 流水线瀑布流列表 (如果大于 4 款，从第 5 款开始瀑布流，避免重复展示)
+     * 全网流水线瀑布流列表
      */
     streamModList() {
       if (this.currentSort === 'favorites') {
         return this.favoritesList;
-      }
-      if (this.modList && this.modList.length > 4) {
-        return this.modList.slice(4);
       }
       return this.modList;
     }
@@ -716,9 +729,50 @@ export default {
      */
     onHeroBannerClick(banner) {
       if (!banner) return;
-      this.searchText = banner.title;
-      this.searchExpanded = true;
+      this.selectedGameDomain = banner.gameDomain || '';
+      uni.showToast({
+        title: `已定位【${banner.title}】专区`,
+        icon: 'none'
+      });
       this.resetAndLoad();
+    },
+
+    /**
+     * 点击四格热门大作，切换选中筛选状态 (对标图 1 地平线5/看门狗2等)
+     */
+    toggleFeaturedGame(game) {
+      if (!game) return;
+      if (this.selectedGameDomain === game.domain) {
+        this.selectedGameDomain = '';
+        uni.showToast({
+          title: '已重置为全网模组',
+          icon: 'none'
+        });
+      } else {
+        this.selectedGameDomain = game.domain;
+        uni.showToast({
+          title: `已切换至【${game.title}】专区`,
+          icon: 'none'
+        });
+      }
+      this.resetAndLoad();
+    },
+
+    /**
+     * 清空当前选中的游戏筛选
+     */
+    clearGameFilter() {
+      if (!this.selectedGameDomain) return;
+      this.selectedGameDomain = '';
+      this.resetAndLoad();
+    },
+
+    /**
+     * 获取当前选中游戏的主标题
+     */
+    getSelectedGameTitle() {
+      const match = this.featuredGameHubs.find((g) => g.domain === this.selectedGameDomain);
+      return match ? match.title : this.selectedGameDomain;
     },
 
     /**
@@ -771,7 +825,8 @@ export default {
           page: 1,
           pageSize: this.pageSize,
           sort: this.currentSort,
-          searchText: this.effectiveSearchText()
+          searchText: this.effectiveSearchText(),
+          gameDomain: this.selectedGameDomain || ''
         });
 
         this.modList = result.items;
@@ -804,7 +859,8 @@ export default {
           page: nextPage,
           pageSize: this.pageSize,
           sort: this.currentSort,
-          searchText: this.effectiveSearchText()
+          searchText: this.effectiveSearchText(),
+          gameDomain: this.selectedGameDomain || ''
         });
 
         this.modList = [...this.modList, ...result.items];
@@ -1605,7 +1661,7 @@ export default {
 .heroIndicators {
   position: absolute;
   right: 32rpx;
-  bottom: 38rpx;
+  bottom: 34rpx;
   display: flex;
   align-items: center;
   gap: 10rpx;
@@ -1614,16 +1670,16 @@ export default {
 
 .indicatorDot {
   width: 10rpx;
-  height: 10rpx;
-  border-radius: 5rpx;
-  background-color: rgba(255, 255, 255, 0.3);
+  height: 8rpx;
+  border-radius: 4rpx;
+  background-color: rgba(255, 255, 255, 0.35);
   transition: all 0.3s ease;
 }
 
 .indicatorDot.active {
-  width: 28rpx;
-  background-color: #10b981;
-  box-shadow: 0 0 10rpx #10b981;
+  width: 32rpx;
+  background-color: #00e5ff;
+  box-shadow: 0 0 12rpx #00e5ff;
 }
 
 /* ---------------------------------------------------------------------------- */
@@ -1764,11 +1820,7 @@ export default {
   font-size: 24rpx;
   font-weight: 700;
   color: #f1f5f9;
-}
-
-.kingKongSubLabel {
-  font-size: 20rpx;
-  color: #64748b;
+  margin-top: 14rpx;
 }
 
 .textHighlight {
@@ -1777,10 +1829,10 @@ export default {
 }
 
 /* ---------------------------------------------------------------------------- */
-/* 区域 3：热门大作四格推荐 (对标图 1 地平线5/看门狗2等) */
+/* 区域 3：热门大作专区 (100% 对标参考图地平线5/看门狗2等四格大作) */
 /* ---------------------------------------------------------------------------- */
 .featuredSection {
-  padding: 0 24rpx 36rpx;
+  padding: 0 24rpx 32rpx;
 }
 
 .sectionHeaderRow {
@@ -1807,11 +1859,12 @@ export default {
   color: #ffffff;
 }
 
-.sectionSubBadge {
+.sectionActiveTag {
   font-size: 20rpx;
-  background-color: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  padding: 4rpx 14rpx;
+  background-color: rgba(16, 185, 129, 0.2);
+  border: 1rpx solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+  padding: 2rpx 12rpx;
   border-radius: 8rpx;
   font-weight: 700;
 }
@@ -1819,30 +1872,39 @@ export default {
 .sectionSubHint {
   font-size: 22rpx;
   color: #64748b;
+  cursor: pointer;
 }
 
 .featuredFourGrid {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 18rpx;
+  gap: 16rpx;
 }
 
 .featuredCard {
   width: 48.6%;
   display: flex;
   flex-direction: column;
-  gap: 10rpx;
+  background-color: #141822;
+  border-radius: 18rpx;
+  overflow: hidden;
+  border: 1.5rpx solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.35);
+  transition: all 0.25s ease;
+}
+
+.featuredCard.active {
+  border-color: #10b981;
+  box-shadow: 0 0 16rpx rgba(16, 185, 129, 0.4);
 }
 
 .featuredCoverBox {
   position: relative;
   width: 100%;
-  height: 200rpx;
-  border-radius: 20rpx;
+  height: 180rpx;
+  background-color: #0c1017;
   overflow: hidden;
-  background-color: #161b26;
-  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.4);
 }
 
 .featuredCover {
@@ -1853,45 +1915,43 @@ export default {
 
 .featuredGameBadge {
   position: absolute;
-  top: 12rpx;
-  left: 12rpx;
+  top: 10rpx;
+  left: 10rpx;
   background: rgba(16, 185, 129, 0.85);
   backdrop-filter: blur(8px);
-  padding: 4rpx 14rpx;
-  border-radius: 10rpx;
-  max-width: 75%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
 }
 
 .featuredGameText {
-  font-size: 18rpx;
+  font-size: 19rpx;
   font-weight: 800;
   color: #ffffff;
 }
 
-.featuredFavBtn {
+.gameSelectedMarker {
   position: absolute;
-  top: 10rpx;
-  right: 10rpx;
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  bottom: 8rpx;
+  right: 8rpx;
+  background: rgba(16, 185, 129, 0.95);
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+}
+
+.markerIcon {
+  font-size: 18rpx;
+  font-weight: 800;
+  color: #ffffff;
 }
 
 .featuredTitle {
   font-size: 24rpx;
   font-weight: 700;
   color: #e2e8f0;
+  padding: 12rpx 16rpx 14rpx;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 4rpx;
 }
 
 /* ---------------------------------------------------------------------------- */
@@ -1918,19 +1978,19 @@ export default {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: #151a26;
-  border: 1rpx solid rgba(255, 255, 255, 0.1);
-  border-radius: 20rpx;
-  padding: 12rpx 26rpx;
+  background-color: #141923;
+  border: 1.5rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 16rpx;
+  padding: 12rpx 24rpx;
   white-space: nowrap;
   flex-shrink: 0;
   transition: all 0.25s ease;
 }
 
 .categoryCapsule.active {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.3));
-  border-color: #10b981;
-  box-shadow: 0 0 16rpx rgba(16, 185, 129, 0.3);
+  background: rgba(0, 229, 255, 0.12);
+  border-color: #00e5ff;
+  box-shadow: 0 0 14rpx rgba(0, 229, 255, 0.25);
 }
 
 .categoryCapsuleText {
@@ -1941,14 +2001,14 @@ export default {
 }
 
 .categoryCapsule.active .categoryCapsuleText {
-  color: #34d399;
+  color: #00e5ff;
   font-weight: 800;
 }
 
 /* 排序切换胶囊 */
 .sortBar {
   display: flex;
-  gap: 16rpx;
+  gap: 14rpx;
   margin-bottom: 24rpx;
 }
 
@@ -1956,7 +2016,7 @@ export default {
   flex: 1;
   text-align: center;
   padding: 14rpx 0;
-  background-color: #151a26;
+  background-color: #141923;
   border-radius: 16rpx;
   border: 1rpx solid rgba(255, 255, 255, 0.08);
   transition: all 0.2s;
@@ -1964,8 +2024,8 @@ export default {
 }
 
 .sortItem.active {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(99, 102, 241, 0.2));
-  border-color: #38bdf8;
+  background: rgba(0, 229, 255, 0.1);
+  border-color: #00e5ff;
 }
 
 .sortLabel {
@@ -1976,7 +2036,7 @@ export default {
 }
 
 .sortItem.active .sortLabel {
-  color: #38bdf8;
+  color: #00e5ff;
 }
 
 /* 心愿单批量推送工具条 */
@@ -2085,22 +2145,24 @@ export default {
 
 .gameTag {
   position: absolute;
-  top: 12rpx;
-  left: 12rpx;
-  background: rgba(15, 23, 42, 0.85);
+  top: 10rpx;
+  left: 10rpx;
+  background: rgba(11, 15, 23, 0.75);
   backdrop-filter: blur(8px);
-  padding: 4rpx 14rpx;
-  border-radius: 10rpx;
-  max-width: 70%;
+  border: 1rpx solid rgba(255, 255, 255, 0.12);
+  padding: 3rpx 10rpx;
+  border-radius: 8rpx;
+  max-width: 62%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .gameTagText {
-  font-size: 18rpx;
+  font-size: 19rpx;
   font-weight: 700;
   color: #38bdf8;
+  white-space: nowrap;
 }
 
 .favTagBtn {

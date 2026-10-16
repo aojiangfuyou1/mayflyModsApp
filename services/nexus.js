@@ -23,6 +23,67 @@ export const DEFAULT_DESKTOP_CONFIG = {
 };
 
 // ----------------------------------------------------------------------------
+// 游戏域名与中文简称映射字典 (防止英文游戏名过长导致移动端卡片换行挤爆)
+// ----------------------------------------------------------------------------
+export const GAME_ZH_MAP = {
+  skyrim: '上古卷轴5',
+  skyrimspecialedition: '上古卷轴5',
+  skyrimse: '上古卷轴5',
+  skyrimvr: '上古卷轴5 VR',
+  fallout4: '辐射4',
+  fallout4vr: '辐射4 VR',
+  falloutnewvegas: '辐射:新维加斯',
+  fallout3: '辐射3',
+  blackmythwukong: '黑神话:悟空',
+  cyberpunk2077: '赛博朋克 2077',
+  eldenring: '艾尔登法环',
+  baldursgate3: '博德之门3',
+  stardewvalley: '星露谷物语',
+  monsterhunterworld: '怪猎:世界',
+  monsterhunterwilds: '怪猎:荒野',
+  witcher3: '巫师3:狂猎',
+  sekiro: '只狼',
+  palworld: '幻兽帕鲁',
+  starfield: '星空',
+  mountandblade2bannerlord: '骑砍2:霸主',
+  residentevil42023: '生化4重制版',
+  dragonsdogma2: '龙之信条2',
+  kingdomcomedeliverance: '天国:拯救',
+  hogwartslegacy: '霍格沃茨之遗',
+  gta5: 'GTA 5',
+  grandtheftautov: 'GTA 5',
+  forzahorizon5: '地平线5',
+  watchdogs2: '看门狗2',
+  titanfall2: '泰坦陨落2',
+  moddingtools: '实用工具',
+  site: '通用工具'
+};
+
+/**
+ * 获取紧凑优雅的游戏中文短名（最多8-10个字符，杜绝换行挤压封面）
+ * @param {string} domainName - N网域名
+ * @param {string} [originalName=""] - 原始游戏全称
+ * @returns {string} 紧凑中文短名
+ */
+export function getGameShortZhName(domainName, originalName = '') {
+  if (!domainName && !originalName) return '通用游戏';
+  const cleanDomain = String(domainName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (GAME_ZH_MAP[cleanDomain]) {
+    return GAME_ZH_MAP[cleanDomain];
+  }
+  for (const [key, val] of Object.entries(GAME_ZH_MAP)) {
+    if (cleanDomain.includes(key) || key.includes(cleanDomain)) {
+      return val;
+    }
+  }
+  const cleanOrig = String(originalName || '').trim();
+  if (cleanOrig.length > 10) {
+    return cleanOrig.slice(0, 9) + '..';
+  }
+  return cleanOrig || '精品模组';
+}
+
+// ----------------------------------------------------------------------------
 // 区域 2：本地设备配置与配对持久化
 // ----------------------------------------------------------------------------
 
@@ -202,7 +263,8 @@ export async function fetchNexusMods({
         game: {
           id: item.game?.id || 0,
           domainName: item.game?.domainName || '',
-          name: item.game?.name || '未知游戏'
+          name: item.game?.name || '未知游戏',
+          shortZhName: getGameShortZhName(item.game?.domainName, item.game?.name)
         },
         author: item.uploader?.name || '未知作者',
         authorAvatar: item.uploader?.avatar || '',
