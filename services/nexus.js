@@ -207,7 +207,7 @@ export async function fetchNexusGames({
   sort = 'downloads'
 } = {}) {
   const gqlQuery = `
-    query NexusGames($count: Int = 20, $offset: Int = 0, $sort: [GamesSort!]) {
+    query NexusGames($count: Int = 20, $offset: Int = 0, $sort: [GamesSearchSort!]) {
       games(count: $count, offset: $offset, sort: $sort) {
         totalCount
         nodes {
@@ -333,7 +333,8 @@ export async function fetchNexusMods({
   pageSize = 20,
   sort = 'downloads',
   searchText = '',
-  gameDomain = ''
+  gameDomain = '',
+  categoryName = ''
 } = {}) {
   const safePage = Math.max(1, Number(page) || 1);
   const safePageSize = Math.min(40, Math.max(1, Number(pageSize) || 20));
@@ -343,38 +344,41 @@ export async function fetchNexusMods({
   const sortKey = sort === 'updatedAt' ? 'updatedAt' : sort === 'createdAt' ? 'createdAt' : 'downloads';
   const sortVariable = [{ [sortKey]: { direction: 'DESC' } }];
 
-  // 2. 构建过滤条件 (若有指定游戏或搜索词)
+  // 2. 构建过滤条件 (若有指定游戏、分类或搜索词)
   const filter = { op: 'AND' };
-  const filterRules = [];
+  let hasFilter = false;
 
   if (gameDomain && gameDomain.trim()) {
-    filterRules.push({
+    filter.gameDomainName = [{
       op: 'EQUALS',
-      field: 'gameDomainName',
       value: gameDomain.trim()
-    });
+    }];
+    hasFilter = true;
+  }
+
+  if (categoryName && categoryName.trim() && categoryName !== 'All') {
+    filter.categoryName = [{
+      op: 'EQUALS',
+      value: categoryName.trim()
+    }];
+    hasFilter = true;
   }
 
   if (searchText && searchText.trim()) {
     const trimmed = searchText.trim();
-    filterRules.push({
-      op: 'OR',
-      name: [{
-        op: 'WILDCARD',
-        value: trimmed.includes('*') ? trimmed : `*${trimmed}*`
-      }],
-      description: [{
-        op: 'MATCHES',
-        value: trimmed
-      }]
-    });
+    filter.name = [{
+      op: 'WILDCARD',
+      value: trimmed.includes('*') ? trimmed : `*${trimmed}*`
+    }];
+    hasFilter = true;
   }
 
   // 3. 构建 GraphQL 查询语句（包含封面、所属游戏名称、下载量与简介）
   const gqlQuery = `
-    query ModsListing($count: Int = 20, $offset: Int = 0, $sort: [ModsSort!], $filter: ModsFilter) {
-      mods(count: $count, offset: $offset, sort: $sort, filter: $filter, viewUserBlockedContent: false) {
+    query ModsListing($count: Int = 20, $offset: Int = 0, $sort: [ModsSort!], $filter: ModsFilter, $facets: ModsFacet) {
+      mods(count: $count, offset: $offset, sort: $sort, filter: $filter, facets: $facets, viewUserBlockedContent: false) {
         totalCount
+        facetsData
         nodes {
           modId
           name
@@ -406,10 +410,11 @@ export async function fetchNexusMods({
   const requestVariables = {
     count: safePageSize,
     offset,
-    sort: sortVariable
+    sort: sortVariable,
+    facets: { categoryName: [] }
   };
 
-  if (filterRules.length > 0) {
+  if (hasFilter) {
     requestVariables.filter = filter;
   }
 
@@ -441,6 +446,13 @@ export async function fetchNexusMods({
     const rawNodes = modData?.nodes || [];
     const totalCount = Number(modData?.totalCount) || 0;
 
+    // 动态提取 N网 官方分类聚合 (零硬编码)
+    const catObj = modData?.facetsData?.categoryName || {};
+    const dynamicCategories = Object.keys(catObj).map((name) => ({
+      name,
+      count: catObj[name]
+    }));
+
     // 4. 标准化映射为 Mayfly 统一 Mod 数据契约
     const items = rawNodes.map((item) => {
       // 提取最佳封面预览图
@@ -454,7 +466,7 @@ export async function fetchNexusMods({
         version: item.version || '1.0',
         downloads: Number(item.downloads) || 0,
         likes: Number(item.endorsements) || 0,
-        category: item.modCategory?.name || '综合',
+        category: item.modCategory?.name || 'General',
         createdAt: item.createdAt || '',
         updatedAt: item.updatedAt || item.createdAt || '',
         timeAgo: formatTimeAgo(item.updatedAt || item.createdAt),
@@ -478,6 +490,7 @@ export async function fetchNexusMods({
     return {
       items,
       totalCount,
+      dynamicCategories,
       page: safePage,
       hasMore: offset + items.length < totalCount
     };

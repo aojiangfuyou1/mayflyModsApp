@@ -109,27 +109,27 @@
     <!-- 区域 2B：Mods 视角 (100% 对标用户截图 2 的模组流风格，动态拉取) -->
     <!-- ==================================================================== -->
     <view class="modsContainer" v-else>
-      <!-- 当前选中游戏过滤横幅提示 -->
-      <view class="activeGameBanner" v-if="selectedGameDomain">
-        <view class="activeGameInfo">
-          <text class="activeGameIcon">🎮</text>
-          <text class="activeGameTitle">当前专区: {{ activeGameDisplayName }}</text>
+      <!-- 当前选中游戏横幅栏 (支持一键返回全部游戏) -->
+      <view class="activeGameNavRow">
+        <view class="backGamesBtn" @click="clearGameFilterAndBack">
+          <text class="backArrowIcon">←</text>
+          <text class="backGamesText">全部游戏</text>
         </view>
-        <view class="clearGameBtn" @click="clearGameFilter">
-          <text class="clearGameText">✕ 查看全网</text>
+        <view class="activeGameInfoBox">
+          <text class="activeGameTitleText">{{ selectedGameDomain ? `🎮 ${activeGameDisplayName}` : '🌐 全网模组流' }}</text>
         </view>
       </view>
 
-      <!-- 模组区块标题行 (对标图 2: ◆ Mods   View all) -->
+      <!-- 模组区块标题行 (100% 对标图 2: ◆ Mods   View all) -->
       <view class="modsHeaderRow">
         <view class="modsHeaderLeft">
           <text class="modsIcon">◆</text>
           <text class="modsTitle">Mods</text>
         </view>
-        <text class="modsViewAllLink" @click="switchView('games')">View all</text>
+        <text class="modsViewAllLink" @click="clearGameFilterAndBack">View all games</text>
       </view>
 
-      <!-- 排序与状态选项卡 (100% 对标图 2: ☀ New | ⟳ Updated | 📈 Trending | ★ Popular | ❤️ Favorites) -->
+      <!-- 排序选项卡 (100% 对标图 2: ☀ New | ⟳ Updated | 📈 Trending | ★ Popular | ❤️ Favorites) -->
       <scroll-view class="filterPillsScroll" scroll-x show-scrollbar="false">
         <view class="filterPillsList">
           <!-- ☀ New (活跃态为白底黑字胶囊) -->
@@ -180,6 +180,28 @@
           >
             <text class="pillIcon">❤️</text>
             <text class="pillLabel">Favorites{{ favoritesCount > 0 ? ` (${favoritesCount})` : '' }}</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <!-- N网官方实时动态分类胶囊栏 (100% 动态，来自 Nexus facetsData，零硬编码) -->
+      <scroll-view class="categoryPillsScroll" scroll-x show-scrollbar="false" v-if="dynamicCategories.length > 0">
+        <view class="categoryPillsList">
+          <view
+            class="catPill"
+            :class="{ active: !selectedCategory }"
+            @click="selectCategory('')"
+          >
+            <text class="catPillText">全部 (All)</text>
+          </view>
+          <view
+            class="catPill"
+            v-for="cat in dynamicCategories"
+            :key="cat.name"
+            :class="{ active: selectedCategory === cat.name }"
+            @click="selectCategory(cat.name)"
+          >
+            <text class="catPillText">{{ cat.name }} ({{ formatCount(cat.count) }})</text>
           </view>
         </view>
       </scroll-view>
@@ -507,8 +529,8 @@ import { parseShareClipboard, formatFavoritesShareText } from '../../services/po
 export default {
   data() {
     return {
-      // 当前主视角: 'mods' (全网模组发现) | 'games' (热门游戏专区)
-      currentView: 'mods',
+      // 当前主视角: 默认优先展示全部游戏专区 ('games')，点击后进入对应游戏模组流 ('mods')
+      currentView: 'games',
 
       // 动态游戏列表数据 (100% 动态，来自 Nexus 官方 GraphQL，零硬编码)
       gamesList: [],
@@ -524,6 +546,10 @@ export default {
       hasMore: true,
       loading: false,
       loadingMore: false,
+
+      // N网官方实时动态分类 (零硬编码，从 GraphQL 聚合返回)
+      dynamicCategories: [],
+      selectedCategory: '',
 
       // 排序维度: 'createdAt' (New) | 'updatedAt' (Updated) | 'trending' | 'downloads' (Popular) | 'favorites'
       currentSort: 'createdAt',
@@ -642,6 +668,10 @@ export default {
   },
 
   onReachBottom() {
+    if (this.currentView === 'games') {
+      this.loadMoreGames();
+      return;
+    }
     if (this.currentView === 'mods' && this.hasMore && !this.loading && !this.loadingMore) {
       this.loadMoreMods();
     }
@@ -687,20 +717,29 @@ export default {
       if (!game) return;
       this.selectedGameDomain = game.domain;
       this.selectedGameName = game.name;
+      this.selectedCategory = '';
       this.currentView = 'mods';
-      uni.showToast({
-        title: `已进入【${game.name}】模组库`,
-        icon: 'none'
-      });
       this.resetAndLoad();
     },
 
     /**
-     * 清空游戏筛选，恢复全网模式
+     * 清空游戏筛选，恢复全部游戏专区模式
      */
-    clearGameFilter() {
+    clearGameFilterAndBack() {
       this.selectedGameDomain = '';
       this.selectedGameName = '';
+      this.selectedCategory = '';
+      this.currentView = 'games';
+      if (this.gamesList.length === 0) {
+        this.loadGames();
+      }
+    },
+
+    /**
+     * 选中 N网 官方实时动态分类胶囊
+     */
+    selectCategory(catName) {
+      this.selectedCategory = catName === this.selectedCategory ? '' : catName;
       this.resetAndLoad();
     },
 
@@ -724,7 +763,7 @@ export default {
       this.gamesLoading = true;
       try {
         const res = await fetchNexusGames({
-          count: 30,
+          count: 40,
           offset: 0,
           sort: 'downloads'
         });
@@ -734,6 +773,28 @@ export default {
       } finally {
         this.gamesLoading = false;
         if (typeof callback === 'function') callback();
+      }
+    },
+
+    /**
+     * 滚动触底分页动态加载更多游戏
+     */
+    async loadMoreGames() {
+      if (this.gamesLoading) return;
+      this.gamesLoading = true;
+      try {
+        const res = await fetchNexusGames({
+          count: 30,
+          offset: this.gamesList.length,
+          sort: 'downloads'
+        });
+        if (res.games && res.games.length > 0) {
+          this.gamesList = [...this.gamesList, ...res.games];
+        }
+      } catch (e) {
+        console.warn('[MayflyIndex] 加载更多游戏异常:', e);
+      } finally {
+        this.gamesLoading = false;
       }
     },
 
@@ -751,12 +812,17 @@ export default {
           pageSize: this.pageSize,
           sort: this.currentSort === 'favorites' ? 'downloads' : this.currentSort,
           searchText: (this.searchText || '').trim(),
-          gameDomain: this.selectedGameDomain || ''
+          gameDomain: this.selectedGameDomain || '',
+          categoryName: this.selectedCategory || ''
         });
 
         this.modList = result.items || [];
         this.totalCount = result.totalCount || 0;
         this.hasMore = result.hasMore;
+
+        if (result.dynamicCategories && result.dynamicCategories.length > 0) {
+          this.dynamicCategories = result.dynamicCategories;
+        }
 
         if (this.enableAutoTranslate) {
           this.translateCurrentTitles(result.items);
@@ -772,7 +838,7 @@ export default {
     },
 
     /**
-     * 上拉加载更多
+     * 上拉加载更多模组
      */
     async loadMoreMods() {
       if (this.loadingMore || !this.hasMore) return;
@@ -785,7 +851,8 @@ export default {
           pageSize: this.pageSize,
           sort: this.currentSort === 'favorites' ? 'downloads' : this.currentSort,
           searchText: (this.searchText || '').trim(),
-          gameDomain: this.selectedGameDomain || ''
+          gameDomain: this.selectedGameDomain || '',
+          categoryName: this.selectedCategory || ''
         });
 
         this.modList = [...this.modList, ...(result.items || [])];
@@ -1574,42 +1641,86 @@ export default {
   padding: 24rpx;
 }
 
-.activeGameBanner {
-  background: #1f2125;
-  border: 1rpx solid #da6b17;
-  border-radius: 12rpx;
-  padding: 16rpx 20rpx;
-  margin-bottom: 24rpx;
+.activeGameNavRow {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
+  margin-bottom: 20rpx;
+  background-color: #191c22;
+  border: 1rpx solid #282d38;
+  border-radius: 10rpx;
+  padding: 14rpx 20rpx;
 }
 
-.activeGameInfo {
+.backGamesBtn {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 8rpx;
+  cursor: pointer;
 }
 
-.activeGameIcon {
+.backArrowIcon {
   font-size: 28rpx;
+  color: #da6b17;
+  font-weight: 800;
 }
 
-.activeGameTitle {
+.backGamesText {
+  font-size: 24rpx;
+  color: #da6b17;
+  font-weight: 700;
+}
+
+.activeGameInfoBox {
+  display: flex;
+  align-items: center;
+}
+
+.activeGameTitleText {
   font-size: 24rpx;
   font-weight: 700;
   color: #ffffff;
 }
 
-.clearGameBtn {
-  background-color: #2c2f38;
-  padding: 6rpx 16rpx;
-  border-radius: 8rpx;
+/* N网官方实时动态分类胶囊栏 */
+.categoryPillsScroll {
+  width: 100%;
+  white-space: nowrap;
+  margin-bottom: 20rpx;
 }
 
-.clearGameText {
-  font-size: 20rpx;
-  color: #da6b17;
+.categoryPillsList {
+  display: inline-flex;
+  gap: 12rpx;
+  padding: 4rpx 0;
+}
+
+.catPill {
+  display: inline-flex;
+  align-items: center;
+  background-color: #1a1c22;
+  border: 1rpx solid #2c313d;
+  border-radius: 8rpx;
+  padding: 10rpx 20rpx;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.catPill.active {
+  background-color: #da6b17;
+  border-color: #da6b17;
+}
+
+.catPillText {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+.catPill.active .catPillText {
+  color: #ffffff;
   font-weight: 700;
 }
 
