@@ -316,7 +316,6 @@
           </view>
         </view>
       </view>
-    </view>
 
       <!-- 加载中状态 -->
       <view class="loadingBox" v-if="loading && modList.length === 0">

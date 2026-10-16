@@ -54,6 +54,52 @@ try {
   hasError = true;
 }
 
+// 3. 严格校验所有 Vue 文件的模板标签匹配与闭合完整性 (防止 Invalid end tag)
+const vueFiles = ['App.vue', 'pages/index/index.vue', 'pages/detail/detail.vue'];
+for (const vFile of vueFiles) {
+  try {
+    const fullPath = path.join(rootDir, vFile);
+    if (!fs.existsSync(fullPath)) continue;
+    const vContent = fs.readFileSync(fullPath, 'utf8');
+    const tMatch = vContent.match(/<template>([\s\S]*?)<\/template>/);
+    if (!tMatch) continue;
+
+    const tStr = tMatch[1];
+    const stack = [];
+    const tagReg = /<(\/)?([a-zA-Z0-9_-]+)([\s\S]*?)>/g;
+    let m;
+    while ((m = tagReg.exec(tStr)) !== null) {
+      const isClose = Boolean(m[1]);
+      const tagName = m[2];
+      const attrs = m[3];
+      const isSelf = attrs.trim().endsWith('/') || ['input'].includes(tagName);
+
+      if (isSelf && !isClose) continue;
+
+      if (isClose) {
+        if (stack.length === 0) {
+          throw new Error(`在标签闭合时发现多余的 </${tagName}>，标签栈为空！`);
+        }
+        const top = stack.pop();
+        if (top !== tagName) {
+          throw new Error(`标签不匹配：期望 </${top}>，但遇到 </${tagName}>！`);
+        }
+      } else {
+        stack.push(tagName);
+      }
+    }
+
+    if (stack.length > 0) {
+      throw new Error(`存在未闭合的标签: ${stack.join(', ')}`);
+    }
+
+    console.log(`[MayflyBuild] ✓ Vue 模板标签闭合验证通过: ${vFile}`);
+  } catch (tErr) {
+    console.error(`[MayflyBuild] ❌ ${vFile} 模板解析异常:`, tErr.message);
+    hasError = true;
+  }
+}
+
 if (hasError) {
   console.error('[MayflyBuild] 构建检查未通过，请检查上述错误。');
   process.exit(1);
