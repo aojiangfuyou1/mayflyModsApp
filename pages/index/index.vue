@@ -74,6 +74,13 @@
         >
           <text class="sortLabel">🆕 最新发布</text>
         </view>
+        <view
+          class="sortItem"
+          :class="{ active: currentSort === 'favorites' }"
+          @click="changeSort('favorites')"
+        >
+          <text class="sortLabel">❤️ 心愿单{{ favoritesCount > 0 ? ` (${favoritesCount})` : '' }}</text>
+        </view>
       </view>
     </view>
 
@@ -82,10 +89,10 @@
     <!-- ==================================================================== -->
     <view class="modsWaterfallSection">
       <!-- 列表内容区 -->
-      <view class="waterfallGrid" v-if="modList.length > 0">
+      <view class="waterfallGrid" v-if="displayModList.length > 0">
         <view
           class="modCard"
-          v-for="item in modList"
+          v-for="item in displayModList"
           :key="item.id"
           @click="openDetail(item)"
         >
@@ -99,6 +106,10 @@
             />
             <view class="gameTag">
               <text class="gameTagText">{{ item.game.name }}</text>
+            </view>
+            <!-- 收藏小红心按钮 -->
+            <view class="favTagBtn" @click.stop="toggleCardFavorite(item)">
+              <text class="favIcon">{{ favoriteIdMap[item.id] ? '❤️' : '🤍' }}</text>
             </view>
             <!-- 已推送到电脑标识 -->
             <view class="pushedTag" v-if="pushedIdMap[item.id]">
@@ -335,6 +346,7 @@ import {
 } from '../../services/nexus.js';
 import { batchTranslateToZh } from '../../services/translate.js';
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
+import { getFavorites, toggleFavorite } from '../../services/favorites.js';
 
 export default {
   data() {
@@ -352,9 +364,13 @@ export default {
       enableAutoTranslate: false,
       zhTitleMap: {},
 
+      // 心愿单收藏
+      favoritesList: [],
+      favoriteIdMap: {},
+
       // 搜索与排序
       searchText: '',
-      currentSort: 'downloads', // 'downloads' | 'updatedAt' | 'createdAt'
+      currentSort: 'downloads', // 'downloads' | 'updatedAt' | 'createdAt' | 'favorites'
 
       // 详情弹窗
       detailVisible: false,
@@ -383,17 +399,43 @@ export default {
     };
   },
 
+  computed: {
+    /**
+     * 实际渲染展示的 Mod 列表 (心愿单模式切为本地收藏列表)
+     */
+    displayModList() {
+      if (this.currentSort === 'favorites') {
+        return this.favoritesList;
+      }
+      return this.modList;
+    },
+
+    /**
+     * 收藏总数
+     */
+    favoritesCount() {
+      return this.favoritesList.length;
+    }
+  },
+
   onLoad() {
     this.initDesktopConfig();
     this.refreshHistory();
+    this.refreshFavorites();
     this.loadMods();
   },
 
   onShow() {
     this.refreshHistory();
+    this.refreshFavorites();
   },
 
   onPullDownRefresh() {
+    if (this.currentSort === 'favorites') {
+      this.refreshFavorites();
+      uni.stopPullDownRefresh();
+      return;
+    }
     this.resetAndLoad(() => {
       uni.stopPullDownRefresh();
     });
@@ -493,12 +535,42 @@ export default {
     // ------------------------------------------------------------------------
 
     /**
-     * 切换排序维度
+     * 切换排序维度或进入心愿单模式
      */
     changeSort(sortType) {
       if (this.currentSort === sortType) return;
       this.currentSort = sortType;
-      this.resetAndLoad();
+      if (sortType === 'favorites') {
+        this.refreshFavorites();
+      } else {
+        this.resetAndLoad();
+      }
+    },
+
+    /**
+     * 同步刷新本地心愿单缓存
+     */
+    refreshFavorites() {
+      const list = getFavorites();
+      this.favoritesList = list;
+      const map = {};
+      list.forEach((item) => {
+        map[item.id] = true;
+        if (item.modId) map[item.modId] = true;
+      });
+      this.favoriteIdMap = map;
+    },
+
+    /**
+     * 点击卡片红心切换收藏状态
+     */
+    toggleCardFavorite(item) {
+      const nextStatus = toggleFavorite(item);
+      this.refreshFavorites();
+      uni.showToast({
+        title: nextStatus ? '已加入心愿单 ❤️' : '已移出心愿单',
+        icon: 'none'
+      });
     },
 
     /**
@@ -1143,6 +1215,26 @@ export default {
   font-size: 20rpx;
   color: #38bdf8;
   font-weight: 600;
+}
+
+.favTagBtn {
+  position: absolute;
+  top: 10rpx;
+  right: 10rpx;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(6px);
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid rgba(255, 255, 255, 0.15);
+  z-index: 5;
+}
+
+.favIcon {
+  font-size: 20rpx;
 }
 
 .cardBody {

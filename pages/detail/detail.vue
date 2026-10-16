@@ -42,13 +42,25 @@
     <!-- 区域 2：核心元数据概览 -->
     <!-- ==================================================================== -->
     <view class="metaCard">
-      <!-- 游戏与分类 -->
+      <!-- 游戏与分类 + 收藏与分享 -->
       <view class="tagRow">
-        <view class="gamePill">
-          <text class="gamePillText">🎮 {{ modInfo.game?.name || '未知游戏' }}</text>
+        <view class="tagLeft">
+          <view class="gamePill">
+            <text class="gamePillText">🎮 {{ modInfo.game?.name || '未知游戏' }}</text>
+          </view>
+          <view class="categoryPill">
+            <text class="categoryPillText">🏷️ {{ modInfo.category || '综合模组' }}</text>
+          </view>
         </view>
-        <view class="categoryPill">
-          <text class="categoryPillText">🏷️ {{ modInfo.category || '综合模组' }}</text>
+        <view class="tagRightActions">
+          <!-- 收藏按钮 -->
+          <view class="actionCircleBtn" @click="handleToggleFavorite">
+            <text class="actionCircleIcon">{{ favorited ? '❤️' : '🤍' }}</text>
+          </view>
+          <!-- 分享按钮 -->
+          <view class="actionCircleBtn" @click="handleShareMod">
+            <text class="actionCircleIcon">📤</text>
+          </view>
         </view>
       </view>
 
@@ -125,6 +137,36 @@
     </view>
 
     <!-- ==================================================================== -->
+    <!-- 区域 3.5：前置依赖体检与避坑提示 -->
+    <!-- ==================================================================== -->
+    <view class="reqCard">
+      <view class="reqHeader">
+        <text class="reqIcon">🧩</text>
+        <text class="reqTitle">前置依赖与运行体检</text>
+        <text class="reqBadge" :class="{ free: !loadingRequirements && requirements.length === 0 }">
+          {{ loadingRequirements ? '检测中...' : requirements.length === 0 ? '免前置 · 开箱即用' : `${requirements.length} 个前置` }}
+        </text>
+      </view>
+
+      <view class="reqBody">
+        <view class="reqFreeNotice" v-if="!loadingRequirements && requirements.length === 0">
+          <text class="freeText">✓ 该模组为独立 Mod，无需额外安装复杂的前置 Loader，电脑端可直接原生部署生效！</text>
+        </view>
+
+        <view class="reqList" v-if="requirements.length > 0">
+          <view class="reqItem" v-for="(req, idx) in requirements" :key="idx">
+            <text class="reqBullet">⚠️</text>
+            <view class="reqInfo">
+              <text class="reqName">{{ req.name }}</text>
+              <text class="reqNotes" v-if="req.notes">{{ req.notes }}</text>
+            </view>
+          </view>
+          <text class="reqTip">💡 提示：电脑端 Mayfly 收到推送后会自动检测并一键补齐上述前置，请放心安装。</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ==================================================================== -->
     <!-- 区域 4：底部固定操作栏 -->
     <!-- ==================================================================== -->
     <view class="fixedBottomBar">
@@ -151,8 +193,9 @@
 // ============================================================================
 // 脚本逻辑：模组详情图鉴与全屏交互
 // ============================================================================
-import { pushModToDesktop, getDesktopConfig } from '../../services/nexus.js';
+import { pushModToDesktop, getDesktopConfig, fetchModRequirements } from '../../services/nexus.js';
 import { translateTextToZh, formatAiModSummary } from '../../services/translate.js';
+import { isFavorited, toggleFavorite } from '../../services/favorites.js';
 
 export default {
   data() {
@@ -171,10 +214,18 @@ export default {
         category: '',
         game: {
           name: '',
-          domainName: ''
+          domainName: '',
+          id: 0
         },
         website: ''
       },
+
+      // 心愿单状态
+      favorited: false,
+
+      // 前置依赖
+      requirements: [],
+      loadingRequirements: false,
 
       // 图集相册
       imageGallery: [],
@@ -216,11 +267,15 @@ export default {
      */
     async initModDetail(mod) {
       this.modInfo = mod;
+      this.favorited = isFavorited(mod.id || mod.modId);
 
       // 构建相册图集（默认封面，若有附加图片自动拼入）
       const list = [];
       if (mod.coverImageUrl) list.push(mod.coverImageUrl);
       this.imageGallery = list.length > 0 ? list : ['/static/logo.png'];
+
+      // 异步探测前置依赖
+      this.loadRequirements(mod);
 
       // 立即触发中文翻译与要点提炼
       try {
@@ -236,6 +291,58 @@ export default {
         // 翻译失败优雅降级为原简介
         this.aiSummary = formatAiModSummary(mod.summary);
       }
+    },
+
+    /**
+     * 异步拉取模组前置依赖
+     */
+    async loadRequirements(mod) {
+      const modId = mod.modId || mod.id;
+      const gameId = mod.game?.id;
+      if (!modId || !gameId) return;
+
+      this.loadingRequirements = true;
+      try {
+        const reqs = await fetchModRequirements(modId, gameId);
+        this.requirements = reqs;
+      } catch (e) {
+        this.requirements = [];
+      } finally {
+        this.loadingRequirements = false;
+      }
+    },
+
+    /**
+     * 切换心愿单收藏状态
+     */
+    handleToggleFavorite() {
+      const nextStatus = toggleFavorite(this.modInfo);
+      this.favorited = nextStatus;
+      uni.showToast({
+        title: nextStatus ? '已加入心愿单 ❤️' : '已移出心愿单',
+        icon: 'none'
+      });
+    },
+
+    /**
+     * 分享 Mod 口令卡片给好友
+     */
+    handleShareMod() {
+      const title = this.modZhTitle || this.modInfo.title;
+      const game = this.modInfo.game?.name || '热门游戏';
+      const url = this.modInfo.website || 'https://www.nexusmods.com';
+      const shareText = `【Mayfly Mod 伴侣分享】\n🎮 游戏：《${game}》\n📦 模组：${title}\n🔗 直达：${url}\n⚡ 手机一键推送到电脑 Mayfly 极速安装！`;
+
+      uni.setClipboardData({
+        data: shareText,
+        success: () => {
+          uni.showModal({
+            title: '分享口令已复制 📋',
+            content: '已将 Mod 信息与直达链接复制到剪贴板，可直接粘贴发送给微信/QQ好友！',
+            showCancel: false
+          });
+        }
+      });
     },
 
     /**
@@ -420,8 +527,34 @@ export default {
 
 .tagRow {
   display: flex;
-  gap: 16rpx;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 18rpx;
+}
+
+.tagLeft {
+  display: flex;
+  gap: 16rpx;
+}
+
+.tagRightActions {
+  display: flex;
+  gap: 14rpx;
+}
+
+.actionCircleBtn {
+  background-color: #1e293b;
+  border: 1rpx solid #334155;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionCircleIcon {
+  font-size: 24rpx;
 }
 
 .gamePill {
@@ -638,6 +771,104 @@ export default {
   font-size: 22rpx;
   color: #64748b;
   line-height: 1.55;
+}
+
+/* 区域 3.5：前置依赖体检卡片 */
+.reqCard {
+  background-color: #121927;
+  margin: 0 24rpx 24rpx;
+  border-radius: 24rpx;
+  border: 1rpx solid #1f2b42;
+  padding: 26rpx;
+}
+
+.reqHeader {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 18rpx;
+}
+
+.reqIcon {
+  font-size: 28rpx;
+}
+
+.reqTitle {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+
+.reqBadge {
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 10rpx;
+  font-weight: 700;
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  margin-left: auto;
+}
+
+.reqBadge.free {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.reqFreeNotice {
+  background-color: rgba(16, 185, 129, 0.1);
+  border: 1rpx solid rgba(16, 185, 129, 0.3);
+  border-radius: 14rpx;
+  padding: 16rpx 20rpx;
+}
+
+.freeText {
+  font-size: 22rpx;
+  color: #34d399;
+  line-height: 1.5;
+}
+
+.reqList {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.reqItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  background-color: #1a2436;
+  padding: 14rpx 18rpx;
+  border-radius: 14rpx;
+}
+
+.reqBullet {
+  font-size: 24rpx;
+  flex-shrink: 0;
+}
+
+.reqInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.reqName {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.reqNotes {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.reqTip {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-top: 8rpx;
+  line-height: 1.4;
 }
 
 /* 区域 4：底部固定栏 */

@@ -263,3 +263,68 @@ export async function testDesktopConnection(host, port = 9876) {
     return false;
   }
 }
+
+// ----------------------------------------------------------------------------
+// 区域 5：模组前置依赖与避坑排查检测
+// ----------------------------------------------------------------------------
+
+/**
+ * 查询模组所需的前置依赖与底层 Loader 要求
+ * @param {string|number} modId - 模组 ID
+ * @param {string|number} gameId - 游戏 ID
+ * @returns {Promise<Array<{ name: string, notes: string, url: string }>>}
+ */
+export async function fetchModRequirements(modId, gameId) {
+  if (!modId || !gameId) return [];
+
+  const gqlQuery = `
+    query ModRequirements($modId: ID!, $gameId: ID!) {
+      mod(modId: $modId, gameId: $gameId) {
+        modRequirements {
+          nexusRequirements {
+            nodes {
+              modName
+              notes
+              url
+              externalRequirement
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const res = await uni.request({
+      url: NEXUS_GRAPHQL_ENDPOINT,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      data: JSON.stringify({
+        query: gqlQuery,
+        variables: {
+          modId: String(modId),
+          gameId: String(gameId)
+        }
+      }),
+      timeout: 8000
+    });
+
+    if (res.statusCode === 200 && res.data) {
+      const rawNodes = res.data?.data?.mod?.modRequirements?.nexusRequirements?.nodes || [];
+      return rawNodes.map((n) => ({
+        name: n.modName || '未知前置',
+        notes: n.notes || '',
+        url: n.url || '',
+        external: Boolean(n.externalRequirement)
+      }));
+    }
+  } catch (e) {
+    console.warn('[MayflyNexus] 拉取前置依赖异常:', e);
+  }
+
+  return [];
+}
+

@@ -21,7 +21,8 @@ const requiredFiles = [
   'services/nexus.js',
   'services/translate.js',
   'services/remote-channel.js',
-  'services/history.js'
+  'services/history.js',
+  'services/favorites.js'
 ];
 
 let hasError = false;
