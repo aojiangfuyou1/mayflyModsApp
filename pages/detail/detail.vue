@@ -632,6 +632,8 @@ export default {
             this.modInfo.game.id = resolved;
           }
         } catch (e) {}
+      }
+
       if (item.tags && item.tags.length > 0) {
         this.autoTranslateTags(item.tags);
       }
