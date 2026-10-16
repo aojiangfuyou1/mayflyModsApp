@@ -890,3 +890,104 @@ export async function fetchModFiles(modId, gameId) {
   return [];
 }
 
+// ----------------------------------------------------------------------------
+// 区域 6：NexusMods 官方账号授权与验证服务 (登录、退出与状态持久化)
+// ----------------------------------------------------------------------------
+
+export const STORAGE_KEY_NEXUS_USER = 'mayfly_nexus_user';
+export const STORAGE_KEY_NEXUS_APIKEY = 'mayfly_nexus_apikey';
+
+/**
+ * 获取本地存储的 Nexus 账号信息
+ */
+export function getNexusUser() {
+  try {
+    const raw = uni.getStorageSync(STORAGE_KEY_NEXUS_USER);
+    return raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * 获取本地存储的 Nexus API Key
+ */
+export function getNexusApiKey() {
+  try {
+    return uni.getStorageSync(STORAGE_KEY_NEXUS_APIKEY) || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * 保存 Nexus 账号信息
+ */
+export function saveNexusUser(user, apiKey = '') {
+  try {
+    if (user) {
+      uni.setStorageSync(STORAGE_KEY_NEXUS_USER, user);
+      if (apiKey) {
+        uni.setStorageSync(STORAGE_KEY_NEXUS_APIKEY, apiKey);
+      }
+    } else {
+      uni.removeStorageSync(STORAGE_KEY_NEXUS_USER);
+      uni.removeStorageSync(STORAGE_KEY_NEXUS_APIKEY);
+    }
+  } catch (e) {}
+}
+
+/**
+ * 退出登录 Nexus
+ */
+export function logoutNexus() {
+  saveNexusUser(null);
+}
+
+/**
+ * 验证 Nexus API Key 并获取用户信息 (100% 官方接口)
+ * @param {string} apiKey - 官方 Personal API Key
+ * @returns {Promise<{ success: boolean, user?: Object, message?: string }>}
+ */
+export async function validateNexusApiKey(apiKey) {
+  const cleanKey = String(apiKey || '').trim();
+  if (!cleanKey) {
+    return { success: false, message: '请输入有效的 Nexus API Key' };
+  }
+
+  try {
+    const res = await uni.request({
+      url: 'https://api.nexusmods.com/v1/users/validate.json',
+      method: 'GET',
+      header: {
+        'apikey': cleanKey,
+        'Application-Name': 'Mayfly Mod Manager',
+        'Application-Version': '1.0.0'
+      },
+      timeout: 12000
+    });
+
+    if (res.statusCode === 200 && res.data) {
+      const data = res.data;
+      const user = {
+        userId: data.user_id,
+        name: data.name,
+        isPremium: Boolean(data.is_premium),
+        isSupporter: Boolean(data.is_supporter),
+        email: data.email || '',
+        profileUrl: data.profile_url || '',
+        avatar: data.profile_url ? `https://avatars.nexusmods.com/${data.user_id}` : '',
+        loginTime: Date.now()
+      };
+      saveNexusUser(user, cleanKey);
+      return { success: true, user };
+    } else if (res.statusCode === 401 || res.statusCode === 403) {
+      return { success: false, message: 'API Key 无效或已过期，请前往 NexusMods 重新生成' };
+    } else {
+      return { success: false, message: `Nexus 接口响应异常 (HTTP ${res.statusCode || '未知'})` };
+    }
+  } catch (e) {
+    return { success: false, message: '网络连接超时，请确认能够正常访问 NexusMods 官方服务' };
+  }
+}
+
