@@ -109,15 +109,23 @@
           <text class="favCountNum">❤️ 已收藏 {{ favoritesList.length }} 个模组</text>
           <text class="favTipText">点此一键将所有心仪 Mod 推送到电脑</text>
         </view>
-        <button
-          class="favBatchPushBtn"
-          :disabled="isBatchPushing"
-          @click="batchPushFavorites"
-        >
-          <text class="favBatchBtnText">
-            {{ isBatchPushing ? '批量投递中...' : `🚀 全部推送到电脑 (${favoritesList.length})` }}
-          </text>
-        </button>
+        <view class="favBatchActions">
+          <button
+            class="favExportBtn"
+            @click="exportFavoritesList"
+          >
+            <text class="favExportBtnText">📋 导出清单</text>
+          </button>
+          <button
+            class="favBatchPushBtn"
+            :disabled="isBatchPushing"
+            @click="batchPushFavorites"
+          >
+            <text class="favBatchBtnText">
+              {{ isBatchPushing ? '批量投递中...' : `🚀 全部推送到电脑 (${favoritesList.length})` }}
+            </text>
+          </button>
+        </view>
       </view>
 
       <!-- 列表内容区 -->
@@ -379,6 +387,7 @@ import {
 import { batchTranslateToZh } from '../../services/translate.js';
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
 import { getFavorites, toggleFavorite } from '../../services/favorites.js';
+import { parseShareClipboard, formatFavoritesShareText } from '../../services/poster.js';
 
 export default {
   data() {
@@ -706,7 +715,32 @@ export default {
     },
 
     /**
-     * 自动探测剪贴板中的 N网 链接或好友分享口令
+     * 导出心愿单装机分享清单到剪贴板
+     */
+    exportFavoritesList() {
+      if (this.favoritesList.length === 0) {
+        uni.showToast({
+          title: '心愿单为空，先收藏几个模组吧',
+          icon: 'none'
+        });
+        return;
+      }
+
+      const text = formatFavoritesShareText(this.favoritesList);
+      uni.setClipboardData({
+        data: text,
+        success: () => {
+          uni.showModal({
+            title: '装机清单已生成 📋',
+            content: `已将包含 ${this.favoritesList.length} 款模组的专属装机清单复制到剪贴板，可直接粘贴分享至微信、贴吧或QQ群！`,
+            showCancel: false
+          });
+        }
+      });
+    },
+
+    /**
+     * 自动探测剪贴板中的 N网 链接或好友分享口令 (支持短码 MF-XXXX 与完整 URL)
      */
     checkClipboardModShare() {
       uni.getClipboardData({
@@ -714,16 +748,18 @@ export default {
           const text = String(res.data || '').trim();
           if (!text || text === this.lastHandledClipboard) return;
 
-          // 匹配 NexusMods 模组链接：https://www.nexusmods.com/{domain}/mods/{id}
-          const nexusMatch = text.match(/nexusmods\.com\/([a-zA-Z0-9_\-]+)\/mods\/(\d+)/i);
-          if (nexusMatch) {
-            this.lastHandledClipboard = text;
-            const domainName = nexusMatch[1];
-            const modId = nexusMatch[2];
+          const parsed = parseShareClipboard(text);
+          if (!parsed) return;
+
+          this.lastHandledClipboard = text;
+
+          if (parsed.type === 'nexus_url' && parsed.modId) {
+            const domainName = parsed.domain || 'game';
+            const modId = parsed.modId;
 
             uni.showModal({
               title: '发现分享模组 🎁',
-              content: `检测到剪贴板中的 N网 模组链接 (ID: ${modId})，是否立即查看中文图鉴与远程安装？`,
+              content: `检测到剪贴板中的 N网 模组 (ID: ${modId})，是否立即查看中文图鉴与远程安装？`,
               confirmText: '立即查看',
               cancelText: '忽略',
               success: (modalRes) => {
@@ -742,6 +778,11 @@ export default {
                   });
                 }
               }
+            });
+          } else if (parsed.type === 'share_code' && parsed.code) {
+            uni.showToast({
+              title: `已识别装机口令: ${parsed.code}`,
+              icon: 'none'
             });
           }
         }
@@ -877,6 +918,20 @@ export default {
           host = params.get('host') || '';
           port = Number(params.get('port')) || 9876;
           token = params.get('token') || '';
+        } else if (rawText.startsWith('http://') || rawText.startsWith('https://')) {
+          // 电脑端原生内置助手二维码格式：http://192.168.1.100:28888/?token=... 或 pin=...
+          const urlMatch = rawText.match(/^https?:\/\/([^:/]+)(?::(\d+))?.*?[?&](?:token|pin)=([^&]+)/i);
+          if (urlMatch) {
+            host = urlMatch[1];
+            port = Number(urlMatch[2]) || 28888;
+            token = decodeURIComponent(urlMatch[3] || '');
+          } else {
+            const simpleUrl = rawText.match(/^https?:\/\/([^:/]+)(?::(\d+))?/i);
+            if (simpleUrl) {
+              host = simpleUrl[1];
+              port = Number(simpleUrl[2]) || 28888;
+            }
+          }
         } else if (rawText.startsWith('{') && rawText.endsWith('}')) {
           // JSON 格式
           const parsed = JSON.parse(rawText);
@@ -1409,6 +1464,27 @@ export default {
   font-size: 20rpx;
   color: #94a3b8;
   margin-top: 4rpx;
+}
+
+.favBatchActions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.favExportBtn {
+  background-color: #1e293b;
+  border: 1rpx solid #334155;
+  border-radius: 16rpx;
+  padding: 12rpx 20rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.favExportBtnText {
+  font-size: 22rpx;
+  color: #cbd5e1;
+  font-weight: 600;
 }
 
 .favBatchPushBtn {

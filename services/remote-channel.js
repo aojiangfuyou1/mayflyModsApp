@@ -59,6 +59,7 @@ export async function pushViaLanHttp(payload, host, port = 9876) {
     return { success: false, message: '电脑局域网 IP 地址未配置' };
   }
 
+  // 1. 优先尝试伴侣端点 /api/remote-install
   const endpoint = `http://${cleanHost}:${port}/api/remote-install`;
 
   try {
@@ -69,7 +70,7 @@ export async function pushViaLanHttp(payload, host, port = 9876) {
         'Content-Type': 'application/json'
       },
       data: payload,
-      timeout: 3500 // 局域网 3.5 秒超时快速熔断，以便及时切云通道
+      timeout: 3000
     });
 
     if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -77,6 +78,35 @@ export async function pushViaLanHttp(payload, host, port = 9876) {
         success: true,
         channel: 'LAN_HTTP',
         message: `《${payload.title}》已通过局域网秒级投递到电脑 Mayfly！`
+      };
+    }
+  } catch (err) {
+    // 降级尝试原生 /api/action
+  }
+
+  // 2. 尝试电脑端原生助手端点 /api/action (无缝对接 Electron 内置服务)
+  const actionEndpoint = `http://${cleanHost}:${port}/api/action`;
+  try {
+    const res = await uni.request({
+      url: actionEndpoint,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'x-lan-token': payload.deviceToken || ''
+      },
+      data: {
+        type: 'remote-install',
+        action: 'remote_install',
+        ...payload
+      },
+      timeout: 3000
+    });
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return {
+        success: true,
+        channel: 'LAN_HTTP',
+        message: `《${payload.title}》已通过局域网直连投递至电脑 Mayfly 原生助手！`
       };
     }
 

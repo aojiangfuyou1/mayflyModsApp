@@ -241,22 +241,30 @@ export async function pushModToDesktop(modItem, overrideConfig = null) {
   return pushModAdaptive(modItem, overrideConfig);
 }
 
-/**
- * 测试与电脑端 Mayfly 的网络连通性
- * @param {string} host - 电脑主机 IP
- * @param {number|string} port - 电脑端口
- * @returns {Promise<boolean>}
- */
 export async function testDesktopConnection(host, port = 9876) {
   const cleanHost = String(host || '').trim().replace(/^http:\/\//, '');
   if (!cleanHost) return false;
-  const targetUrl = `http://${cleanHost}:${port}/api/ping`;
 
+  // 1. 优先尝试伴侣端点 /api/ping
+  const pingUrl = `http://${cleanHost}:${port}/api/ping`;
   try {
     const res = await uni.request({
-      url: targetUrl,
+      url: pingUrl,
       method: 'GET',
-      timeout: 3000
+      timeout: 2500
+    });
+    if (res.statusCode === 200) return true;
+  } catch (err) {
+    // 静默降级尝试下一个端点
+  }
+
+  // 2. 尝试电脑端原生内置助手状态端点 /api/status
+  const statusUrl = `http://${cleanHost}:${port}/api/status`;
+  try {
+    const res = await uni.request({
+      url: statusUrl,
+      method: 'GET',
+      timeout: 2500
     });
     return res.statusCode === 200;
   } catch (err) {

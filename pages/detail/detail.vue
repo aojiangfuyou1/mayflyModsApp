@@ -258,6 +258,7 @@
 import { pushModToDesktop, getDesktopConfig, fetchModRequirements, fetchModFiles } from '../../services/nexus.js';
 import { translateTextToZh, formatAiModSummary } from '../../services/translate.js';
 import { isFavorited, toggleFavorite } from '../../services/favorites.js';
+import { formatModShareText } from '../../services/poster.js';
 
 export default {
   data() {
@@ -463,20 +464,21 @@ export default {
     },
 
     /**
-     * 分享 Mod 口令卡片给好友
+     * 分享 Mod 口令卡片给好友 (生成专属提取短码)
      */
     handleShareMod() {
       const title = this.modZhTitle || this.modInfo.title;
-      const game = this.modInfo.game?.name || '热门游戏';
-      const url = this.modInfo.website || 'https://www.nexusmods.com';
-      const shareText = `【Mayfly Mod 伴侣分享】\n🎮 游戏：《${game}》\n📦 模组：${title}\n🔗 直达：${url}\n⚡ 手机一键推送到电脑 Mayfly 极速安装！`;
+      const shareText = formatModShareText({
+        ...this.modInfo,
+        title
+      });
 
       uni.setClipboardData({
         data: shareText,
         success: () => {
           uni.showModal({
-            title: '分享口令已复制 📋',
-            content: '已将 Mod 信息与直达链接复制到剪贴板，可直接粘贴发送给微信/QQ好友！',
+            title: '装机口令已复制 📋',
+            content: '已生成包含专属提取短码的装机口令并复制到剪贴板，好友在微信或QQ收到后打开 Mayfly 即可秒级直达并推送到电脑安装！',
             showCancel: false
           });
         }

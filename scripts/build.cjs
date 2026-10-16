@@ -22,7 +22,8 @@ const requiredFiles = [
   'services/translate.js',
   'services/remote-channel.js',
   'services/history.js',
-  'services/favorites.js'
+  'services/favorites.js',
+  'services/poster.js'
 ];
 
 let hasError = false;
