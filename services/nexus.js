@@ -991,3 +991,42 @@ export async function validateNexusApiKey(apiKey) {
   }
 }
 
+/**
+ * 从已连接的电脑端 Mayfly 自动拉取已登录的 Nexus 账号配置
+ * @param {Object} desktopConfig - 电脑端网络配置 { host, port }
+ * @returns {Promise<{ success: boolean, user?: Object, message?: string }>}
+ */
+export async function syncNexusFromDesktop(desktopConfig) {
+  if (!desktopConfig || !desktopConfig.host) {
+    return { success: false, message: '请先在设备管理中连接电脑端 Mayfly' };
+  }
+  const cleanHost = String(desktopConfig.host).trim().replace(/^http:\/\//, '');
+  const port = desktopConfig.port || 9876;
+  const targetUrl = `http://${cleanHost}:${port}/api/nexus/status`;
+
+  try {
+    const res = await uni.request({
+      url: targetUrl,
+      method: 'GET',
+      timeout: 4000
+    });
+
+    if (res.statusCode === 200 && res.data) {
+      const data = res.data.data || res.data;
+      if (data.apiKey) {
+        return await validateNexusApiKey(data.apiKey);
+      } else if (data.user) {
+        saveNexusUser(data.user, data.apiKey || '');
+        return { success: true, user: data.user };
+      } else {
+        return { success: false, message: '电脑端 Mayfly 暂未登录 Nexus 账号，请先在电脑端登录或手动输入 API Key' };
+      }
+    } else {
+      return { success: false, message: `电脑端未响应 Nexus 状态 (HTTP ${res.statusCode || '未知'})` };
+    }
+  } catch (err) {
+    return { success: false, message: '无法连接到电脑端 Mayfly，请确保局域网连接通畅' };
+  }
+}
+
+

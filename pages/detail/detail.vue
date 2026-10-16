@@ -18,9 +18,15 @@
         <view class="headerBtn" @click="handleShareMod">
           <text class="headerIcon">📤</text>
         </view>
-        <view class="headerBtn userBtn" @click="openDeviceModal">
-          <text class="headerIcon">👤</text>
+        <view class="headerBtn pcBtn" @click="openDeviceModal">
+          <text class="headerIcon">💻</text>
           <view class="onlineDot" :class="{ connected: desktopConfig.connected }"></view>
+        </view>
+        <view class="headerBtn userBtn" @click="openNexusAuthModal">
+          <image v-if="nexusUser && nexusUser.avatar" class="headerAvatarImg" :src="nexusUser.avatar" mode="aspectFill" />
+          <text v-else class="headerIcon">👤</text>
+          <view v-if="nexusUser && nexusUser.isPremium" class="headerPremiumBadge">👑</view>
+          <view v-else-if="!nexusUser" class="authNoticeDot"></view>
         </view>
       </view>
     </view>
@@ -397,6 +403,149 @@
         </view>
       </view>
     </view>
+
+    <!-- ==================================================================== -->
+    <!-- 区域 8：NexusMods 官方账户中心与 API 授权弹窗 -->
+    <!-- ==================================================================== -->
+    <view class="modalOverlay" v-if="nexusAuthModalVisible" @click="closeNexusAuthModal">
+      <view class="nexusAuthModalContent" @click.stop>
+        <view class="authModalHeader">
+          <view class="authModalTitleRow">
+            <text class="nexusAuthBrandIcon">❖</text>
+            <text class="modalTitle">NexusMods 账户与授权</text>
+          </view>
+          <view class="modalCloseBtn" @click="closeNexusAuthModal">✕</view>
+        </view>
+
+        <!-- A. 已登录状态展示 -->
+        <view class="authLoggedView" v-if="nexusUser">
+          <view class="loggedProfileHeader">
+            <view class="largeAvatarBox">
+              <image v-if="nexusUser.avatar" class="largeAvatarImg" :src="nexusUser.avatar" mode="aspectFill" />
+              <text v-else class="largeAvatarGlyph">👤</text>
+              <view v-if="nexusUser.isPremium" class="crownCornerBadge">👑</view>
+            </view>
+            <view class="largeProfileInfo">
+              <view class="largeNameRow">
+                <text class="largeUserName">{{ nexusUser.name }}</text>
+                <text v-if="nexusUser.isPremium" class="vipTag premium">👑 PREMIUM</text>
+                <text v-else-if="nexusUser.isSupporter" class="vipTag supporter">💎 SUPPORTER</text>
+                <text v-else class="vipTag standard">标准会员</text>
+              </view>
+              <text class="userUidText">N网用户 UID: {{ nexusUser.userId }}</text>
+              <text class="userEmailText" v-if="nexusUser.email">{{ nexusUser.email }}</text>
+            </view>
+          </view>
+
+          <!-- 账号特权清单 -->
+          <view class="privilegesBox">
+            <text class="privilegeTitle">💎 已激活特权服务</text>
+            <view class="privilegeGrid">
+              <view class="privilegeItem">
+                <text class="privItemIcon">⚡</text>
+                <view class="privItemTextCol">
+                  <text class="privMain">高速直连通道</text>
+                  <text class="privSub">{{ nexusUser.isPremium ? '尊享无限制最高速' : '标准官方 CDN 加速' }}</text>
+                </view>
+              </view>
+              <view class="privilegeItem">
+                <text class="privItemIcon">🚀</text>
+                <view class="privItemTextCol">
+                  <text class="privMain">电脑端一键装机</text>
+                  <text class="privSub">局域网 + 云信令无感落盘</text>
+                </view>
+              </view>
+              <view class="privilegeItem">
+                <text class="privItemIcon">🔖</text>
+                <view class="privItemTextCol">
+                  <text class="privMain">个人心愿单漫游</text>
+                  <text class="privSub">随时保存、分享与推送到电脑</text>
+                </view>
+              </view>
+              <view class="privilegeItem">
+                <text class="privItemIcon">🛡️</text>
+                <view class="privItemTextCol">
+                  <text class="privMain">官方 Personal Key</text>
+                  <text class="privSub">安全凭证本地加密存储</text>
+                </view>
+              </view>
+            </view>
+          </view>
+
+          <!-- 底部登出与重新授权操作 -->
+          <view class="authActionsRow">
+            <button class="authSubBtn" @click="handleSwitchApiKey">
+              <text class="authBtnText">更换 API Key</text>
+            </button>
+            <button class="authLogoutBtn" @click="handleLogoutNexus">
+              <text class="authBtnText">退出登录</text>
+            </button>
+          </view>
+        </view>
+
+        <!-- B. 未登录状态授权表单 -->
+        <view class="authLoginForm" v-else>
+          <view class="authIntroBanner">
+            <text class="authIntroTitle">🔑 绑定 NexusMods 官方账户</text>
+            <text class="authIntroDesc">
+              绑定后可开启官方 Personal API 授权通道，体验尊享高速下载、心愿单同步与极速推送安装！
+            </text>
+          </view>
+
+          <!-- API Key 输入框 -->
+          <view class="formItem">
+            <view class="formLabelRow">
+              <text class="formLabel">Personal API Key (个人访问密钥)</text>
+              <text class="pasteQuickLink" @click="handlePasteClipboard">📋 粘贴剪贴板</text>
+            </view>
+            <view class="keyInputBox">
+              <input
+                class="keyInput"
+                type="text"
+                password
+                v-model="apiKeyInput"
+                placeholder="粘贴以 nxm_ 或密钥开头的 API Key..."
+              />
+              <text v-if="apiKeyInput" class="clearKeyBtn" @click="apiKeyInput = ''">✕</text>
+            </view>
+          </view>
+
+          <!-- 登录按钮 -->
+          <button
+            class="authLoginBtn"
+            :disabled="isVerifyingNexusKey || !apiKeyInput.trim()"
+            @click="handleLoginWithApiKey"
+          >
+            <text class="loginBtnText">{{ isVerifyingNexusKey ? '正在向 NexusMods 验证授权...' : '🚀 验证并登录' }}</text>
+          </button>
+
+          <!-- 从电脑端同步快捷入口 -->
+          <button
+            class="syncPcBtn"
+            :disabled="isSyncingFromPc"
+            @click="handleSyncFromDesktop"
+          >
+            <text class="syncPcBtnText">{{ isSyncingFromPc ? '正在从电脑同步...' : '💻 从电脑端 Mayfly 一键同步登录' }}</text>
+          </button>
+
+          <!-- 贴心获取指引卡片 -->
+          <view class="keyGuideCard">
+            <view class="guideHeader">
+              <text class="guideIcon">💡</text>
+              <text class="guideTitle">如何获取免费官方 API Key？</text>
+            </view>
+            <view class="guideSteps">
+              <text class="guideStepText">1. 登录 NexusMods 官网，进入个人账户安全设置；</text>
+              <text class="guideStepText">2. 滑至底部【Personal API Key】，点击【Request Key】生成；</text>
+              <text class="guideStepText">3. 复制生成的密钥并粘贴到上方输入框即可。</text>
+            </view>
+            <button class="copyUrlBtn" @click="handleCopyKeyUrl">
+              <text class="copyUrlBtnText">📋 复制官方 API Key 获取页面链接</text>
+            </button>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -416,7 +565,13 @@ import {
   formatNexusMetric,
   formatNexusDate,
   formatNexusFullDate,
-  parseNexusBbCode
+  parseNexusBbCode,
+  getNexusUser,
+  getNexusApiKey,
+  saveNexusUser,
+  logoutNexus,
+  validateNexusApiKey,
+  syncNexusFromDesktop
 } from '../../services/nexus.js';
 import {
   translateTextToZh,
@@ -506,7 +661,15 @@ export default {
         port: 9876,
         deviceToken: ''
       },
-      testingConnection: false
+      testingConnection: false,
+
+      // NexusMods 官方账户授权状态
+      nexusUser: null,
+      nexusApiKey: '',
+      nexusAuthModalVisible: false,
+      apiKeyInput: '',
+      isVerifyingNexusKey: false,
+      isSyncingFromPc: false
     };
   },
 
@@ -543,7 +706,12 @@ export default {
     }
   },
 
+  onShow() {
+    this.refreshNexusUser();
+  },
+
   async onLoad(options) {
+    this.refreshNexusUser();
     this.desktopConfig = getDesktopConfig();
     this.deviceForm.host = this.desktopConfig.host;
     this.deviceForm.port = this.desktopConfig.port;
@@ -1041,6 +1209,155 @@ export default {
       saveDesktopConfig(this.desktopConfig);
       this.closeDeviceModal();
       uni.showToast({ title: '配对信息已保存', icon: 'success' });
+    },
+
+    // ------------------------------------------------------------------------
+    // NexusMods 官方账户中心与授权方法
+    // ------------------------------------------------------------------------
+
+    refreshNexusUser() {
+      this.nexusUser = getNexusUser();
+      this.nexusApiKey = getNexusApiKey();
+      if (this.nexusApiKey && !this.apiKeyInput) {
+        this.apiKeyInput = this.nexusApiKey;
+      }
+    },
+
+    openNexusAuthModal() {
+      this.refreshNexusUser();
+      this.nexusAuthModalVisible = true;
+    },
+
+    closeNexusAuthModal() {
+      this.nexusAuthModalVisible = false;
+    },
+
+    async handleLoginWithApiKey() {
+      const key = (this.apiKeyInput || '').trim();
+      if (!key) {
+        uni.showToast({
+          title: '请先输入或粘贴 Nexus API Key',
+          icon: 'none'
+        });
+        return;
+      }
+
+      this.isVerifyingNexusKey = true;
+      try {
+        const res = await validateNexusApiKey(key);
+        if (res.success && res.user) {
+          this.refreshNexusUser();
+          uni.showToast({
+            title: `欢迎回来，${res.user.name}！`,
+            icon: 'success',
+            duration: 2500
+          });
+        } else {
+          uni.showModal({
+            title: '授权验证失败',
+            content: res.message || 'API Key 无法通过验证，请确认密钥正确无误。',
+            showCancel: false
+          });
+        }
+      } catch (err) {
+        uni.showToast({
+          title: '网络请求异常，请稍后重试',
+          icon: 'none'
+        });
+      } finally {
+        this.isVerifyingNexusKey = false;
+      }
+    },
+
+    handleLogoutNexus() {
+      uni.showModal({
+        title: '退出登录确认',
+        content: '退出后将清除本地存储的 Nexus API Key 与登录特权，是否确认退出？',
+        confirmText: '退出',
+        cancelText: '取消',
+        confirmColor: '#ef4444',
+        success: (res) => {
+          if (res.confirm) {
+            logoutNexus();
+            this.refreshNexusUser();
+            this.apiKeyInput = '';
+            uni.showToast({
+              title: '已安全退出 Nexus 账户',
+              icon: 'none'
+            });
+          }
+        }
+      });
+    },
+
+    handleSwitchApiKey() {
+      this.nexusUser = null;
+    },
+
+    handleCopyKeyUrl() {
+      uni.setClipboardData({
+        data: 'https://www.nexusmods.com/users/myaccount?tab=api+access',
+        success: () => {
+          uni.showToast({
+            title: '链接已复制，请在浏览器中打开并生成密钥',
+            icon: 'none',
+            duration: 3000
+          });
+        }
+      });
+    },
+
+    handlePasteClipboard() {
+      uni.getClipboardData({
+        success: (res) => {
+          if (res.data) {
+            this.apiKeyInput = String(res.data).trim();
+            uni.showToast({
+              title: '已粘贴剪贴板内容',
+              icon: 'none'
+            });
+          } else {
+            uni.showToast({
+              title: '剪贴板为空',
+              icon: 'none'
+            });
+          }
+        },
+        fail: () => {
+          uni.showToast({
+            title: '获取剪贴板失败，请手动长按输入框粘贴',
+            icon: 'none'
+          });
+        }
+      });
+    },
+
+    async handleSyncFromDesktop() {
+      this.isSyncingFromPc = true;
+      try {
+        const res = await syncNexusFromDesktop(this.desktopConfig);
+        if (res.success && res.user) {
+          this.refreshNexusUser();
+          uni.showToast({
+            title: `已成功同步：${res.user.name}`,
+            icon: 'success',
+            duration: 2500
+          });
+        } else {
+          uni.showModal({
+            title: '同步失败',
+            content: res.message || '电脑端未响应或未配置 Nexus 账号。',
+            showCancel: false
+          });
+        }
+      } catch (err) {
+        uni.showToast({
+          title: '同步异常',
+          icon: 'none'
+        });
+      } finally {
+        this.isSyncingFromPc = false;
+      }
     }
   }
 };
@@ -1120,8 +1437,34 @@ export default {
   gap: 12rpx;
 }
 
+.pcBtn,
 .userBtn {
   position: relative;
+}
+
+.headerAvatarImg {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 50%;
+  border: 2rpx solid #da6b17;
+}
+
+.headerPremiumBadge {
+  position: absolute;
+  top: -4rpx;
+  right: -4rpx;
+  font-size: 20rpx;
+}
+
+.authNoticeDot {
+  position: absolute;
+  top: 14rpx;
+  right: 14rpx;
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background-color: #da6b17;
+  border: 2rpx solid #161616;
 }
 
 .onlineDot {
@@ -1949,5 +2292,386 @@ export default {
 .saveBtn {
   background-color: #da6b17;
   color: #ffffff;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 8：NexusMods 账户与授权弹窗样式 */
+/* ---------------------------------------------------------------------------- */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.nexusAuthModalContent {
+  width: 92%;
+  max-width: 680rpx;
+  background: #17191d;
+  border: 1rpx solid #2f3440;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  box-sizing: border-box;
+  box-shadow: 0 16rpx 48rpx rgba(0, 0, 0, 0.85);
+}
+
+.authModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #262933;
+}
+
+.authModalTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.nexusAuthBrandIcon {
+  font-size: 32rpx;
+  color: #da6b17;
+  font-weight: 900;
+}
+
+.modalCloseBtn {
+  font-size: 30rpx;
+  color: #9ca3af;
+  padding: 6rpx;
+  cursor: pointer;
+}
+
+/* 已登录视图 */
+.authLoggedView {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.loggedProfileHeader {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  background: #1f232b;
+  border: 1rpx solid #333947;
+  border-radius: 16rpx;
+  padding: 20rpx;
+}
+
+.largeAvatarBox {
+  position: relative;
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 50%;
+  background: #2b2f3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.largeAvatarImg {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.largeAvatarGlyph {
+  font-size: 52rpx;
+}
+
+.crownCornerBadge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  font-size: 26rpx;
+}
+
+.largeProfileInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  overflow: hidden;
+}
+
+.largeNameRow {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.largeUserName {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.vipTag {
+  font-size: 18rpx;
+  font-weight: 800;
+  padding: 4rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.vipTag.premium {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.18);
+  border: 1rpx solid rgba(251, 191, 36, 0.4);
+}
+
+.vipTag.supporter {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.18);
+}
+
+.vipTag.standard {
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.userUidText,
+.userEmailText {
+  font-size: 20rpx;
+  color: #9ca3af;
+}
+
+.privilegesBox {
+  background: #1a1c22;
+  border: 1rpx solid #282c38;
+  border-radius: 16rpx;
+  padding: 20rpx;
+}
+
+.privilegeTitle {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #e5e7eb;
+  margin-bottom: 16rpx;
+  display: block;
+}
+
+.privilegeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+}
+
+.privilegeItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+
+.privItemIcon {
+  font-size: 28rpx;
+  margin-top: 2rpx;
+}
+
+.privItemTextCol {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+}
+
+.privMain {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.privSub {
+  font-size: 18rpx;
+  color: #9ca3af;
+  line-height: 1.3;
+}
+
+.authActionsRow {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 10rpx;
+}
+
+.authSubBtn {
+  flex: 1;
+  background: #252933;
+  border: 1rpx solid #373d4d;
+  color: #ffffff;
+  border-radius: 12rpx;
+  padding: 16rpx 0;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.authLogoutBtn {
+  flex: 1;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1rpx solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  border-radius: 12rpx;
+  padding: 16rpx 0;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+/* 未登录授权表单 */
+.authLoginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.authIntroBanner {
+  background: linear-gradient(135deg, #242833 0%, #1c1e24 100%);
+  border: 1rpx solid #353b4b;
+  border-radius: 14rpx;
+  padding: 18rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.authIntroTitle {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #da6b17;
+}
+
+.authIntroDesc {
+  font-size: 20rpx;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+.formLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10rpx;
+}
+
+.pasteQuickLink {
+  font-size: 20rpx;
+  color: #da6b17;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.keyInputBox {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.keyInput {
+  flex: 1;
+  background: #1f232b;
+  border: 1rpx solid #363c4a;
+  border-radius: 12rpx;
+  padding: 16rpx 60rpx 16rpx 20rpx;
+  font-size: 24rpx;
+  color: #ffffff;
+}
+
+.clearKeyBtn {
+  position: absolute;
+  right: 18rpx;
+  font-size: 24rpx;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 6rpx;
+}
+
+.authLoginBtn {
+  background: #da6b17;
+  color: #ffffff;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  padding: 18rpx 0;
+  margin-top: 6rpx;
+  border: none;
+}
+
+.authLoginBtn[disabled] {
+  opacity: 0.5;
+}
+
+.syncPcBtn {
+  background: #252a35;
+  border: 1rpx solid #3a4152;
+  color: #e5e7eb;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  padding: 16rpx 0;
+  margin: 0;
+}
+
+.syncPcBtnText {
+  color: #e5e7eb;
+}
+
+.keyGuideCard {
+  background: #191c22;
+  border: 1rpx dashed #303542;
+  border-radius: 14rpx;
+  padding: 16rpx;
+  margin-top: 6rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.guideHeader {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.guideIcon {
+  font-size: 24rpx;
+}
+
+.guideTitle {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #e5e7eb;
+}
+
+.guideSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.guideStepText {
+  font-size: 20rpx;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+.copyUrlBtn {
+  background: rgba(218, 107, 23, 0.12);
+  border: 1rpx solid rgba(218, 107, 23, 0.35);
+  color: #da6b17;
+  border-radius: 8rpx;
+  padding: 10rpx 0;
+  font-size: 20rpx;
+  font-weight: 700;
+  margin-top: 4rpx;
+}
+
+.copyUrlBtnText {
+  color: #da6b17;
 }
 </style>
