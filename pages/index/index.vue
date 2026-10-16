@@ -111,14 +111,33 @@
     <!-- 区域 2B：Mods 视角 (100% 对标用户截图 2 的模组流风格，动态拉取) -->
     <!-- ==================================================================== -->
     <view class="modsContainer" v-else>
-      <!-- 当前选中游戏横幅栏 (支持一键返回全部游戏) -->
-      <view class="activeGameNavRow">
-        <view class="backGamesBtn" @click="clearGameFilterAndBack">
-          <text class="backArrowIcon">←</text>
-          <text class="backGamesText">全部游戏</text>
+      <!-- 当前选中游戏横幅栏 (100% 对标图 2 风格，直观清晰呈现当前游戏与取消按钮) -->
+      <view class="activeGameNavRow" v-if="selectedGameDomain">
+        <view class="activeGameLeftBox">
+          <image
+            class="activeGameMiniThumb"
+            :src="activeGameTileUrl || '/static/logo.png'"
+            mode="aspectFill"
+          />
+          <view class="activeGameTitleWrap">
+            <text class="activeGameTitleText">{{ activeGameDisplayName }}</text>
+            <text class="activeGameOriginalText" v-if="activeGameOriginalName && activeGameOriginalName !== activeGameDisplayName">
+              {{ activeGameOriginalName }}
+            </text>
+          </view>
         </view>
-        <view class="activeGameInfoBox">
-          <text class="activeGameTitleText">{{ selectedGameDomain ? `🎮 ${activeGameDisplayName}` : '🌐 全网模组流' }}</text>
+        <view class="clearGamePillBtn" @click="clearGameFilterAndBack">
+          <text class="clearGamePillIcon">✕</text>
+          <text class="clearGamePillText">全部游戏</text>
+        </view>
+      </view>
+      <view class="activeGameNavRow globalRow" v-else>
+        <view class="activeGameLeftBox">
+          <text class="globalModeIcon">🌐</text>
+          <text class="activeGameTitleText">全网热门模组流</text>
+        </view>
+        <view class="pickGamePillBtn" @click="switchView('games')">
+          <text class="pickGamePillText">选择专区 ›</text>
         </view>
       </view>
 
@@ -218,13 +237,31 @@
         </picker>
       </view>
 
-      <!-- 心愿单模式批量操作工具条 -->
-      <view class="favBatchBar" v-if="currentSort === 'favorites' && favoritesList.length > 0">
-        <view class="favSummaryText">
-          <text class="favCountNum">❤️ 已收藏 {{ favoritesList.length }} 个模组</text>
-          <text class="favTipText">一键将心愿单全部推送到电脑</text>
+      <!-- 心愿单模式批量操作工具条 (支持按当前选中游戏过滤，杜绝跨游戏乱跑) -->
+      <view class="favBatchBar" v-if="currentSort === 'favorites'">
+        <!-- 范围切换胶囊 (当选定了具体游戏时展示) -->
+        <view class="favScopeRow" v-if="selectedGameDomain">
+          <view
+            class="favScopePill"
+            :class="{ active: favoritesScope === 'current' }"
+            @click="favoritesScope = 'current'"
+          >
+            <text class="favScopeText">🎮 {{ activeGameDisplayName }} ({{ currentGameFavoritesList.length }})</text>
+          </view>
+          <view
+            class="favScopePill"
+            :class="{ active: favoritesScope === 'all' }"
+            @click="favoritesScope = 'all'"
+          >
+            <text class="favScopeText">🌐 全部游戏 ({{ favoritesList.length }})</text>
+          </view>
         </view>
-        <view class="favBatchActions">
+
+        <view class="favSummaryText">
+          <text class="favCountNum">❤️ 已收藏 {{ filteredFavoritesList.length }} 个模组</text>
+          <text class="favTipText">{{ selectedGameDomain && favoritesScope === 'current' ? `当前仅展示 ${activeGameDisplayName} 模组` : '展示全游戏综合心愿单' }}</text>
+        </view>
+        <view class="favBatchActions" v-if="filteredFavoritesList.length > 0">
           <button class="favExportBtn" @click="exportFavoritesList">
             <text class="favExportBtnText">📋 导出</text>
           </button>
@@ -234,7 +271,7 @@
             @click="batchPushFavorites"
           >
             <text class="favBatchBtnText">
-              {{ isBatchPushing ? '投递中...' : `🚀 全部推送 (${favoritesList.length})` }}
+              {{ isBatchPushing ? '投递中...' : `🚀 批量推送 (${filteredFavoritesList.length})` }}
             </text>
           </button>
         </view>
@@ -334,19 +371,106 @@
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 4：侧边滑出抽屉导航 (点击顶部 ☰ 触发) -->
+    <!-- 区域 4：侧边滑出抽屉导航 (100% 对标用户参考图 2 Nexus 官方结构) -->
     <!-- ==================================================================== -->
     <view class="drawerMask" v-if="drawerVisible" @click="closeDrawer">
       <view class="drawerBody" @click.stop>
+        <!-- 抽屉顶部标准顶栏 (❖ 橙标 + ✕ 关闭) -->
         <view class="drawerHeaderRow">
           <view class="drawerBrandBox">
             <text class="drawerLogo">❖</text>
-            <text class="drawerBrandTitle">Mayfly Nexus 伴侣</text>
+            <text class="drawerBrandTitle">Mayfly Nexus</text>
           </view>
           <view class="drawerCloseBtn" @click="closeDrawer">✕</view>
         </view>
 
-        <!-- 电脑端连接卡片 -->
+        <!-- 100% 对标图 2：当前选中的游戏卡片 (Active Game Badge Card) -->
+        <view class="drawerActiveGameCard" v-if="selectedGameDomain">
+          <image
+            class="activeGameThumb"
+            :src="activeGameTileUrl || '/static/logo.png'"
+            mode="aspectFill"
+          />
+          <view class="activeGameMetaBox" @click="switchView('mods'); closeDrawer()">
+            <text class="activeGameNameText">{{ activeGameOriginalName || activeGameDisplayName }}</text>
+            <text class="activeGameZhSubText" v-if="activeGameDisplayName && activeGameDisplayName !== activeGameOriginalName">
+              {{ activeGameDisplayName }}
+            </text>
+          </view>
+          <view class="clearActiveGameBtn" @click.stop="clearGameFilterAndBack">
+            <text class="clearActiveGameIcon">✕</text>
+          </view>
+        </view>
+
+        <!-- 未选择游戏时的全网状态卡片 -->
+        <view class="drawerNoGameCard" v-else @click="switchView('games'); closeDrawer()">
+          <view class="noGameIconBox">
+            <text class="noGameGlyph">🌐</text>
+          </view>
+          <view class="noGameMetaBox">
+            <text class="noGameMainText">全网模组模式</text>
+            <text class="noGameSubText">点击进入热门游戏专区选择</text>
+          </view>
+          <text class="drawerNavArrow">›</text>
+        </view>
+
+        <!-- 100% 对标图 2：极简导航功能列表 (带右侧优雅 › 箭头) -->
+        <view class="drawerNavList">
+          <view class="drawerNavItem" @click="switchView('games'); closeDrawer()">
+            <view class="navItemLeft">
+              <text class="itemIcon">🎮</text>
+              <text class="itemText">Games 热门游戏专区</text>
+            </view>
+            <text class="drawerNavArrow">›</text>
+          </view>
+
+          <view class="drawerNavItem" @click="switchView('mods'); closeDrawer()">
+            <view class="navItemLeft">
+              <text class="itemIcon">◆</text>
+              <text class="itemText">Mods 模组流水线</text>
+            </view>
+            <view class="navItemRight">
+              <text class="currentTag" v-if="selectedGameDomain">{{ activeGameDisplayName }}</text>
+              <text class="drawerNavArrow">›</text>
+            </view>
+          </view>
+
+          <view class="drawerNavItem" @click="changeSort('favorites'); switchView('mods'); closeDrawer()">
+            <view class="navItemLeft">
+              <text class="itemIcon">❤️</text>
+              <text class="itemText">Wishlist 装机心愿单</text>
+            </view>
+            <view class="navItemRight">
+              <text class="itemBadge" v-if="favoritesCount > 0">{{ favoritesCount }}</text>
+              <text class="drawerNavArrow">›</text>
+            </view>
+          </view>
+
+          <view class="drawerNavItem" @click="openHistoryModal">
+            <view class="navItemLeft">
+              <text class="itemIcon">📋</text>
+              <text class="itemText">History 推送任务清单</text>
+            </view>
+            <view class="navItemRight">
+              <text class="itemBadge" v-if="historyList.length > 0">{{ historyList.length }}</text>
+              <text class="drawerNavArrow">›</text>
+            </view>
+          </view>
+
+          <view class="drawerNavItem" @click="toggleAutoTranslate">
+            <view class="navItemLeft">
+              <text class="itemIcon">🌐</text>
+              <text class="itemText">AI 智能双语图鉴</text>
+            </view>
+            <view class="navItemRight">
+              <text class="itemSwitchTag" :class="{ on: enableAutoTranslate }">
+                {{ enableAutoTranslate ? '已开启' : '原英文' }}
+              </text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 电脑端连接卡片 (保留配对与测试) -->
         <view class="drawerPcCard">
           <view class="pcCardTop">
             <text class="pcCardTitle">💻 电脑端连接状态</text>
@@ -362,35 +486,6 @@
             <button class="pcActionBtn" @click="runQuickTest">
               <text class="btnText">📶 测试连接</text>
             </button>
-          </view>
-        </view>
-
-        <!-- 导航功能列表 -->
-        <view class="drawerNavList">
-          <view class="drawerNavItem" @click="switchView('mods'); closeDrawer()">
-            <text class="itemIcon">🔷</text>
-            <text class="itemText">全网模组发现 (Mods)</text>
-          </view>
-          <view class="drawerNavItem" @click="switchView('games'); closeDrawer()">
-            <text class="itemIcon">🎮</text>
-            <text class="itemText">热门游戏专区 (Games)</text>
-          </view>
-          <view class="drawerNavItem" @click="changeSort('favorites'); switchView('mods'); closeDrawer()">
-            <text class="itemIcon">❤️</text>
-            <text class="itemText">装机心愿单 (Wishlist)</text>
-            <text class="itemBadge" v-if="favoritesCount > 0">{{ favoritesCount }}</text>
-          </view>
-          <view class="drawerNavItem" @click="openHistoryModal">
-            <text class="itemIcon">🚀</text>
-            <text class="itemText">推送历史任务</text>
-            <text class="itemBadge" v-if="historyList.length > 0">{{ historyList.length }}</text>
-          </view>
-          <view class="drawerNavItem" @click="toggleAutoTranslate">
-            <text class="itemIcon">🌐</text>
-            <text class="itemText">AI 智能双语图鉴</text>
-            <text class="itemSwitchTag" :class="{ on: enableAutoTranslate }">
-              {{ enableAutoTranslate ? '已开启' : '原英文' }}
-            </text>
           </view>
         </view>
 
@@ -543,6 +638,11 @@ export default {
       gamesLoading: false,
       selectedGameDomain: '',
       selectedGameName: '',
+      selectedGameZhName: '',
+      selectedGameTileUrl: '',
+
+      // 心愿单展示范围: 'current' (仅当前选中游戏) | 'all' (全部游戏)
+      favoritesScope: 'current',
 
       // 动态模组列表状态 (100% 动态，来自 Nexus 官方 GraphQL)
       modList: [],
@@ -607,19 +707,74 @@ export default {
 
   computed: {
     /**
-     * 实际渲染展示的 Mod 列表 (心愿单模式切为本地收藏列表)
+     * 当前选中的游戏封面图
      */
-    displayModList() {
-      if (this.currentSort === 'favorites') {
+    activeGameTileUrl() {
+      if (this.selectedGameTileUrl) return this.selectedGameTileUrl;
+      const match = this.gamesList.find((g) => g.domain === this.selectedGameDomain);
+      if (match && match.tileUrl) return match.tileUrl;
+      return '';
+    },
+
+    /**
+     * 当前选中的游戏英文原名
+     */
+    activeGameOriginalName() {
+      if (!this.selectedGameDomain) return '';
+      if (this.selectedGameName) return this.selectedGameName;
+      const match = this.gamesList.find((g) => g.domain === this.selectedGameDomain);
+      return match ? match.name : this.selectedGameDomain;
+    },
+
+    /**
+     * 当前选中的游戏展示名称 (优先中文)
+     */
+    activeGameDisplayName() {
+      if (!this.selectedGameDomain) return '';
+      if (this.selectedGameZhName) return this.selectedGameZhName;
+      const match = this.gamesList.find((g) => g.domain === this.selectedGameDomain);
+      if (match) {
+        return this.getGameDisplayTitle(match);
+      }
+      return this.selectedGameName || this.selectedGameDomain;
+    },
+
+    /**
+     * 属于当前选中游戏的心愿单列表 (按游戏精准归集，杜绝跨游戏乱跑)
+     */
+    currentGameFavoritesList() {
+      if (!this.selectedGameDomain) return this.favoritesList;
+      const currentDomain = String(this.selectedGameDomain).toLowerCase().replace(/[^a-z0-9]/g, '');
+      const currentName = String(this.selectedGameName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      return this.favoritesList.filter((item) => {
+        const itemDomain = String(item.game?.domainName || item.gameDomain || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const itemName = String(item.game?.name || item.gameName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return (
+          itemDomain === currentDomain ||
+          (itemDomain && currentDomain && (itemDomain.includes(currentDomain) || currentDomain.includes(itemDomain))) ||
+          (itemName && currentName && (itemName.includes(currentName) || currentName.includes(itemName)))
+        );
+      });
+    },
+
+    /**
+     * 根据当前选择范围过滤后的心愿单列表
+     */
+    filteredFavoritesList() {
+      if (!this.selectedGameDomain || this.favoritesScope === 'all') {
         return this.favoritesList;
       }
-      return this.modList;
+      return this.currentGameFavoritesList;
     },
 
     /**
      * 收藏总数
      */
     favoritesCount() {
+      if (this.selectedGameDomain && this.favoritesScope === 'current') {
+        return this.currentGameFavoritesList.length;
+      }
       return this.favoritesList.length;
     },
 
@@ -628,19 +783,9 @@ export default {
      */
     streamModList() {
       if (this.currentSort === 'favorites') {
-        return this.favoritesList;
+        return this.filteredFavoritesList;
       }
       return this.modList;
-    },
-
-    /**
-     * 当前选中的游戏展示名称
-     */
-    activeGameDisplayName() {
-      if (!this.selectedGameDomain) return '';
-      if (this.selectedGameName) return this.selectedGameName;
-      const match = this.gamesList.find((g) => g.domain === this.selectedGameDomain);
-      return match ? match.name : this.selectedGameDomain;
     }
   },
 
@@ -648,6 +793,19 @@ export default {
     this.initDesktopConfig();
     this.refreshHistory();
     this.refreshFavorites();
+
+    // 恢复上次激活的游戏状态与视图，防止刷新后上下文丢失
+    try {
+      const savedGame = uni.getStorageSync('mayfly_active_game');
+      if (savedGame && savedGame.domain) {
+        this.selectedGameDomain = savedGame.domain;
+        this.selectedGameName = savedGame.name || '';
+        this.selectedGameZhName = savedGame.zhName || '';
+        this.selectedGameTileUrl = savedGame.tileUrl || '';
+        this.currentView = 'mods';
+      }
+    } catch (e) {}
+
     // 首次进入动态加载游戏列表与模组列表
     this.loadGames();
     this.loadMods();
@@ -720,14 +878,27 @@ export default {
     },
 
     /**
-     * 从 Games 视角选中某游戏并进入 Mods 列表筛选
+     * 从 Games 视角选中某游戏并进入 Mods 列表筛选 (并持久化当前激活游戏)
      */
     selectGameAndJumpMods(game) {
       if (!game) return;
       this.selectedGameDomain = game.domain;
       this.selectedGameName = game.name;
+      this.selectedGameZhName = game.zhName || game.shortZhName || game.name;
+      this.selectedGameTileUrl = game.tileUrl || '';
       this.selectedCategory = '';
       this.currentView = 'mods';
+      this.favoritesScope = 'current';
+
+      try {
+        uni.setStorageSync('mayfly_active_game', {
+          domain: game.domain,
+          name: game.name,
+          zhName: this.selectedGameZhName,
+          tileUrl: this.selectedGameTileUrl
+        });
+      } catch (e) {}
+
       this.resetAndLoad();
     },
 
@@ -737,8 +908,16 @@ export default {
     clearGameFilterAndBack() {
       this.selectedGameDomain = '';
       this.selectedGameName = '';
+      this.selectedGameZhName = '';
+      this.selectedGameTileUrl = '';
       this.selectedCategory = '';
       this.currentView = 'games';
+      this.favoritesScope = 'all';
+
+      try {
+        uni.removeStorageSync('mayfly_active_game');
+      } catch (e) {}
+
       if (this.gamesList.length === 0) {
         this.loadGames();
       }
@@ -943,6 +1122,12 @@ export default {
 
     toggleCardFavorite(item) {
       if (!item || !item.id) return;
+      // 补齐游戏元数据，杜绝无归属模组导致跨游戏乱跑
+      if ((!item.game || !item.game.domainName) && this.selectedGameDomain) {
+        item.game = item.game || {};
+        item.game.domainName = this.selectedGameDomain;
+        item.game.name = this.selectedGameName || this.selectedGameDomain;
+      }
       const nextStatus = toggleFavorite(item);
       this.refreshFavorites();
       uni.showToast({
@@ -952,8 +1137,9 @@ export default {
     },
 
     exportFavoritesList() {
-      if (this.favoritesList.length === 0) return;
-      const text = formatFavoritesShareText(this.favoritesList);
+      const list = this.filteredFavoritesList;
+      if (list.length === 0) return;
+      const text = formatFavoritesShareText(list);
       uni.setClipboardData({
         data: text,
         success: () => {
@@ -966,10 +1152,11 @@ export default {
     },
 
     async batchPushFavorites() {
-      if (this.isBatchPushing || this.favoritesList.length === 0) return;
+      const targetList = this.filteredFavoritesList;
+      if (this.isBatchPushing || targetList.length === 0) return;
       this.isBatchPushing = true;
       let okCount = 0;
-      for (const mod of this.favoritesList) {
+      for (const mod of targetList) {
         try {
           const res = await pushModToDesktop(mod, this.desktopConfig);
           if (res.success) {
@@ -983,7 +1170,7 @@ export default {
       this.isBatchPushing = false;
       uni.showModal({
         title: '批量推送完成',
-        content: `成功投递 ${okCount} / ${this.favoritesList.length} 个模组到电脑端 Mayfly。`,
+        content: `成功投递 ${okCount} / ${targetList.length} 个模组到电脑端 Mayfly。`,
         showCancel: false
       });
       this.refreshHistory();
@@ -1764,38 +1951,91 @@ export default {
   margin-bottom: 20rpx;
   background-color: #191c22;
   border: 1rpx solid #282d38;
-  border-radius: 10rpx;
-  padding: 14rpx 20rpx;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
 }
 
-.backGamesBtn {
+.activeGameLeftBox {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex: 1;
+  overflow: hidden;
+}
+
+.activeGameMiniThumb {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 8rpx;
+  background-color: #2a2e38;
+  flex-shrink: 0;
+}
+
+.activeGameTitleWrap {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.activeGameTitleText {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activeGameOriginalText {
+  font-size: 20rpx;
+  color: #9ca3af;
+  margin-top: 2rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clearGamePillBtn {
   display: flex;
   align-items: center;
   gap: 8rpx;
+  background-color: rgba(218, 107, 23, 0.15);
+  border: 1rpx solid rgba(218, 107, 23, 0.4);
+  border-radius: 20rpx;
+  padding: 8rpx 18rpx;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
-.backArrowIcon {
-  font-size: 28rpx;
+.clearGamePillIcon {
+  font-size: 22rpx;
   color: #da6b17;
   font-weight: 800;
 }
 
-.backGamesText {
-  font-size: 24rpx;
+.clearGamePillText {
+  font-size: 22rpx;
   color: #da6b17;
   font-weight: 700;
 }
 
-.activeGameInfoBox {
-  display: flex;
-  align-items: center;
+.globalModeIcon {
+  font-size: 32rpx;
+  margin-right: 4rpx;
 }
 
-.activeGameTitleText {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #ffffff;
+.pickGamePillBtn {
+  background-color: #242832;
+  border: 1rpx solid #373b43;
+  border-radius: 20rpx;
+  padding: 8rpx 18rpx;
+  cursor: pointer;
+}
+
+.pickGamePillText {
+  font-size: 22rpx;
+  color: #9ca3af;
+  font-weight: 600;
 }
 
 /* N网官方实时动态分类胶囊栏 */
@@ -1952,16 +2192,54 @@ export default {
   color: #9ca3af;
 }
 
-/* 心愿单工具条 */
+/* 心愿单工具条 (支持按游戏切换过滤) */
 .favBatchBar {
   background: #1f2125;
   border: 1rpx solid #da6b17;
   border-radius: 12rpx;
-  padding: 18rpx 20rpx;
+  padding: 20rpx;
   margin-bottom: 24rpx;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.favScopeRow {
+  display: flex;
   align-items: center;
+  gap: 14rpx;
+  border-bottom: 1rpx dashed #353a46;
+  padding-bottom: 16rpx;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.favScopePill {
+  display: flex;
+  align-items: center;
+  background-color: #2a2e38;
+  border: 1rpx solid #3c4250;
+  border-radius: 20rpx;
+  padding: 8rpx 20rpx;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.favScopePill.active {
+  background-color: #da6b17;
+  border-color: #da6b17;
+}
+
+.favScopeText {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #d1d5db;
+}
+
+.favScopePill.active .favScopeText {
+  color: #ffffff;
+  font-weight: 700;
 }
 
 .favSummaryText {
@@ -2325,12 +2603,125 @@ export default {
   cursor: pointer;
 }
 
+/* 100% 对标图 2：当前选中游戏卡片 */
+.drawerActiveGameCard {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background-color: #20232a;
+  border: 1rpx solid #323744;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  margin-top: 24rpx;
+  margin-bottom: 10rpx;
+}
+
+.activeGameThumb {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 8rpx;
+  background-color: #111215;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.activeGameMetaBox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.activeGameNameText {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activeGameZhSubText {
+  font-size: 20rpx;
+  color: #da6b17;
+  margin-top: 4rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clearActiveGameBtn {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.clearActiveGameIcon {
+  font-size: 22rpx;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+/* 未选游戏时的全网状态卡片 */
+.drawerNoGameCard {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background-color: #1a1d24;
+  border: 1rpx dashed #323744;
+  border-radius: 12rpx;
+  padding: 16rpx;
+  margin-top: 24rpx;
+  margin-bottom: 10rpx;
+  cursor: pointer;
+}
+
+.noGameIconBox {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 8rpx;
+  background-color: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.noGameGlyph {
+  font-size: 36rpx;
+}
+
+.noGameMetaBox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.noGameMainText {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.noGameSubText {
+  font-size: 20rpx;
+  color: #9ca3af;
+  margin-top: 4rpx;
+}
+
 .drawerPcCard {
   background-color: #121316;
   border: 1rpx solid #2c2f38;
   border-radius: 12rpx;
   padding: 20rpx;
-  margin: 24rpx 0;
+  margin: 20rpx 0;
 }
 
 .pcCardTop {
@@ -2405,11 +2796,24 @@ export default {
 .drawerNavItem {
   display: flex;
   align-items: center;
-  padding: 20rpx 16rpx;
+  justify-content: space-between;
+  padding: 22rpx 20rpx;
   border-radius: 10rpx;
   background-color: #1e2127;
-  gap: 16rpx;
   cursor: pointer;
+}
+
+.navItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  flex: 1;
+}
+
+.navItemRight {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
 }
 
 .drawerNavItem .itemIcon {
@@ -2417,10 +2821,27 @@ export default {
 }
 
 .drawerNavItem .itemText {
-  flex: 1;
   font-size: 24rpx;
   font-weight: 600;
   color: #e5e7eb;
+}
+
+.drawerNavArrow {
+  font-size: 28rpx;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.currentTag {
+  font-size: 18rpx;
+  background-color: rgba(218, 107, 23, 0.2);
+  color: #da6b17;
+  border-radius: 6rpx;
+  padding: 2rpx 8rpx;
+  max-width: 140rpx;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .drawerNavItem .itemBadge {

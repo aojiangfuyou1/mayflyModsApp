@@ -830,6 +830,16 @@ export default {
      * 切换心愿单收藏
      */
     handleToggleFavorite() {
+      if (!this.modInfo.game || !this.modInfo.game.domainName) {
+        try {
+          const savedGame = uni.getStorageSync('mayfly_active_game');
+          if (savedGame && savedGame.domain) {
+            this.modInfo.game = this.modInfo.game || {};
+            this.modInfo.game.domainName = this.modInfo.game.domainName || savedGame.domain;
+            this.modInfo.game.name = this.modInfo.game.name || savedGame.name;
+          }
+        } catch (e) {}
+      }
       const status = toggleFavorite(this.modInfo);
       this.favorited = status;
       uni.showToast({
