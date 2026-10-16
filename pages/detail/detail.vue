@@ -508,6 +508,16 @@ export default {
 
   computed: {
     /**
+     * 当前板块选项名称 (支持中英文切换)
+     */
+    currentSectionOptions() {
+      if (this.isChineseMode) {
+        return ['详细说明 (Description)', '物理文件 (Files)', '前置体检 (Requirements)'];
+      }
+      return ['Description', 'Files', 'Requirements'];
+    },
+
+    /**
      * 显示的模组标签列表 (动态解析)
      */
     displayTags() {
