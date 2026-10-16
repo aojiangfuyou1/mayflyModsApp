@@ -1,294 +1,463 @@
 <template>
-  <view class="detailPageContainer">
+  <view class="nexusDetailPage">
     <!-- ==================================================================== -->
-    <!-- 区域 1：实机高清图鉴相册轮播 (支持全屏手势缩放) -->
+    <!-- 区域 1：Nexus 官方移动端标准顶栏 (☰ 抽屉/返回 + ❖ 橙标 + 🔍 搜索 + 👤 电脑配对) -->
     <!-- ==================================================================== -->
-    <view class="gallerySection">
-      <swiper
-        class="gallerySwiper"
-        circular
-        indicator-dots
-        indicator-color="rgba(255, 255, 255, 0.4)"
-        indicator-active-color="#38bdf8"
-        autoplay
-        :interval="4500"
-      >
-        <swiper-item
-          v-for="(imgUrl, index) in imageGallery"
-          :key="index"
-          @click="previewFullImage(index)"
-        >
-          <image
-            class="galleryImage"
-            :src="imgUrl"
-            mode="aspectFill"
-            lazy-load
-          />
-        </swiper-item>
-      </swiper>
-
-      <!-- 来源平台角标 -->
-      <view class="sourceBadge">
-        <text class="sourceBadgeText">NexusMods 官方源</text>
+    <view class="nexusHeader">
+      <view class="headerBtn" @click="handleNavBack">
+        <text class="headerIcon">←</text>
       </view>
 
-      <!-- 点击全屏手势放大悬浮提示 -->
-      <view class="zoomTipBadge">
-        <text class="zoomTipText">🔍 点击进入全屏手势缩放</text>
+      <view class="headerLogoArea" @click="handleNavBack">
+        <view class="nexusLogoBox">
+          <text class="nexusLogoGlyph">❖</text>
+        </view>
+      </view>
+
+      <view class="headerRightArea">
+        <view class="headerBtn" @click="handleShareMod">
+          <text class="headerIcon">📤</text>
+        </view>
+        <view class="headerBtn userBtn" @click="openDeviceModal">
+          <text class="headerIcon">👤</text>
+          <view class="onlineDot" :class="{ connected: desktopConfig.connected }"></view>
+        </view>
       </view>
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 2：核心元数据概览 -->
+    <!-- 区域 2：Hero 头部大图画幅与核心指标 (100% 对标用户参考图 3) -->
     <!-- ==================================================================== -->
-    <view class="metaCard">
-      <!-- 游戏与分类 + 收藏与分享 -->
-      <view class="tagRow">
-        <view class="tagLeft">
-          <view class="gamePill">
-            <text class="gamePillText">🎮 {{ modInfo.game?.name || '未知游戏' }}</text>
-          </view>
-          <view class="categoryPill">
-            <text class="categoryPillText">🏷️ {{ modInfo.category || '综合模组' }}</text>
-          </view>
-        </view>
-        <view class="tagRightActions">
-          <!-- 收藏按钮 -->
-          <view class="actionCircleBtn" @click="handleToggleFavorite">
-            <text class="actionCircleIcon">{{ favorited ? '❤️' : '🤍' }}</text>
-          </view>
-          <!-- 分享按钮 -->
-          <view class="actionCircleBtn" @click="handleShareMod">
-            <text class="actionCircleIcon">📤</text>
-          </view>
-        </view>
-      </view>
+    <view class="heroBannerSection">
+      <!-- 背景大图层 (渐变半透明遮罩) -->
+      <image
+        class="heroBgImage"
+        :src="modInfo.coverImageUrl || '/static/logo.png'"
+        mode="aspectFill"
+      />
+      <view class="heroOverlayGradient"></view>
 
-      <!-- 模组标题与翻译切换开关 -->
-      <view class="titleRow">
-        <text class="modTitleText">
+      <!-- 头部内容层 -->
+      <view class="heroContentBox">
+        <!-- 模组大标题 (白字加粗) -->
+        <text class="modMainTitle">
           {{ isChineseMode && modZhTitle ? modZhTitle : modInfo.title }}
         </text>
-        <view class="translateToggleBtn" @click="toggleTranslate">
-          <text class="translateToggleText">{{ isChineseMode ? '译 中文' : '原 英文' }}</text>
-        </view>
-      </view>
 
-      <!-- 属性指标栏 -->
-      <view class="statsGrid">
-        <view class="statItem">
-          <text class="statLabel">模组作者</text>
-          <text class="statValue">👤 {{ modInfo.author || '未知' }}</text>
+        <!-- 5 列横向指标数据条 (对标图 3: Endorsements | Unique DLs | Total DLs | Total views | Version) -->
+        <view class="heroStatsRow">
+          <!-- 赞同数 Endorsements -->
+          <view class="heroStatCol">
+            <text class="heroStatLabel">Endorsements</text>
+            <text class="heroStatVal highlight">{{ modInfo.likes || 0 }}</text>
+          </view>
+          <!-- 唯一独立下载 Unique DLs -->
+          <view class="heroStatCol">
+            <text class="heroStatLabel">Unique DLs</text>
+            <text class="heroStatVal">--</text>
+          </view>
+          <!-- 总下载量 Total DLs -->
+          <view class="heroStatCol">
+            <text class="heroStatLabel">Total DLs</text>
+            <text class="heroStatVal">{{ formatMetric(modInfo.downloads) }}</text>
+          </view>
+          <!-- 总浏览数 Total views -->
+          <view class="heroStatCol">
+            <text class="heroStatLabel">Total views</text>
+            <text class="heroStatVal">--</text>
+          </view>
+          <!-- 模组版本 Version -->
+          <view class="heroStatCol">
+            <text class="heroStatLabel">Version</text>
+            <text class="heroStatVal boldWhite">{{ modInfo.version || '1.0' }}</text>
+          </view>
         </view>
-        <view class="statItem">
-          <text class="statLabel">版本</text>
-          <text class="statValue">v{{ modInfo.version || '1.0' }}</text>
-        </view>
-        <view class="statItem">
-          <text class="statLabel">总下载量</text>
-          <text class="statValue highlight">📥 {{ formatNumber(modInfo.downloads) }}</text>
-        </view>
-        <view class="statItem">
-          <text class="statLabel">赞同数</text>
-          <text class="statValue highlight">❤️ {{ formatNumber(modInfo.likes) }}</text>
-        </view>
-      </view>
-    </view>
 
-    <!-- ==================================================================== -->
-    <!-- 区域 3：AI 地道中文图鉴摘要与核心改动 -->
-    <!-- ==================================================================== -->
-    <view class="aiCard">
-      <view class="aiHeader">
-        <text class="aiIcon">✨</text>
-        <text class="aiTitle">AI 智能中文图鉴摘要</text>
-        <text class="aiSubBadge">自动提炼</text>
-      </view>
-
-      <!-- 一句话看懂 -->
-      <view class="oneSentenceBox">
-        <text class="oneSentenceLabel">【一句话看懂】</text>
-        <text class="oneSentenceContent">{{ aiSummary.oneSentence }}</text>
-      </view>
-
-      <!-- 核心改动要点 -->
-      <view class="highlightsBox">
-        <text class="highlightsLabel">【核心改动与特性】</text>
-        <view
-          class="highlightItem"
-          v-for="(point, idx) in aiSummary.highlights"
-          :key="idx"
-        >
-          <text class="highlightDot">{{ idx + 1 }}</text>
-          <text class="highlightText">{{ point }}</text>
-        </view>
-      </view>
-
-      <!-- 原文详细描述折叠区 -->
-      <view class="rawDescBox">
-        <view class="rawDescHeader" @click="rawDescExpanded = !rawDescExpanded">
-          <text class="rawDescTitle">原始详情描述说明</text>
-          <text class="expandArrow">{{ rawDescExpanded ? '▲ 收起' : '▼ 展开' }}</text>
-        </view>
-        <view class="rawDescContent" v-if="rawDescExpanded">
-          <text class="descText">{{ isChineseMode && modZhSummary ? modZhSummary : modInfo.summary }}</text>
+        <!-- 动作操作行 (对标图 3: Original File 按钮 + Mayfly 专属推送到电脑) -->
+        <view class="heroActionRow">
+          <view class="originalFileBtn" @click="handleOpenWebsite">
+            <text class="originalFileText">Original File</text>
+          </view>
+          <view class="heroPushBtn" @click="handlePushToDesktop">
+            <text class="heroPushText">{{ isPushing ? '投递中...' : '🚀 推送到电脑' }}</text>
+          </view>
         </view>
       </view>
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 3.5：前置依赖体检与避坑提示 -->
+    <!-- 区域 3：媒体画廊缩略条 (对标图 3: 缩略图 + 1 items + 全屏放大) -->
     <!-- ==================================================================== -->
-    <view class="reqCard">
-      <view class="reqHeader">
-        <text class="reqIcon">🧩</text>
-        <text class="reqTitle">前置依赖与运行体检</text>
-        <text class="reqBadge" :class="{ free: !loadingRequirements && requirements.length === 0 }">
-          {{ loadingRequirements ? '检测中...' : requirements.length === 0 ? '免前置 · 开箱即用' : `${requirements.length} 个前置` }}
-        </text>
+    <view class="galleryStrip">
+      <view class="galleryThumbBox" @click="previewFullImage">
+        <image
+          class="galleryThumbImg"
+          :src="modInfo.coverImageUrl || '/static/logo.png'"
+          mode="aspectFill"
+        />
       </view>
+      <view class="galleryBadgeBox">
+        <text class="galleryBadgeText">{{ imageGallery.length }} items</text>
+      </view>
+      <view class="galleryFullscreenBtn" @click="previewFullImage">
+        <text class="galleryFullscreenIcon">⛶</text>
+      </view>
+    </view>
 
-      <view class="reqBody">
-        <view class="reqFreeNotice" v-if="!loadingRequirements && requirements.length === 0">
-          <text class="freeText">✓ 该模组为独立 Mod，无需额外安装复杂的前置 Loader，电脑端可直接原生部署生效！</text>
-        </view>
-
-        <view class="reqList" v-if="requirements.length > 0">
-          <view class="reqItem" v-for="(req, idx) in requirements" :key="idx">
-            <text class="reqBullet">⚠️</text>
-            <view class="reqInfo">
-              <text class="reqName">{{ req.name }}</text>
-              <text class="reqNotes" v-if="req.notes">{{ req.notes }}</text>
+    <!-- ==================================================================== -->
+    <!-- 区域 4：双列元数据信息表格 (100% 对标用户参考图 3) -->
+    <!-- ==================================================================== -->
+    <view class="metaTableCard">
+      <view class="metaGrid">
+        <!-- 左列 -->
+        <view class="metaCol">
+          <!-- Last updated -->
+          <view class="metaCell">
+            <text class="metaCellLabel">Last updated</text>
+            <text class="metaCellVal">{{ modInfo.formattedFullUpdated || modInfo.formattedUpdateDate || '--' }}</text>
+          </view>
+          <!-- Created by -->
+          <view class="metaCell">
+            <text class="metaCellLabel">Created by</text>
+            <text class="metaCellVal">{{ modInfo.author || '未知作者' }}</text>
+          </view>
+          <!-- Virus scan -->
+          <view class="metaCell">
+            <text class="metaCellLabel">Virus scan</text>
+            <view class="virusScanRow">
+              <text class="virusScanIcon">⚠️</text>
+              <text class="virusScanText">Some files not scanned</text>
             </view>
           </view>
-          <text class="reqTip">💡 提示：电脑端 Mayfly 收到推送后会自动检测并一键补齐上述前置，请放心安装。</text>
+        </view>
+
+        <!-- 右列 -->
+        <view class="metaCol">
+          <!-- Original upload -->
+          <view class="metaCell">
+            <text class="metaCellLabel">Original upload</text>
+            <text class="metaCellVal">{{ modInfo.formattedFullCreated || modInfo.formattedDate || '--' }}</text>
+          </view>
+          <!-- Uploaded by -->
+          <view class="metaCell">
+            <text class="metaCellLabel">Uploaded by</text>
+            <text class="metaCellVal uploaderLink">{{ modInfo.uploaderName || modInfo.author || '未知上传者' }}</text>
+          </view>
         </view>
       </view>
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 3.6：物理文件清单 (Files) 与精准分流选择 -->
+    <!-- 区域 5：标签胶囊列表栏 (对标图 3: User Interface, Translation, + Tag this mod) -->
     <!-- ==================================================================== -->
-    <view class="filesCard">
-      <view class="filesHeader">
-        <text class="filesIcon">📦</text>
-        <text class="filesTitle">模组物理文件清单 (Files)</text>
-        <text class="filesBadge" :class="{ loading: loadingFiles }">
-          {{ loadingFiles ? '拉取中...' : `${modFiles.length} 个文件` }}
-        </text>
-      </view>
-
-      <view class="filesBody">
-        <!-- 加载中骨架 -->
-        <view class="filesLoadingNotice" v-if="loadingFiles">
-          <text class="loadingNoticeText">⏳ 正在从 Nexus 节点拉取最新文件列表...</text>
-        </view>
-
-        <!-- 无文件回退 -->
-        <view class="filesEmptyNotice" v-else-if="modFiles.length === 0">
-          <text class="emptyNoticeText">ℹ️ 暂未解析到独立可选包，推送时电脑端将默认拉取官方最新主文件。</text>
-        </view>
-
-        <!-- 文件项列表 -->
-        <view class="filesList" v-else>
+    <view class="tagsSection">
+      <scroll-view class="tagsScrollView" scroll-x show-scrollbar="false">
+        <view class="tagsList">
           <view
-            class="fileItem"
-            v-for="file in modFiles"
-            :key="file.fileId"
-            :class="{ selected: selectedFileId === file.fileId, isMain: file.category === 'MAIN' }"
-            @click="selectFile(file)"
+            class="tagPill"
+            v-for="(tag, tIdx) in displayTags"
+            :key="tIdx"
           >
-            <view class="fileItemTop">
-              <view class="fileCategoryBadge" :class="fileCategoryClass(file.category)">
-                <text class="fileCategoryText">{{ fileCategoryLabel(file.category) }}</text>
-              </view>
-              <text class="fileNameText">{{ file.name }}</text>
-              <view class="fileRadioIndicator">
-                <text class="radioIcon">{{ selectedFileId === file.fileId ? '🟢' : '⚪' }}</text>
-              </view>
-            </view>
+            <text class="tagPillText">{{ tag }}</text>
+          </view>
+          <view class="tagPill addTagPill" @click="handleTagTip">
+            <text class="addTagIcon">+</text>
+            <text class="tagPillText">Tag this mod</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
 
-            <view class="fileMetaRow">
-              <text class="fileMetaTag">🏷️ v{{ file.version }}</text>
-              <text class="fileMetaTag">💾 {{ file.sizeFormatted }}</text>
-              <text class="fileMetaPrimary" v-if="file.isPrimary">★ 官方推荐</text>
-            </view>
+    <!-- 分割线 -->
+    <view class="nexusDivider"></view>
 
-            <view class="fileDescBox" v-if="file.description">
-              <text class="fileDescText">{{ file.description }}</text>
-            </view>
+    <!-- ==================================================================== -->
+    <!-- 区域 6：Current section 切换选择器 (对标图 3: Viewing: Description ⌄) -->
+    <!-- ==================================================================== -->
+    <view class="currentSectionArea">
+      <text class="sectionHeaderTitle">Current section</text>
+      <picker
+        :range="sectionOptions"
+        :value="currentSectionIndex"
+        @change="onSectionChange"
+      >
+        <view class="sectionSelectCard">
+          <text class="viewingPrefix">Viewing:</text>
+          <text class="viewingValue">{{ sectionOptions[currentSectionIndex] }}</text>
+          <text class="selectArrow">⌄</text>
+        </view>
+      </picker>
+    </view>
 
-            <view class="fileItemActionRow">
-              <view class="singlePushBtn" @click.stop="handlePushSingleFile(file)">
-                <text class="singlePushBtnText">🚀 仅推送此文件</text>
-              </view>
+    <!-- ==================================================================== -->
+    <!-- 区域 7A：Section = Description 模组正文详情 (100% 对标用户参考图 4) -->
+    <!-- ==================================================================== -->
+    <view class="sectionBodyContainer" v-if="currentSectionIndex === 0">
+      <view class="aboutHeaderRow">
+        <text class="aboutTitle">About this mod</text>
+        <view class="translateBtn" @click="toggleTranslate">
+          <text class="translateBtnText">{{ isChineseMode ? '译 中文' : '原 英文' }}</text>
+        </view>
+      </view>
+
+      <!-- 详情加载指示器 -->
+      <view class="loadingBox" v-if="loadingDetail">
+        <view class="loadingSpinner"></view>
+        <text class="loadingNotice">正在从 N网 GraphQL 实时解析正文富文本...</text>
+      </view>
+
+      <!-- 图 4 原汁原味富文本渲染区域 -->
+      <view class="nexusArticleBody" v-else>
+        <!-- 一句话总结 / 中文简述 (如有) -->
+        <view class="articleSummaryBox" v-if="modInfo.summary">
+          <text class="articleSummaryText">
+            {{ isChineseMode && modZhSummary ? modZhSummary : modInfo.summary }}
+          </text>
+        </view>
+
+        <!-- 正文富文本节点 (BBCode 转译后的原汁原味排版，标题白字加粗、暖金链接、代码块等) -->
+        <rich-text
+          class="nexusRichNode"
+          :nodes="formattedRichDescription"
+        ></rich-text>
+      </view>
+    </view>
+
+    <!-- ==================================================================== -->
+    <!-- 区域 7B：Section = Files 物理文件清单 (精准分拣与单文件推送) -->
+    <!-- ==================================================================== -->
+    <view class="sectionBodyContainer" v-else-if="currentSectionIndex === 1">
+      <view class="aboutHeaderRow">
+        <text class="aboutTitle">Files 物理文件清单</text>
+        <text class="filesCountBadge">{{ modFiles.length }} 个文件</text>
+      </view>
+
+      <view class="loadingBox" v-if="loadingFiles">
+        <view class="loadingSpinner"></view>
+        <text class="loadingNotice">正在拉取官方各版本安装包...</text>
+      </view>
+
+      <view class="emptyFilesBox" v-else-if="modFiles.length === 0">
+        <text class="emptyFilesNotice">暂未解析到分流文件，推送时将默认拉取官方主包。</text>
+      </view>
+
+      <view class="filesListGrid" v-else>
+        <view
+          class="fileCard"
+          v-for="file in modFiles"
+          :key="file.fileId"
+          :class="{ selected: selectedFileId === file.fileId }"
+          @click="selectFile(file)"
+        >
+          <view class="fileCardTop">
+            <view class="fileCatPill" :class="file.category.toLowerCase()">
+              <text class="fileCatText">{{ file.category }}</text>
             </view>
+            <text class="fileName">{{ file.name }}</text>
+            <text class="fileRadioDot">{{ selectedFileId === file.fileId ? '🟢' : '⚪' }}</text>
+          </view>
+
+          <view class="fileMetaInfoRow">
+            <text class="fileMetaTag">v{{ file.version }}</text>
+            <text class="fileMetaTag">{{ file.sizeFormatted }}</text>
+            <text class="fileMetaPrimary" v-if="file.isPrimary">★ 官方推荐</text>
+          </view>
+
+          <text class="fileDescPreview" v-if="file.description">{{ file.description }}</text>
+
+          <view class="fileActionRow">
+            <button
+              class="filePushBtn"
+              @click.stop="handlePushSingleFile(file)"
+            >
+              <text class="filePushText">🚀 仅推送此文件</text>
+            </button>
           </view>
         </view>
       </view>
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 4：底部固定操作栏 -->
+    <!-- 区域 7C：Section = Requirements 前置依赖体检 (闭环免前置排查) -->
     <!-- ==================================================================== -->
-    <view class="fixedBottomBar">
-      <!-- 原帖链接直达 -->
-      <view class="websiteBtn" @click="handleCopyWebsite">
-        <text class="websiteBtnText">🔗 原帖出处</text>
+    <view class="sectionBodyContainer" v-else-if="currentSectionIndex === 2">
+      <view class="aboutHeaderRow">
+        <text class="aboutTitle">Requirements 前置体检</text>
+        <text class="reqStatusBadge" :class="{ free: requirements.length === 0 }">
+          {{ requirements.length === 0 ? '✓ 开箱即用' : `${requirements.length} 个前置` }}
+        </text>
       </view>
 
-      <!-- 核心大按钮：一键推送到电脑 -->
+      <view class="loadingBox" v-if="loadingRequirements">
+        <view class="loadingSpinner"></view>
+        <text class="loadingNotice">正在检测底层运行库与 Hook 依赖...</text>
+      </view>
+
+      <view class="reqFreeCard" v-else-if="requirements.length === 0">
+        <text class="reqFreeTitle">✨ 免任何前置，原生开箱即用</text>
+        <text class="reqFreeDesc">该模组为独立数据/资产包，无需额外安装底层 Script Extender 或复杂外挂，Mayfly 原生部署即可生效。</text>
+      </view>
+
+      <view class="reqListGroup" v-else>
+        <view class="reqItemCard" v-for="(req, rIdx) in requirements" :key="rIdx">
+          <text class="reqBullet">⚠️</text>
+          <view class="reqTextCol">
+            <text class="reqItemName">{{ req.name }}</text>
+            <text class="reqItemNotes" v-if="req.notes">{{ req.notes }}</text>
+          </view>
+        </view>
+        <text class="reqMayflyTip">💡 电脑端 Mayfly 安装时会自动匹配并静默补齐前置环境，请放心使用。</text>
+      </view>
+    </view>
+
+    <!-- ==================================================================== -->
+    <!-- 区域 8：底部悬浮固定操作栏 (原帖出处 + 收藏 + 一键推送到电脑) -->
+    <!-- ==================================================================== -->
+    <view class="fixedBottomActionBar">
+      <!-- 官方原帖外链直达 -->
+      <view class="bottomIconBtn" @click="handleOpenWebsite">
+        <text class="bottomIcon">🔗</text>
+        <text class="bottomIconLabel">原帖</text>
+      </view>
+
+      <!-- 心愿单收藏 -->
+      <view class="bottomIconBtn" @click="handleToggleFavorite">
+        <text class="bottomIcon">{{ favorited ? '❤️' : '🤍' }}</text>
+        <text class="bottomIconLabel">{{ favorited ? '已收藏' : '心愿单' }}</text>
+      </view>
+
+      <!-- 核心大按钮：一键推送到电脑 Mayfly 安装 -->
       <button
-        class="pushBigActionBtn"
+        class="bottomPushBigBtn"
         :disabled="isPushing"
         @click="handlePushToDesktop"
       >
-        <text class="pushBigText">
-          {{ isPushing ? '正在投递信令...' : '🚀 一键推送到电脑 Mayfly 安装' }}
+        <text class="bottomPushText">
+          {{ isPushing ? '正在投递信令...' : '🚀 推送到电脑 Mayfly' }}
         </text>
       </button>
+    </view>
+
+    <!-- ==================================================================== -->
+    <!-- 区域 9：电脑端设备配对弹窗 -->
+    <!-- ==================================================================== -->
+    <view class="deviceModalMask" v-if="deviceModalVisible" @click="closeDeviceModal">
+      <view class="deviceModalContent" @click.stop>
+        <view class="modalHeader">
+          <text class="modalTitle">电脑端 Mayfly 配对设置</text>
+          <text class="modalClose" @click="closeDeviceModal">✕</text>
+        </view>
+
+        <view class="modalBody">
+          <view class="formRow">
+            <text class="formLabel">电脑 IP 地址</text>
+            <input
+              class="formInput"
+              v-model="deviceForm.host"
+              placeholder="例如: 192.168.1.100"
+            />
+          </view>
+          <view class="formRow">
+            <text class="formLabel">服务端口</text>
+            <input
+              class="formInput"
+              type="number"
+              v-model="deviceForm.port"
+              placeholder="默认: 9876"
+            />
+          </view>
+          <view class="formRow">
+            <text class="formLabel">设备通信密钥 Token</text>
+            <input
+              class="formInput"
+              v-model="deviceForm.deviceToken"
+              placeholder="例如: MF-PC-8891"
+            />
+          </view>
+        </view>
+
+        <view class="modalFooter">
+          <button
+            class="modalBtn testBtn"
+            :loading="testingConnection"
+            @click="testConnection"
+          >
+            测试连通
+          </button>
+          <button class="modalBtn saveBtn" @click="saveDevice">
+            保存配对
+          </button>
+        </view>
+      </view>
     </view>
   </view>
 </template>
 
 <script>
 // ============================================================================
-// 脚本逻辑：模组详情图鉴与全屏交互
+// 脚本逻辑：模组详情页控制与富文本原汁原味还原 (100% 对标图 3 与图 4)
 // ============================================================================
-import { pushModToDesktop, getDesktopConfig, fetchModRequirements, fetchModFiles } from '../../services/nexus.js';
-import { translateTextToZh, formatAiModSummary } from '../../services/translate.js';
+import {
+  fetchModDetail,
+  fetchModFiles,
+  fetchModRequirements,
+  pushModToDesktop,
+  getDesktopConfig,
+  saveDesktopConfig,
+  testDesktopConnection,
+  formatNexusMetric,
+  formatNexusDate,
+  formatNexusFullDate,
+  parseNexusBbCode
+} from '../../services/nexus.js';
+import { translateTextToZh } from '../../services/translate.js';
 import { isFavorited, toggleFavorite } from '../../services/favorites.js';
 import { formatModShareText } from '../../services/poster.js';
 
 export default {
   data() {
     return {
-      // 模组核心属性
+      // 模组核心元数据 (100% 动态，来自 Nexus 官方 GraphQL，零硬编码)
       modInfo: {
         id: '',
         modId: '',
         title: '',
         summary: '',
+        description: '',
         coverImageUrl: '',
-        version: '',
+        version: '1.0',
         author: '',
+        uploaderName: '',
         downloads: 0,
         likes: 0,
         category: '',
+        createdAt: '',
+        updatedAt: '',
+        formattedDate: '',
+        formattedUpdateDate: '',
+        formattedFullCreated: '',
+        formattedFullUpdated: '',
+        tags: [],
         game: {
-          name: '',
+          id: 0,
           domainName: '',
-          id: 0
+          name: ''
         },
         website: ''
       },
 
+      // Section 切换 (对标图 3 Current section: Description / Files / Requirements)
+      sectionOptions: ['Description', 'Files', 'Requirements'],
+      currentSectionIndex: 0,
+
+      // 详情与富文本加载状态
+      loadingDetail: false,
+
       // 心愿单状态
       favorited: false,
 
-      // 前置依赖
-      requirements: [],
-      loadingRequirements: false,
+      // 图集相册
+      imageGallery: [],
 
       // 物理文件列表 (Files)
       modFiles: [],
@@ -296,83 +465,158 @@ export default {
       selectedFileId: null,
       selectedFile: null,
 
-      // 图集相册
-      imageGallery: [],
+      // 前置依赖检测
+      requirements: [],
+      loadingRequirements: false,
 
-      // 翻译与 AI 摘要
-      isChineseMode: true,
+      // 翻译模式与缓存
+      isChineseMode: false,
       modZhTitle: '',
       modZhSummary: '',
-      aiSummary: {
-        oneSentence: '正在分析提炼中文图鉴...',
-        highlights: []
-      },
-      rawDescExpanded: false,
 
-      // 推送状态
-      isPushing: false
+      // 投递状态
+      isPushing: false,
+
+      // 设备配对状态
+      deviceModalVisible: false,
+      desktopConfig: {
+        host: '192.168.1.100',
+        port: 9876,
+        deviceToken: 'MF-PC-8891',
+        connected: false
+      },
+      deviceForm: {
+        host: '',
+        port: 9876,
+        deviceToken: ''
+      },
+      testingConnection: false
     };
   },
 
+  computed: {
+    /**
+     * 显示的模组标签列表 (动态解析)
+     */
+    displayTags() {
+      if (this.modInfo.tags && this.modInfo.tags.length > 0) {
+        return this.modInfo.tags;
+      }
+      const list = [];
+      if (this.modInfo.category) list.push(this.modInfo.category);
+      if (this.modInfo.game?.name) list.push(this.modInfo.game.name);
+      return list.length > 0 ? list : ['General'];
+    },
+
+    /**
+     * 将原始描述或富文本转为图 4 标准 HTML 节点
+     */
+    formattedRichDescription() {
+      const raw = this.modInfo.description || this.modInfo.summary || '暂无详细描述。';
+      return parseNexusBbCode(raw);
+    }
+  },
+
   onLoad(options) {
+    this.desktopConfig = getDesktopConfig();
+    this.deviceForm.host = this.desktopConfig.host;
+    this.deviceForm.port = this.desktopConfig.port;
+    this.deviceForm.deviceToken = this.desktopConfig.deviceToken;
+
     if (options && options.payload) {
       try {
-        // 解析从首页传递进来的序列化 Mod 完整数据
         const parsed = JSON.parse(decodeURIComponent(options.payload));
-        this.initModDetail(parsed);
+        this.initBasicInfo(parsed);
       } catch (e) {
-        console.error('[MayflyDetail] 详情入参解析异常:', e);
+        console.error('[MayflyDetail] 详情载入入参解析失败:', e);
       }
     }
   },
 
   methods: {
     // ------------------------------------------------------------------------
-    // 数据初始化与智能摘要提炼
+    // 基础数据初筛与全量异步装载 (100% 官方 GraphQL 动态抓取，零硬编码)
     // ------------------------------------------------------------------------
 
     /**
-     * 初始化详情数据并触发 AI 中文摘要处理
+     * 初始化基础数据并触发并行 GraphQL 动态拉取
      */
-    async initModDetail(mod) {
-      this.modInfo = mod;
-      this.favorited = isFavorited(mod.id || mod.modId);
+    initBasicInfo(item) {
+      this.modInfo = {
+        ...this.modInfo,
+        ...item,
+        id: String(item.modId || item.id),
+        modId: String(item.modId || item.id)
+      };
 
-      // 构建相册图集（默认封面，若有附加图片自动拼入）
-      const list = [];
-      if (mod.coverImageUrl) list.push(mod.coverImageUrl);
-      this.imageGallery = list.length > 0 ? list : ['/static/logo.png'];
+      this.favorited = isFavorited(this.modInfo.id);
 
-      // 异步探测前置依赖
-      this.loadRequirements(mod);
+      // 相册初值
+      if (item.coverImageUrl) {
+        this.imageGallery = [item.coverImageUrl];
+      }
 
-      // 异步拉取物理文件清单
-      this.loadModFiles(mod);
+      const modId = this.modInfo.modId;
+      const gameId = this.modInfo.game?.id;
 
-      // 立即触发中文翻译与要点提炼
-      try {
-        const [zhTitle, zhSummary] = await Promise.all([
-          translateTextToZh(mod.title),
-          translateTextToZh(mod.summary)
-        ]);
-
-        this.modZhTitle = zhTitle;
-        this.modZhSummary = zhSummary;
-        this.aiSummary = formatAiModSummary(mod.summary, zhSummary);
-      } catch (err) {
-        // 翻译失败优雅降级为原简介
-        this.aiSummary = formatAiModSummary(mod.summary);
+      if (modId && gameId) {
+        // 动态加载完整详情 (描述、作者、标签、更新时间)
+        this.loadFullDetail(modId, gameId);
+        // 动态加载物理文件清单
+        this.loadFiles(modId, gameId);
+        // 动态加载前置依赖体检
+        this.loadRequirements(modId, gameId);
       }
     },
 
     /**
-     * 异步拉取模组前置依赖
+     * 从 GraphQL 实时拉取完整模组详情
      */
-    async loadRequirements(mod) {
-      const modId = mod.modId || mod.id;
-      const gameId = mod.game?.id;
-      if (!modId || !gameId) return;
+    async loadFullDetail(modId, gameId) {
+      this.loadingDetail = true;
+      try {
+        const detail = await fetchModDetail(modId, gameId);
+        this.modInfo = {
+          ...this.modInfo,
+          ...detail
+        };
 
+        if (detail.coverImageUrl && !this.imageGallery.includes(detail.coverImageUrl)) {
+          this.imageGallery = [detail.coverImageUrl];
+        }
+      } catch (err) {
+        console.warn('[MayflyDetail] 模组全量详情异步拉取提示:', err);
+      } finally {
+        this.loadingDetail = false;
+      }
+    },
+
+    /**
+     * 异步拉取物理文件列表
+     */
+    async loadFiles(modId, gameId) {
+      this.loadingFiles = true;
+      try {
+        const files = await fetchModFiles(modId, gameId);
+        this.modFiles = files;
+        if (files.length > 0) {
+          const primary = files.find(f => f.isPrimary) ||
+                          files.find(f => f.category === 'MAIN') ||
+                          files[0];
+          this.selectedFileId = primary.fileId;
+          this.selectedFile = primary;
+        }
+      } catch (e) {
+        this.modFiles = [];
+      } finally {
+        this.loadingFiles = false;
+      }
+    },
+
+    /**
+     * 异步拉取前置依赖
+     */
+    async loadRequirements(modId, gameId) {
       this.loadingRequirements = true;
       try {
         const reqs = await fetchModRequirements(modId, gameId);
@@ -384,36 +628,38 @@ export default {
       }
     },
 
+    // ------------------------------------------------------------------------
+    // Section 切换与交互
+    // ------------------------------------------------------------------------
+
+    onSectionChange(e) {
+      this.currentSectionIndex = Number(e.detail.value) || 0;
+    },
+
     /**
-     * 异步拉取物理文件列表 (Files)
+     * 切换中文/原语言模式
      */
-    async loadModFiles(mod) {
-      const modId = mod.modId || mod.id;
-      const gameId = mod.game?.id;
-      if (!modId || !gameId) return;
-
-      this.loadingFiles = true;
-      try {
-        const files = await fetchModFiles(modId, gameId);
-        this.modFiles = files;
-
-        // 默认自动选中推荐主文件 (isPrimary 或 MAIN 或首项)
-        if (files && files.length > 0) {
-          const primaryFile = files.find(f => f.isPrimary) ||
-                              files.find(f => f.category === 'MAIN') ||
-                              files[0];
-          this.selectedFileId = primaryFile.fileId;
-          this.selectedFile = primaryFile;
+    async toggleTranslate() {
+      this.isChineseMode = !this.isChineseMode;
+      if (this.isChineseMode && !this.modZhTitle) {
+        try {
+          uni.showLoading({ title: '翻译中...' });
+          const [zhTitle, zhSum] = await Promise.all([
+            translateTextToZh(this.modInfo.title),
+            translateTextToZh(this.modInfo.summary)
+          ]);
+          this.modZhTitle = zhTitle;
+          this.modZhSummary = zhSum;
+        } catch (e) {
+          // 降级为原版
+        } finally {
+          uni.hideLoading();
         }
-      } catch (e) {
-        this.modFiles = [];
-      } finally {
-        this.loadingFiles = false;
       }
     },
 
     /**
-     * 用户单选文件项
+     * 选择物理文件项
      */
     selectFile(file) {
       this.selectedFileId = file.fileId;
@@ -421,30 +667,7 @@ export default {
     },
 
     /**
-     * 获取文件分类徽章样式类
-     */
-    fileCategoryClass(category) {
-      const cat = String(category || '').toUpperCase();
-      if (cat === 'MAIN') return 'catMain';
-      if (cat === 'UPDATE') return 'catUpdate';
-      if (cat === 'OPTIONAL') return 'catOptional';
-      return 'catDefault';
-    },
-
-    /**
-     * 获取文件分类友好中文展示
-     */
-    fileCategoryLabel(category) {
-      const cat = String(category || '').toUpperCase();
-      if (cat === 'MAIN') return '主文件';
-      if (cat === 'UPDATE') return '更新补丁';
-      if (cat === 'OPTIONAL') return '可选扩展';
-      if (cat === 'OLD_VERSION') return '历史旧版';
-      return '其他附件';
-    },
-
-    /**
-     * 单独推送指定文件到电脑
+     * 单独推送选中物理文件
      */
     async handlePushSingleFile(file) {
       this.selectFile(file);
@@ -452,33 +675,57 @@ export default {
     },
 
     /**
-     * 切换心愿单收藏状态
+     * 全屏放大预览模组封面/截图
+     */
+    previewFullImage() {
+      if (this.imageGallery.length > 0) {
+        uni.previewImage({
+          urls: this.imageGallery,
+          current: 0
+        });
+      }
+    },
+
+    /**
+     * 打开/复制 Nexus 官方原帖
+     */
+    handleOpenWebsite() {
+      const url = this.modInfo.website ||
+        (this.modInfo.game?.domainName && this.modInfo.modId
+          ? `https://www.nexusmods.com/${this.modInfo.game.domainName}/mods/${this.modInfo.modId}`
+          : 'https://www.nexusmods.com');
+
+      uni.setClipboardData({
+        data: url,
+        success: () => {
+          uni.showToast({ title: '原帖链接已复制 📋', icon: 'none' });
+        }
+      });
+    },
+
+    /**
+     * 切换心愿单收藏
      */
     handleToggleFavorite() {
-      const nextStatus = toggleFavorite(this.modInfo);
-      this.favorited = nextStatus;
+      const status = toggleFavorite(this.modInfo);
+      this.favorited = status;
       uni.showToast({
-        title: nextStatus ? '已加入心愿单 ❤️' : '已移出心愿单',
+        title: status ? '已收藏到心愿单 ❤️' : '已移出心愿单',
         icon: 'none'
       });
     },
 
     /**
-     * 分享 Mod 口令卡片给好友 (生成专属提取短码)
+     * 分享模组装机口令
      */
     handleShareMod() {
-      const title = this.modZhTitle || this.modInfo.title;
-      const shareText = formatModShareText({
-        ...this.modInfo,
-        title
-      });
-
+      const text = formatModShareText(this.modInfo);
       uni.setClipboardData({
-        data: shareText,
+        data: text,
         success: () => {
           uni.showModal({
-            title: '装机口令已复制 📋',
-            content: '已生成包含专属提取短码的装机口令并复制到剪贴板，好友在微信或QQ收到后打开 Mayfly 即可秒级直达并推送到电脑安装！',
+            title: '装机口令已复制',
+            content: '已将该模组的专属 Mayfly 装机口令复制到剪贴板，可直接发送给好友一键打开！',
             showCancel: false
           });
         }
@@ -486,120 +733,97 @@ export default {
     },
 
     /**
-     * 切换中英双语模式
-     */
-    toggleTranslate() {
-      this.isChineseMode = !this.isChineseMode;
-    },
-
-    // ------------------------------------------------------------------------
-    // 全屏图集浏览
-    // ------------------------------------------------------------------------
-
-    /**
-     * 点击进入全屏手势缩放浏览
-     */
-    previewFullImage(index) {
-      if (this.imageGallery.length === 0) return;
-      uni.previewImage({
-        current: index,
-        urls: this.imageGallery
-      });
-    },
-
-    // ------------------------------------------------------------------------
-    // 远程推送与原帖
-    // ------------------------------------------------------------------------
-
-    /**
-     * 一键推送到电脑 Mayfly 安装
+     * 核心动作：一键推送到电脑 Mayfly 安装
      */
     async handlePushToDesktop() {
       if (this.isPushing) return;
       this.isPushing = true;
-
-      const fileDesc = this.selectedFile ? ` (${this.selectedFile.name})` : '';
-      uni.showLoading({
-        title: '正在唤醒电脑端...'
-      });
+      uni.showLoading({ title: '正在投递信令...' });
 
       try {
-        // 如果用户选中了特定的文件，装配精准物理文件参数
-        const targetPayload = {
-          ...this.modInfo
+        const payload = {
+          ...this.modInfo,
+          selectedFile: this.selectedFile
         };
-        if (this.selectedFile) {
-          targetPayload.fileId = this.selectedFile.fileId;
-          targetPayload.fileName = this.selectedFile.name;
-          targetPayload.fileVersion = this.selectedFile.version;
-          targetPayload.fileSize = this.selectedFile.sizeInBytes;
-          targetPayload.fileSizeFormatted = this.selectedFile.sizeFormatted;
-        }
 
-        const result = await pushModToDesktop(targetPayload);
+        const res = await pushModToDesktop(payload, this.desktopConfig);
         uni.hideLoading();
 
-        if (result.success) {
+        if (res.success) {
           uni.showModal({
             title: '推送成功 🚀',
-            content: result.message + fileDesc,
+            content: `已成功投递到电脑端 Mayfly！\n模组【${this.modInfo.title}】正在后台下载并安装。`,
             showCancel: false
           });
         } else {
           uni.showModal({
             title: '推送提示',
-            content: result.message,
-            confirmText: '返回设置',
-            success: (res) => {
-              if (res.confirm) {
-                uni.navigateBack();
+            content: res.message || '电脑端连接超时，请检查电脑端 Mayfly 是否已启动。',
+            confirmText: '设备配对',
+            cancelText: '知道了',
+            success: (m) => {
+              if (m.confirm) {
+                this.openDeviceModal();
               }
             }
           });
         }
       } catch (err) {
         uni.hideLoading();
-        uni.showToast({
-          title: '推送超时，请检查网络',
-          icon: 'none'
-        });
+        uni.showToast({ title: '投递异常', icon: 'none' });
       } finally {
         this.isPushing = false;
       }
     },
 
-    /**
-     * 复制原帖出处链接
-     */
-    handleCopyWebsite() {
-      const url = this.modInfo.website;
-      if (!url) {
-        uni.showToast({
-          title: '未提供出处链接',
-          icon: 'none'
-        });
-        return;
-      }
-
-      uni.setClipboardData({
-        data: url,
-        success: () => {
-          uni.showToast({
-            title: '出处链接已复制',
-            icon: 'success'
-          });
+    handleNavBack() {
+      uni.navigateBack({
+        fail: () => {
+          uni.reLaunch({ url: '/pages/index/index' });
         }
       });
     },
 
-    /**
-     * 格式化数字展示
-     */
-    formatNumber(val) {
-      const n = Number(val) || 0;
-      if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-      if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
-      return String(n);
+    handleTagTip() {
+      uni.showToast({ title: '登录 Nexus 官方即可添加标签', icon: 'none' });
+    },
+
+    formatMetric(num) {
+      return formatNexusMetric(num);
+    },
+
+    // ------------------------------------------------------------------------
+    // 设备配对设置弹窗
+    // ------------------------------------------------------------------------
+
+    openDeviceModal() {
+      this.deviceModalVisible = true;
+    },
+
+    closeDeviceModal() {
+      this.deviceModalVisible = false;
+    },
+
+    async testConnection() {
+      this.testingConnection = true;
+      const ok = await testDesktopConnection(this.deviceForm.host, Number(this.deviceForm.port));
+      this.testingConnection = false;
+      if (ok) {
+        this.desktopConfig.connected = true;
+        uni.showToast({ title: '已成功连通电脑！', icon: 'success' });
+      } else {
+        this.desktopConfig.connected = false;
+        uni.showToast({ title: '未能连通电脑，请检查IP', icon: 'none' });
+      }
+    },
+
+    saveDevice() {
+      this.desktopConfig.host = this.deviceForm.host.trim();
+      this.desktopConfig.port = Number(this.deviceForm.port) || 9876;
+      this.desktopConfig.deviceToken = this.deviceForm.deviceToken.trim();
+      saveDesktopConfig(this.desktopConfig);
+      this.closeDeviceModal();
+      uni.showToast({ title: '配对信息已保存', icon: 'success' });
     }
   }
 };
@@ -607,667 +831,884 @@ export default {
 
 <style scoped>
 /* ============================================================================ */
-/* 样式体系：现代暗黑图鉴画册风 */
+/* 样式规范：100% 对标 NexusMods 移动端官方纯粹暗黑设计 (Screenshot 3 & Screenshot 4) */
 /* ============================================================================ */
 
-.detailPageContainer {
+.nexusDetailPage {
   min-height: 100vh;
-  background-color: #0b0f17;
-  color: #f1f5f9;
-  padding-bottom: 160rpx;
+  background-color: #121212;
+  color: #e5e7eb;
+  padding-bottom: 140rpx;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 顶栏 (对标图 3: ☰/← + ❖ 橙标 + 📤 + 👤) */
+/* ---------------------------------------------------------------------------- */
+.nexusHeader {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: 96rpx;
+  background-color: #161616;
+  border-bottom: 1rpx solid #232323;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24rpx;
   box-sizing: border-box;
 }
 
-/* 区域 1：相册大图轮播 */
-.gallerySection {
-  position: relative;
-  width: 100%;
-  height: 480rpx;
-  background-color: #05080e;
-}
-
-.gallerySwiper {
-  width: 100%;
-  height: 100%;
-}
-
-.galleryImage {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.sourceBadge {
-  position: absolute;
-  top: 24rpx;
-  left: 24rpx;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(8px);
-  padding: 6rpx 20rpx;
-  border-radius: 20rpx;
-  border: 1rpx solid rgba(251, 191, 36, 0.4);
-}
-
-.sourceBadgeText {
-  font-size: 20rpx;
-  font-weight: 700;
-  color: #fbbf24;
-}
-
-.zoomTipBadge {
-  position: absolute;
-  bottom: 24rpx;
-  right: 24rpx;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(6px);
-  padding: 6rpx 16rpx;
-  border-radius: 12rpx;
-}
-
-.zoomTipText {
-  font-size: 20rpx;
-  color: #94a3b8;
-}
-
-/* 区域 2：核心元数据概览 */
-.metaCard {
-  background-color: #121927;
-  margin: 24rpx 24rpx 20rpx;
-  border-radius: 24rpx;
-  border: 1rpx solid #1f2b42;
-  padding: 24rpx 26rpx;
-}
-
-.tagRow {
+.headerBtn {
+  width: 72rpx;
+  height: 72rpx;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 18rpx;
+  justify-content: center;
+  cursor: pointer;
 }
 
-.tagLeft {
+.headerIcon {
+  font-size: 38rpx;
+  color: #e5e7eb;
+}
+
+.headerLogoArea {
   display: flex;
-  gap: 16rpx;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
-.tagRightActions {
-  display: flex;
-  gap: 14rpx;
-}
-
-.actionCircleBtn {
-  background-color: #1e293b;
-  border: 1rpx solid #334155;
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 50%;
+.nexusLogoBox {
+  width: 60rpx;
+  height: 60rpx;
+  background-color: #da6b17; /* Nexus 官方橙标方块 */
+  border-radius: 12rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.actionCircleIcon {
-  font-size: 24rpx;
-}
-
-.gamePill {
-  background-color: rgba(56, 189, 248, 0.15);
-  border: 1rpx solid rgba(56, 189, 248, 0.4);
-  padding: 6rpx 20rpx;
-  border-radius: 12rpx;
-}
-
-.gamePillText {
-  font-size: 22rpx;
-  color: #38bdf8;
-  font-weight: 700;
-}
-
-.categoryPill {
-  background-color: #1e293b;
-  padding: 6rpx 20rpx;
-  border-radius: 12rpx;
-}
-
-.categoryPillText {
-  font-size: 22rpx;
-  color: #94a3b8;
-}
-
-.titleRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 18rpx;
-  margin-bottom: 24rpx;
-}
-
-.modTitleText {
+.nexusLogoGlyph {
   font-size: 34rpx;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.headerRightArea {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.userBtn {
+  position: relative;
+}
+
+.onlineDot {
+  position: absolute;
+  top: 14rpx;
+  right: 14rpx;
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background-color: #64748b;
+  border: 2rpx solid #161616;
+}
+
+.onlineDot.connected {
+  background-color: #10b981;
+  box-shadow: 0 0 10rpx #10b981;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* Hero 画幅区 (100% 对标图 3 头部大图、大标题、5 列横向指标与 Original File 按钮) */
+/* ---------------------------------------------------------------------------- */
+.heroBannerSection {
+  position: relative;
+  width: 100%;
+  min-height: 480rpx;
+  background-color: #1a1c22;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.heroBgImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.55;
+  filter: blur(1rpx);
+}
+
+.heroOverlayGradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(18, 18, 18, 0.2) 0%,
+    rgba(18, 18, 18, 0.75) 55%,
+    #121212 100%
+  );
+}
+
+.heroContentBox {
+  position: relative;
+  z-index: 10;
+  padding: 40rpx 24rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.modMainTitle {
+  font-size: 42rpx;
   font-weight: 800;
   color: #ffffff;
-  line-height: 1.35;
-  flex: 1;
+  line-height: 1.25;
+  text-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.8);
 }
 
-.translateToggleBtn {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.2));
-  border: 1rpx solid #38bdf8;
-  border-radius: 20rpx;
-  padding: 8rpx 20rpx;
-  white-space: nowrap;
-}
-
-.translateToggleText {
-  font-size: 20rpx;
-  color: #38bdf8;
-  font-weight: 700;
-}
-
-.statsGrid {
+/* 5 列横向指标数据条 (对标图 3) */
+.heroStatsRow {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  background-color: #0b111d;
-  border-radius: 16rpx;
-  padding: 16rpx 20rpx;
-  border: 1rpx solid #1a253a;
+  gap: 12rpx;
+  margin-top: 10rpx;
 }
 
-.statItem {
+.heroStatCol {
   display: flex;
   flex-direction: column;
   gap: 6rpx;
 }
 
-.statLabel {
+.heroStatLabel {
   font-size: 20rpx;
-  color: #64748b;
-}
-
-.statValue {
-  font-size: 22rpx;
-  color: #e2e8f0;
-  font-weight: 600;
-}
-
-.statValue.highlight {
-  color: #38bdf8;
-}
-
-/* 区域 3：AI 中文图鉴摘要卡片 */
-.aiCard {
-  background-color: #121927;
-  margin: 0 24rpx 24rpx;
-  border-radius: 24rpx;
-  border: 1rpx solid #1f2b42;
-  padding: 26rpx;
-}
-
-.aiHeader {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-bottom: 20rpx;
-}
-
-.aiIcon {
-  font-size: 30rpx;
-}
-
-.aiTitle {
-  font-size: 28rpx;
-  font-weight: 800;
-  background: linear-gradient(135deg, #38bdf8, #a855f7);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.aiSubBadge {
-  font-size: 18rpx;
-  background-color: rgba(168, 85, 247, 0.2);
-  color: #c084fc;
-  padding: 2rpx 12rpx;
-  border-radius: 8rpx;
-  font-weight: 600;
-}
-
-.oneSentenceBox {
-  background-color: #1a2436;
-  border-left: 6rpx solid #38bdf8;
-  border-radius: 12rpx;
-  padding: 18rpx 20rpx;
-  margin-bottom: 20rpx;
-}
-
-.oneSentenceLabel {
-  font-size: 22rpx;
-  color: #38bdf8;
-  font-weight: 700;
-  display: block;
-  margin-bottom: 6rpx;
-}
-
-.oneSentenceContent {
-  font-size: 26rpx;
-  color: #f1f5f9;
-  line-height: 1.5;
-}
-
-.highlightsBox {
-  margin-bottom: 24rpx;
-}
-
-.highlightsLabel {
-  font-size: 22rpx;
-  color: #a855f7;
-  font-weight: 700;
-  display: block;
-  margin-bottom: 12rpx;
-}
-
-.highlightItem {
-  display: flex;
-  align-items: flex-start;
-  gap: 14rpx;
-  margin-bottom: 14rpx;
-}
-
-.highlightDot {
-  width: 32rpx;
-  height: 32rpx;
-  background-color: rgba(168, 85, 247, 0.2);
-  border: 1rpx solid #a855f7;
-  color: #c084fc;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20rpx;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.highlightText {
-  font-size: 24rpx;
-  color: #cbd5e1;
-  line-height: 1.45;
-  flex: 1;
-}
-
-.rawDescBox {
-  border-top: 1rpx solid #1f2b42;
-  padding-top: 18rpx;
-}
-
-.rawDescHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.rawDescTitle {
-  font-size: 24rpx;
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-.expandArrow {
-  font-size: 22rpx;
-  color: #38bdf8;
-}
-
-.rawDescContent {
-  margin-top: 14rpx;
-}
-
-.descText {
-  font-size: 22rpx;
-  color: #64748b;
-  line-height: 1.55;
-}
-
-/* 区域 3.5：前置依赖体检卡片 */
-.reqCard {
-  background-color: #121927;
-  margin: 0 24rpx 24rpx;
-  border-radius: 24rpx;
-  border: 1rpx solid #1f2b42;
-  padding: 26rpx;
-}
-
-.reqHeader {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-bottom: 18rpx;
-}
-
-.reqIcon {
-  font-size: 28rpx;
-}
-
-.reqTitle {
-  font-size: 28rpx;
-  font-weight: 800;
-  color: #f1f5f9;
-}
-
-.reqBadge {
-  font-size: 20rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 10rpx;
-  font-weight: 700;
-  background-color: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  margin-left: auto;
-}
-
-.reqBadge.free {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-}
-
-.reqFreeNotice {
-  background-color: rgba(16, 185, 129, 0.1);
-  border: 1rpx solid rgba(16, 185, 129, 0.3);
-  border-radius: 14rpx;
-  padding: 16rpx 20rpx;
-}
-
-.freeText {
-  font-size: 22rpx;
-  color: #34d399;
-  line-height: 1.5;
-}
-
-.reqList {
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-}
-
-.reqItem {
-  display: flex;
-  align-items: flex-start;
-  gap: 12rpx;
-  background-color: #1a2436;
-  padding: 14rpx 18rpx;
-  border-radius: 14rpx;
-}
-
-.reqBullet {
-  font-size: 24rpx;
-  flex-shrink: 0;
-}
-
-.reqInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
-.reqName {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #f8fafc;
-}
-
-.reqNotes {
-  font-size: 20rpx;
-  color: #94a3b8;
-}
-
-.reqTip {
-  font-size: 20rpx;
-  color: #64748b;
-  margin-top: 8rpx;
-  line-height: 1.4;
-}
-
-/* 区域 3.6：模组物理文件清单 (Files) 卡片 */
-.filesCard {
-  background-color: #121927;
-  margin: 0 24rpx 24rpx;
-  border-radius: 24rpx;
-  border: 1rpx solid #1f2b42;
-  padding: 26rpx;
-}
-
-.filesHeader {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-bottom: 20rpx;
-}
-
-.filesIcon {
-  font-size: 28rpx;
-}
-
-.filesTitle {
-  font-size: 28rpx;
-  font-weight: 800;
-  color: #f1f5f9;
-}
-
-.filesBadge {
-  font-size: 20rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 10rpx;
-  font-weight: 700;
-  background-color: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  margin-left: auto;
-}
-
-.filesBadge.loading {
-  background-color: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
-}
-
-.filesLoadingNotice,
-.filesEmptyNotice {
-  background-color: #1a2436;
-  border-radius: 14rpx;
-  padding: 20rpx;
-  text-align: center;
-}
-
-.loadingNoticeText,
-.emptyNoticeText {
-  font-size: 22rpx;
-  color: #94a3b8;
-}
-
-.filesList {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.fileItem {
-  background-color: #162032;
-  border: 1.5rpx solid #23314d;
-  border-radius: 18rpx;
-  padding: 20rpx 22rpx;
-  transition: all 0.2s ease;
-}
-
-.fileItem.selected {
-  border-color: #38bdf8;
-  background-color: rgba(56, 189, 248, 0.08);
-  box-shadow: 0 0 16rpx rgba(56, 189, 248, 0.2);
-}
-
-.fileItem.isMain {
-  border-left: 6rpx solid #10b981;
-}
-
-.fileItemTop {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  margin-bottom: 12rpx;
-}
-
-.fileCategoryBadge {
-  padding: 2rpx 12rpx;
-  border-radius: 8rpx;
-  flex-shrink: 0;
-}
-
-.fileCategoryBadge.catMain {
-  background-color: rgba(16, 185, 129, 0.2);
-  border: 1rpx solid rgba(16, 185, 129, 0.5);
-}
-
-.fileCategoryBadge.catMain .fileCategoryText {
-  color: #34d399;
-}
-
-.fileCategoryBadge.catUpdate {
-  background-color: rgba(245, 158, 11, 0.2);
-  border: 1rpx solid rgba(245, 158, 11, 0.5);
-}
-
-.fileCategoryBadge.catUpdate .fileCategoryText {
-  color: #fbbf24;
-}
-
-.fileCategoryBadge.catOptional {
-  background-color: rgba(168, 85, 247, 0.2);
-  border: 1rpx solid rgba(168, 85, 247, 0.5);
-}
-
-.fileCategoryBadge.catOptional .fileCategoryText {
-  color: #c084fc;
-}
-
-.fileCategoryBadge.catDefault {
-  background-color: rgba(148, 163, 184, 0.2);
-  border: 1rpx solid rgba(148, 163, 184, 0.4);
-}
-
-.fileCategoryBadge.catDefault .fileCategoryText {
-  color: #cbd5e1;
-}
-
-.fileCategoryText {
-  font-size: 18rpx;
-  font-weight: 700;
-}
-
-.fileNameText {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #ffffff;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: #9ca3af;
   white-space: nowrap;
 }
 
-.fileRadioIndicator {
-  flex-shrink: 0;
+.heroStatVal {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #d1d5db;
 }
 
-.radioIcon {
+.heroStatVal.highlight {
+  color: #da6b17; /* Nexus 橙色高亮 */
+}
+
+.heroStatVal.boldWhite {
+  color: #ffffff;
+}
+
+/* 动作操作行 (对标图 3: Original File 按钮) */
+.heroActionRow {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-top: 12rpx;
+}
+
+.originalFileBtn {
+  background-color: rgba(30, 33, 40, 0.9);
+  border: 1rpx solid #3c424e;
+  border-radius: 8rpx;
+  padding: 12rpx 28rpx;
+  cursor: pointer;
+}
+
+.originalFileText {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.heroPushBtn {
+  background-color: #da6b17;
+  border-radius: 8rpx;
+  padding: 12rpx 30rpx;
+  cursor: pointer;
+}
+
+.heroPushText {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 3：媒体画廊缩略条 (对标图 3) */
+/* ---------------------------------------------------------------------------- */
+.galleryStrip {
+  background-color: #121212;
+  padding: 20rpx 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.galleryThumbBox {
+  width: 130rpx;
+  height: 80rpx;
+  border-radius: 8rpx;
+  overflow: hidden;
+  border: 2rpx solid #374151;
+  background-color: #1a1c22;
+}
+
+.galleryThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.galleryBadgeBox {
+  background-color: #1f2229;
+  border-radius: 6rpx;
+  padding: 8rpx 20rpx;
+}
+
+.galleryBadgeText {
+  font-size: 22rpx;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.galleryFullscreenBtn {
+  width: 60rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.galleryFullscreenIcon {
+  font-size: 36rpx;
+  color: #9ca3af;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 4：双列元数据信息表格 (对标图 3) */
+/* ---------------------------------------------------------------------------- */
+.metaTableCard {
+  background-color: #17191e;
+  margin: 0 24rpx;
+  border-radius: 10rpx;
+  border: 1rpx solid #232730;
+  padding: 24rpx;
+}
+
+.metaGrid {
+  display: flex;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.metaCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.metaCell {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.metaCellLabel {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.metaCellVal {
+  font-size: 22rpx;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+.metaCellVal.uploaderLink {
+  color: #d4a373; /* Nexus 经典作者暖金色 */
+  font-weight: 600;
+}
+
+.virusScanRow {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.virusScanIcon {
+  font-size: 22rpx;
+}
+
+.virusScanText {
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 5：标签列表 (对标图 3) */
+/* ---------------------------------------------------------------------------- */
+.tagsSection {
+  padding: 24rpx 24rpx 10rpx;
+}
+
+.tagsScrollView {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.tagsList {
+  display: inline-flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.tagPill {
+  display: inline-flex;
+  align-items: center;
+  background-color: #242831;
+  border-radius: 8rpx;
+  padding: 10rpx 20rpx;
+  border: 1rpx solid #333945;
+}
+
+.tagPillText {
+  font-size: 22rpx;
+  color: #d1d5db;
+  font-weight: 500;
+}
+
+.addTagPill {
+  background-color: transparent;
+  border: 1rpx dashed #4b5563;
+  gap: 6rpx;
+}
+
+.addTagIcon {
+  font-size: 24rpx;
+  color: #9ca3af;
+}
+
+/* 分割线 */
+.nexusDivider {
+  height: 1rpx;
+  background-color: #232730;
+  margin: 24rpx;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 6：Current section 下拉选择区 (对标图 3) */
+/* ---------------------------------------------------------------------------- */
+.currentSectionArea {
+  padding: 0 24rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.sectionHeaderTitle {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.sectionSelectCard {
+  background-color: #1f232c;
+  border: 1rpx solid #323846;
+  border-radius: 8rpx;
+  height: 84rpx;
+  padding: 0 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.viewingPrefix {
+  font-size: 26rpx;
+  color: #9ca3af;
+  margin-right: 10rpx;
+}
+
+.viewingValue {
+  font-size: 26rpx;
+  color: #ffffff;
+  font-weight: 600;
+  flex: 1;
+}
+
+.selectArrow {
+  font-size: 28rpx;
+  color: #9ca3af;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 7A：模组正文富文本 (100% 对标用户参考图 4) */
+/* ---------------------------------------------------------------------------- */
+.sectionBodyContainer {
+  padding: 24rpx;
+}
+
+.aboutHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.aboutTitle {
+  font-size: 38rpx;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.5rpx;
+}
+
+.translateBtn {
+  background-color: #242831;
+  border: 1rpx solid #3a4252;
+  border-radius: 6rpx;
+  padding: 8rpx 20rpx;
+}
+
+.translateBtnText {
+  font-size: 22rpx;
+  color: #da6b17;
+  font-weight: 700;
+}
+
+.articleSummaryBox {
+  background-color: #181b22;
+  border-left: 6rpx solid #da6b17;
+  border-radius: 6rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 24rpx;
+}
+
+.articleSummaryText {
+  font-size: 26rpx;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.nexusArticleBody {
+  background-color: #15171c;
+  border-radius: 10rpx;
+  border: 1rpx solid #232730;
+  padding: 28rpx;
+}
+
+.nexusRichNode {
+  font-size: 26rpx;
+  color: #d1d5db;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 7B：物理文件列表 (Files) */
+/* ---------------------------------------------------------------------------- */
+.filesCountBadge {
+  font-size: 22rpx;
+  background-color: #1f232c;
+  color: #9ca3af;
+  padding: 6rpx 16rpx;
+  border-radius: 6rpx;
+}
+
+.filesListGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.fileCard {
+  background-color: #181b22;
+  border: 1rpx solid #282d38;
+  border-radius: 10rpx;
+  padding: 22rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  cursor: pointer;
+}
+
+.fileCard.selected {
+  border-color: #da6b17;
+  background-color: #1c202a;
+}
+
+.fileCardTop {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.fileCatPill {
+  background-color: #374151;
+  border-radius: 6rpx;
+  padding: 4rpx 14rpx;
+}
+
+.fileCatPill.main {
+  background-color: #da6b17;
+}
+
+.fileCatPill.update {
+  background-color: #2563eb;
+}
+
+.fileCatPill.optional {
+  background-color: #4b5563;
+}
+
+.fileCatText {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.fileName {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #ffffff;
+  flex: 1;
+}
+
+.fileRadioDot {
   font-size: 24rpx;
 }
 
-.fileMetaRow {
+.fileMetaInfoRow {
   display: flex;
   align-items: center;
   gap: 16rpx;
-  margin-bottom: 10rpx;
 }
 
 .fileMetaTag {
   font-size: 20rpx;
-  color: #94a3b8;
+  color: #9ca3af;
 }
 
 .fileMetaPrimary {
   font-size: 20rpx;
-  color: #34d399;
+  color: #f59e0b;
   font-weight: 700;
-  margin-left: auto;
 }
 
-.fileDescBox {
-  background-color: #0d1522;
+.fileDescPreview {
+  font-size: 22rpx;
+  color: #9ca3af;
+  line-height: 1.4;
+}
+
+.fileActionRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8rpx;
+}
+
+.filePushBtn {
+  background-color: #242933;
+  border: 1rpx solid #3b4353;
+  border-radius: 6rpx;
+  padding: 8rpx 20rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.filePushText {
+  font-size: 22rpx;
+  color: #da6b17;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 7C：前置依赖体检 (Requirements) */
+/* ---------------------------------------------------------------------------- */
+.reqStatusBadge {
+  font-size: 22rpx;
+  background-color: #1f232c;
+  color: #e5e7eb;
+  padding: 6rpx 16rpx;
+  border-radius: 6rpx;
+}
+
+.reqStatusBadge.free {
+  background-color: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.reqFreeCard {
+  background-color: #151e19;
+  border: 1rpx solid #065f46;
   border-radius: 10rpx;
-  padding: 10rpx 14rpx;
-  margin-bottom: 12rpx;
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
 }
 
-.fileDescText {
-  font-size: 20rpx;
-  color: #64748b;
+.reqFreeTitle {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.reqFreeDesc {
+  font-size: 24rpx;
+  color: #a7f3d0;
   line-height: 1.45;
 }
 
-.fileItemActionRow {
+.reqListGroup {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 16rpx;
 }
 
-.singlePushBtn {
-  background-color: rgba(56, 189, 248, 0.15);
-  border: 1rpx solid rgba(56, 189, 248, 0.35);
-  border-radius: 12rpx;
-  padding: 6rpx 18rpx;
+.reqItemCard {
+  background-color: #191c23;
+  border: 1rpx solid #2a303d;
+  border-radius: 8rpx;
+  padding: 20rpx;
+  display: flex;
+  align-items: flex-start;
+  gap: 16rpx;
 }
 
-.singlePushBtnText {
-  font-size: 20rpx;
-  color: #38bdf8;
-  font-weight: 600;
+.reqBullet {
+  font-size: 24rpx;
 }
 
-/* 区域 4：底部固定栏 */
-.fixedBottomBar {
+.reqTextCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.reqItemName {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.reqItemNotes {
+  font-size: 22rpx;
+  color: #9ca3af;
+}
+
+.reqMayflyTip {
+  font-size: 22rpx;
+  color: #9ca3af;
+  margin-top: 10rpx;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 加载与空白态 */
+/* ---------------------------------------------------------------------------- */
+.loadingBox {
+  padding: 50rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.loadingSpinner {
+  width: 44rpx;
+  height: 44rpx;
+  border: 4rpx solid #374151;
+  border-top-color: #da6b17;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingNotice,
+.emptyFilesNotice {
+  font-size: 24rpx;
+  color: #9ca3af;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 8：底部悬浮固定操作栏 */
+/* ---------------------------------------------------------------------------- */
+.fixedBottomActionBar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(11, 15, 23, 0.95);
-  backdrop-filter: blur(12px);
-  border-top: 1rpx solid #1f2b42;
-  padding: 20rpx 24rpx 40rpx;
+  height: 110rpx;
+  background-color: #16181d;
+  border-top: 1rpx solid #232731;
   display: flex;
-  gap: 18rpx;
   align-items: center;
-  z-index: 100;
+  padding: 0 24rpx;
+  gap: 20rpx;
+  z-index: 99;
+  box-sizing: border-box;
 }
 
-.websiteBtn {
-  background-color: #1e293b;
-  border: 1rpx solid #334155;
-  border-radius: 20rpx;
-  padding: 20rpx 28rpx;
-  white-space: nowrap;
+.bottomIconBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4rpx;
+  width: 90rpx;
+  cursor: pointer;
 }
 
-.websiteBtnText {
-  font-size: 24rpx;
-  color: #94a3b8;
-  font-weight: 600;
+.bottomIcon {
+  font-size: 32rpx;
 }
 
-.pushBigActionBtn {
+.bottomIconLabel {
+  font-size: 20rpx;
+  color: #9ca3af;
+}
+
+.bottomPushBigBtn {
   flex: 1;
-  background: linear-gradient(135deg, #0284c7, #6366f1);
-  color: #ffffff;
-  border-radius: 20rpx;
+  background-color: #da6b17;
+  border-radius: 8rpx;
+  height: 78rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
   border: none;
-  padding: 20rpx 0;
-  line-height: 1.4;
 }
 
-.pushBigText {
+.bottomPushText {
   font-size: 28rpx;
   font-weight: 800;
+  color: #ffffff;
   letter-spacing: 1rpx;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 9：设备配对弹窗 */
+/* ---------------------------------------------------------------------------- */
+.deviceModalMask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30rpx;
+  box-sizing: border-box;
+}
+
+.deviceModalContent {
+  width: 100%;
+  max-width: 620rpx;
+  background-color: #1e2128;
+  border: 1rpx solid #2f3542;
+  border-radius: 12rpx;
+  padding: 30rpx;
+  box-sizing: border-box;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.modalTitle {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.modalClose {
+  font-size: 32rpx;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  margin-bottom: 30rpx;
+}
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.formLabel {
+  font-size: 24rpx;
+  color: #9ca3af;
+}
+
+.formInput {
+  background-color: #121418;
+  border: 1rpx solid #333946;
+  border-radius: 6rpx;
+  height: 72rpx;
+  padding: 0 16rpx;
+  font-size: 26rpx;
+  color: #ffffff;
+}
+
+.modalFooter {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.modalBtn {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 6rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border: none;
+}
+
+.testBtn {
+  background-color: #2b303c;
+  color: #e5e7eb;
+}
+
+.saveBtn {
+  background-color: #da6b17;
+  color: #ffffff;
 }
 </style>

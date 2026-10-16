@@ -115,6 +115,68 @@ export function formatNexusDate(dateStr) {
 }
 
 /**
+ * 格式化为 Nexus 官方完整详细时间 (如 "16 October 2026, 1:20PM")
+ * @param {string|number} dateStr
+ * @returns {string}
+ */
+export function formatNexusFullDate(dateStr) {
+  if (!dateStr) return '--';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return String(dateStr);
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return `${day} ${month} ${year}, ${hours}:${minutes}${ampm}`;
+}
+
+/**
+ * 将 Nexus 模组官方 BBCode 描述文本转译为移动端高还原原生 HTML 节点
+ * @param {string} text - 原始 BBCode
+ * @returns {string}
+ */
+export function parseNexusBbCode(text) {
+  if (!text) return '';
+  let s = String(text);
+  // 去除排版对齐标签包裹
+  s = s.replace(/\[\/?(left|center|right)\]/gi, '');
+  // 标题层级
+  s = s.replace(/\[size=5\]\[b\]([\s\S]*?)\[\/b\]\[\/size\]/gi, '<div style="font-size:20px;font-weight:800;color:#ffffff;margin:20px 0 10px;">$1</div>');
+  s = s.replace(/\[size=4\]\[b\]([\s\S]*?)\[\/b\]\[\/size\]/gi, '<div style="font-size:18px;font-weight:700;color:#ffffff;margin:16px 0 8px;">$1</div>');
+  s = s.replace(/\[size=[45]\]([\s\S]*?)\[\/size\]/gi, '<div style="font-size:18px;font-weight:700;color:#ffffff;margin:16px 0 8px;">$1</div>');
+  s = s.replace(/\[size=3\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size:15px;color:#d1d5db;">$1</span>');
+  s = s.replace(/\[size=[12]\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size:13px;color:#9ca3af;">$1</span>');
+  // 粗体、斜体、下划线
+  s = s.replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong style="color:#ffffff;font-weight:700;">$1</strong>');
+  s = s.replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>');
+  s = s.replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>');
+  // 链接 (Nexus 暖金配色 #d4a373)
+  s = s.replace(/\[url=([^\]]+)\]([\s\S]*?)\[\/url\]/gi, '<span style="color:#d4a373;text-decoration:underline;">$2</span>');
+  s = s.replace(/\[url\]([\s\S]*?)\[\/url\]/gi, '<span style="color:#d4a373;text-decoration:underline;word-break:break-all;">$1</span>');
+  // 图片
+  s = s.replace(/\[img\]([\s\S]*?)\[\/img\]/gi, '<img src="$1" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;" />');
+  // 列表处理
+  s = s.replace(/\[list\]([\s\S]*?)\[\/list\]/gi, (m, inner) => {
+    const rawClean = inner.replace(/<br\s*\/?>/gi, '');
+    const items = rawClean.split(/\[\*\]/).map(x => x.replace(/\[\/\*\]/g, '').trim()).filter(x => x.length > 0);
+    return '<ul style="padding-left:18px;margin:8px 0;">' + items.map(it => '<li style="color:#d1d5db;margin-bottom:6px;line-height:1.5;">' + it + '</li>').join('') + '</ul>';
+  });
+  // 换行清洗
+  s = s.replace(/<br\s*\/?>/gi, '\n');
+  s = s.replace(/\n\n+/g, '<br/><br/>');
+  s = s.replace(/\n/g, '<br/>');
+  return s;
+}
+
+/**
  * 格式化数值展示为标准 Nexus 计量单位 (如 142k, 4.8k, 13.4b)
  */
 export function formatNexusMetric(num) {
@@ -422,6 +484,113 @@ export async function fetchNexusMods({
   } catch (error) {
     console.error('[MayflyNexus] 抓取模组列表失败:', error);
     throw error;
+  }
+}
+
+/**
+ * 动态拉取指定 Mod 的完整详情信息 (含官方富文本正文描述、标签、多图、上传者等，100% 动态零硬编码)
+ * @param {string|number} modId - 模组 ID
+ * @param {string|number} gameId - 游戏 ID
+ * @returns {Promise<Object>}
+ */
+export async function fetchModDetail(modId, gameId) {
+  if (!modId || !gameId) throw new Error('缺少 modId 或 gameId');
+
+  const gqlQuery = `
+    query ModFullDetail($modId: ID!, $gameId: ID!) {
+      mod(modId: $modId, gameId: $gameId) {
+        modId
+        name
+        summary
+        description
+        pictureUrl
+        version
+        downloads
+        endorsements
+        createdAt
+        updatedAt
+        author
+        uploader {
+          name
+          avatar
+        }
+        tags {
+          name
+        }
+        modCategory {
+          name
+        }
+        game {
+          id
+          domainName
+          name
+        }
+      }
+    }
+  `;
+
+  try {
+    const res = await uni.request({
+      url: NEXUS_GRAPHQL_ENDPOINT,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      data: JSON.stringify({
+        query: gqlQuery,
+        variables: {
+          modId: String(modId),
+          gameId: String(gameId)
+        }
+      }),
+      timeout: 15000
+    });
+
+    if (res.statusCode !== 200 || !res.data) {
+      throw new Error(`Nexus 模组详情响应异常 (HTTP ${res.statusCode || '未知'})`);
+    }
+
+    const item = res.data?.data?.mod;
+    if (!item) {
+      throw new Error('未检索到模组信息');
+    }
+
+    const cover = item.pictureUrl || '';
+    return {
+      id: String(item.modId),
+      modId: String(item.modId),
+      title: item.name || '未命名模组',
+      summary: item.summary || '暂无简介说明',
+      description: item.description || '',
+      coverImageUrl: cover,
+      version: item.version || '1.0',
+      downloads: Number(item.downloads) || 0,
+      likes: Number(item.endorsements) || 0,
+      category: item.modCategory?.name || '综合',
+      createdAt: item.createdAt || '',
+      updatedAt: item.updatedAt || item.createdAt || '',
+      timeAgo: formatTimeAgo(item.updatedAt || item.createdAt),
+      formattedDate: formatNexusDate(item.createdAt),
+      formattedFullCreated: formatNexusFullDate(item.createdAt),
+      formattedFullUpdated: formatNexusFullDate(item.updatedAt || item.createdAt),
+      author: item.author || item.uploader?.name || '未知作者',
+      uploaderName: item.uploader?.name || item.author || '未知上传者',
+      uploaderAvatar: item.uploader?.avatar || '',
+      tags: (item.tags || []).map(t => t.name).filter(Boolean),
+      game: {
+        id: item.game?.id || Number(gameId),
+        domainName: item.game?.domainName || '',
+        name: item.game?.name || '未知游戏',
+        shortZhName: getGameShortZhName(item.game?.domainName, item.game?.name)
+      },
+      website: item.game?.domainName && item.modId
+        ? `https://www.nexusmods.com/${item.game.domainName}/mods/${item.modId}`
+        : ''
+    };
+  } catch (err) {
+    console.error('[MayflyNexus] 抓取模组详情失败:', err);
+    throw err;
   }
 }
 

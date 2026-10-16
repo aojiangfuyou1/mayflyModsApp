@@ -8,12 +8,10 @@
         <text class="headerIcon">☰</text>
       </view>
 
-      <view class="headerLogoArea" @click="switchView('mods')">
+      <view class="headerLogoArea" @click="switchView(currentView === 'mods' ? 'games' : 'mods')">
         <view class="nexusLogoBox">
           <text class="nexusLogoGlyph">❖</text>
         </view>
-        <text class="nexusBrandText">MAYFLY</text>
-        <text class="nexusBrandSub">NEXUS</text>
       </view>
 
       <view class="headerRightArea">
@@ -46,31 +44,18 @@
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 2：主副视角导航 (对标图 1 与图 2：Games 游戏专区 / Mods 模组流) -->
-    <!-- ==================================================================== -->
-    <view class="nexusNavSegment">
-      <view
-        class="segmentTab"
-        :class="{ active: currentView === 'mods' }"
-        @click="switchView('mods')"
-      >
-        <text class="segmentIcon">🔷</text>
-        <text class="segmentText">Mods 模组发现</text>
-      </view>
-      <view
-        class="segmentTab"
-        :class="{ active: currentView === 'games' }"
-        @click="switchView('games')"
-      >
-        <text class="segmentIcon">🎮</text>
-        <text class="segmentText">Games 热门游戏</text>
-      </view>
-    </view>
-
-    <!-- ==================================================================== -->
-    <!-- 区域 3A：Games 视角 (100% 对标用户截图 1 的双列竖版海报风格，动态拉取) -->
+    <!-- 区域 2A：Games 视角 (100% 对标用户截图 1 的双列竖版海报风格，动态拉取) -->
     <!-- ==================================================================== -->
     <view class="gamesContainer" v-if="currentView === 'games'">
+      <!-- 游戏区块标题行 (对标图 1 与图 2 统一规范: 🎮 Games   View all mods) -->
+      <view class="gamesHeaderRow">
+        <view class="gamesHeaderLeft">
+          <text class="gamesIcon">🎮</text>
+          <text class="gamesTitle">Games</text>
+        </view>
+        <text class="gamesViewAllLink" @click="switchView('mods')">View all mods</text>
+      </view>
+
       <!-- 加载状态 -->
       <view class="loadingBox" v-if="gamesLoading && gamesList.length === 0">
         <view class="loadingSpinner"></view>
@@ -93,26 +78,26 @@
               mode="aspectFill"
               lazy-load
             />
-            <view class="gameBookmarkBadge" v-if="selectedGameDomain === game.domain">
-              <text class="bookmarkIcon">✓ 选中</text>
+            <view class="gameBookmarkBadge" :class="{ selected: selectedGameDomain === game.domain }">
+              <text class="bookmarkIcon">🔖</text>
             </view>
           </view>
 
           <!-- 游戏英文全名 (白字加粗) -->
           <text class="gameTitleText">{{ game.name }}</text>
 
-          <!-- 统计指标行 (对标图 1: 🔷 142k  📦 4.8k  📥 13.4b) -->
+          <!-- 统计指标行 (对标图 1: ◆ 142k  ▤ 4.8k  ⬇ 13.4b) -->
           <view class="gameStatsRow">
             <view class="statMetricItem">
-              <text class="statGlyph">🔷</text>
+              <text class="statGlyph">◆</text>
               <text class="statMetricVal">{{ game.stats.mods }}</text>
             </view>
             <view class="statMetricItem">
-              <text class="statGlyph">📦</text>
+              <text class="statGlyph">▤</text>
               <text class="statMetricVal">{{ game.stats.tracking }}</text>
             </view>
             <view class="statMetricItem">
-              <text class="statGlyph">📥</text>
+              <text class="statGlyph">⬇</text>
               <text class="statMetricVal">{{ game.stats.downloads }}</text>
             </view>
           </view>
@@ -121,7 +106,7 @@
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 3B：Mods 视角 (100% 对标用户截图 2 的模组流风格，动态拉取) -->
+    <!-- 区域 2B：Mods 视角 (100% 对标用户截图 2 的模组流风格，动态拉取) -->
     <!-- ==================================================================== -->
     <view class="modsContainer" v-else>
       <!-- 当前选中游戏过滤横幅提示 -->
@@ -135,13 +120,13 @@
         </view>
       </view>
 
-      <!-- 模组区块标题行 (对标图 2: 🔷 Mods   View all) -->
+      <!-- 模组区块标题行 (对标图 2: ◆ Mods   View all) -->
       <view class="modsHeaderRow">
         <view class="modsHeaderLeft">
-          <text class="modsIcon">🔷</text>
+          <text class="modsIcon">◆</text>
           <text class="modsTitle">Mods</text>
         </view>
-        <text class="modsViewAllLink" @click="resetAndLoad">View all</text>
+        <text class="modsViewAllLink" @click="switchView('games')">View all</text>
       </view>
 
       <!-- 排序与状态选项卡 (100% 对标图 2: ☀ New | ⟳ Updated | 📈 Trending | ★ Popular | ❤️ Favorites) -->
@@ -1334,30 +1319,19 @@ export default {
 }
 
 .nexusLogoBox {
-  width: 44rpx;
-  height: 44rpx;
+  width: 60rpx;
+  height: 60rpx;
+  background-color: #da6b17; /* Nexus 经典橙色底标 */
+  border-radius: 12rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .nexusLogoGlyph {
-  font-size: 38rpx;
-  color: #da6b17; /* Nexus 经典橙色 */
-}
-
-.nexusBrandText {
-  font-size: 32rpx;
+  font-size: 34rpx;
+  color: #ffffff; /* 纯白徽标 */
   font-weight: 900;
-  letter-spacing: 2rpx;
-  color: #ffffff;
-}
-
-.nexusBrandSub {
-  font-size: 24rpx;
-  font-weight: 800;
-  color: #da6b17;
-  letter-spacing: 1rpx;
 }
 
 .headerRightArea {
@@ -1467,10 +1441,42 @@ export default {
 }
 
 /* ---------------------------------------------------------------------------- */
-/* 区域 3A：Games 视角 (100% 对标图 1 双列竖版海报) */
+/* 区域 2A：Games 视角 (100% 对标图 1 双列竖版海报) */
 /* ---------------------------------------------------------------------------- */
 .gamesContainer {
   padding: 24rpx;
+}
+
+.gamesHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.gamesHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.gamesIcon {
+  font-size: 32rpx;
+  color: #ffffff;
+}
+
+.gamesTitle {
+  font-size: 36rpx;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.gamesViewAllLink {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #ffffff;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .gamesGrid {
@@ -1505,11 +1511,19 @@ export default {
 
 .gameBookmarkBadge {
   position: absolute;
-  top: 12rpx;
-  right: 12rpx;
+  top: 14rpx;
+  right: 14rpx;
+  width: 50rpx;
+  height: 50rpx;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gameBookmarkBadge.selected {
   background: rgba(218, 107, 23, 0.95);
-  border-radius: 8rpx;
-  padding: 4rpx 12rpx;
 }
 
 .bookmarkIcon {
