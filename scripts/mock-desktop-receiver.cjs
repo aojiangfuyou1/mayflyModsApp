@@ -27,6 +27,11 @@ function handleReceivedPayload(payload, channel) {
   console.log('----------------------------------------------------');
   console.log(`🎮 目标游戏: ${payload.gameName || payload.gameId}`);
   console.log(`📦 模组名称: ${payload.title}`);
+  if (payload.fileName) {
+    console.log(`📄 指定文件: ${payload.fileName} (FileID: ${payload.fileId || '默认'}, 大小: ${payload.fileSize || '未知'})`);
+  } else {
+    console.log(`📄 指定文件: [未指定，默认调度主文件 MAIN]`);
+  }
   console.log(`🆔 平台来源: ${payload.sourceType} (ID: ${payload.sourceModId})`);
   console.log(`🔑 配对Token: ${payload.deviceToken}`);
   console.log(`⏰ 投递时间: ${new Date(payload.timestamp || Date.now()).toLocaleString()}`);

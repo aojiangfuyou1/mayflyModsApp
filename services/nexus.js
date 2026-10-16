@@ -328,3 +328,92 @@ export async function fetchModRequirements(modId, gameId) {
   return [];
 }
 
+// ----------------------------------------------------------------------------
+// 区域 6：模组物理文件列表 (Files) 查询与格式化
+// ----------------------------------------------------------------------------
+
+/**
+ * 格式化字节大小为人类友好的可读字符串
+ * @param {number|string} bytes - 字节数
+ * @returns {string} 格式化后的文件大小 (如 "12.5 MB")
+ */
+export function formatFileSize(bytes) {
+  const num = Number(bytes);
+  if (isNaN(num) || num <= 0) return '未知大小';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let size = num;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+/**
+ * 查询模组关联的全部物理文件列表 (支持 Main, Optional, Update 等分流)
+ * @param {string|number} modId - 模组 ID
+ * @param {string|number} gameId - 游戏 ID
+ * @returns {Promise<Array<{ fileId: number, name: string, version: string, category: string, sizeFormatted: string, sizeInBytes: number, description: string, isPrimary: boolean, date: number }>>}
+ */
+export async function fetchModFiles(modId, gameId) {
+  if (!modId || !gameId) return [];
+
+  const gqlQuery = `
+    query ModFilesListing($modId: ID!, $gameId: ID!) {
+      modFiles(modId: $modId, gameId: $gameId) {
+        fileId
+        name
+        version
+        category
+        size
+        sizeInBytes
+        description
+        date
+        primary
+      }
+    }
+  `;
+
+  try {
+    const res = await uni.request({
+      url: NEXUS_GRAPHQL_ENDPOINT,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      data: JSON.stringify({
+        query: gqlQuery,
+        variables: {
+          modId: String(modId),
+          gameId: String(gameId)
+        }
+      }),
+      timeout: 10000
+    });
+
+    if (res.statusCode === 200 && res.data) {
+      const rawFiles = res.data?.data?.modFiles || [];
+      return rawFiles.map((file) => {
+        const rawBytes = Number(file.sizeInBytes) || (Number(file.size) * 1024) || 0;
+        return {
+          fileId: Number(file.fileId),
+          name: file.name || '未命名文件',
+          version: file.version || '1.0',
+          category: file.category || 'MAIN',
+          sizeFormatted: formatFileSize(rawBytes),
+          sizeInBytes: rawBytes,
+          description: (file.description || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim(),
+          isPrimary: Boolean(file.primary),
+          date: Number(file.date) || 0
+        };
+      });
+    }
+  } catch (err) {
+    console.warn('[MayflyNexus] 获取 Mod 文件列表异常:', err);
+  }
+
+  return [];
+}
+

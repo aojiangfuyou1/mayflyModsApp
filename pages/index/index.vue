@@ -51,6 +51,21 @@
         <text v-if="searchText" class="clearIcon" @click="clearSearch">✕</text>
       </view>
 
+      <!-- 快捷类型标签胶囊栏 (横向滚动) -->
+      <scroll-view class="categoryScroll" scroll-x show-scrollbar="false">
+        <view class="categoryCapsuleList">
+          <view
+            class="categoryCapsule"
+            v-for="(cat, idx) in quickCategories"
+            :key="idx"
+            :class="{ active: selectedCategoryIndex === idx }"
+            @click="selectQuickCategory(idx)"
+          >
+            <text class="categoryCapsuleText">{{ cat.label }}</text>
+          </view>
+        </view>
+      </scroll-view>
+
       <!-- 排序切换胶囊 -->
       <view class="sortBar">
         <view
@@ -389,6 +404,20 @@ export default {
       searchText: '',
       currentSort: 'downloads', // 'downloads' | 'updatedAt' | 'createdAt' | 'favorites'
 
+      // 快捷类型胶囊标签
+      selectedCategoryIndex: 0,
+      quickCategories: [
+        { label: '🌟 全部', query: '' },
+        { label: '👗 角色外观', query: 'outfit' },
+        { label: '⚔️ 武器装备', query: 'weapon' },
+        { label: '🎨 画质光影', query: 'reshade' },
+        { label: '⚙️ 玩法增强', query: 'gameplay' },
+        { label: '🖥️ UI界面', query: 'interface' },
+        { label: '🏃 动作动画', query: 'animation' },
+        { label: '🗺️ 地图扩展', query: 'location' },
+        { label: '🛠️ 修复优化', query: 'patch' }
+      ],
+
       // 详情弹窗
       detailVisible: false,
       selectedMod: null,
@@ -475,6 +504,32 @@ export default {
     // ------------------------------------------------------------------------
 
     /**
+     * 计算当前生效的综合检索关键词 (整合手动搜索词与快捷分类标签)
+     */
+    effectiveSearchText() {
+      const manual = (this.searchText || '').trim();
+      const cat = this.quickCategories[this.selectedCategoryIndex];
+      const catQuery = cat && cat.query ? cat.query.trim() : '';
+
+      if (manual && catQuery) {
+        return `${manual} ${catQuery}`;
+      }
+      return manual || catQuery;
+    },
+
+    /**
+     * 选中快捷类型胶囊标签
+     */
+    selectQuickCategory(index) {
+      if (this.selectedCategoryIndex === index) return;
+      this.selectedCategoryIndex = index;
+      if (this.currentSort === 'favorites') {
+        this.currentSort = 'downloads';
+      }
+      this.resetAndLoad();
+    },
+
+    /**
      * 加载第一页 Nexus 模组列表
      */
     async loadMods() {
@@ -487,7 +542,7 @@ export default {
           page: 1,
           pageSize: this.pageSize,
           sort: this.currentSort,
-          searchText: this.searchText
+          searchText: this.effectiveSearchText()
         });
 
         this.modList = result.items;
@@ -520,7 +575,7 @@ export default {
           page: nextPage,
           pageSize: this.pageSize,
           sort: this.currentSort,
-          searchText: this.searchText
+          searchText: this.effectiveSearchText()
         });
 
         this.modList = [...this.modList, ...result.items];
@@ -1249,6 +1304,47 @@ export default {
   font-size: 26rpx;
   color: #94a3b8;
   padding: 6rpx;
+}
+
+/* 快捷类型标签胶囊滚动栏 */
+.categoryScroll {
+  width: 100%;
+  white-space: nowrap;
+  margin-bottom: 18rpx;
+}
+
+.categoryCapsuleList {
+  display: inline-flex;
+  gap: 14rpx;
+  padding: 4rpx 2rpx;
+}
+
+.categoryCapsule {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #162133;
+  border: 1rpx solid #23334d;
+  border-radius: 24rpx;
+  padding: 8rpx 22rpx;
+  transition: all 0.2s ease;
+}
+
+.categoryCapsule.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.25));
+  border-color: #38bdf8;
+  box-shadow: 0 0 12rpx rgba(56, 189, 248, 0.25);
+}
+
+.categoryCapsuleText {
+  font-size: 22rpx;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.categoryCapsule.active .categoryCapsuleText {
+  color: #38bdf8;
+  font-weight: 700;
 }
 
 .sortBar {

@@ -167,6 +167,68 @@
     </view>
 
     <!-- ==================================================================== -->
+    <!-- 区域 3.6：物理文件清单 (Files) 与精准分流选择 -->
+    <!-- ==================================================================== -->
+    <view class="filesCard">
+      <view class="filesHeader">
+        <text class="filesIcon">📦</text>
+        <text class="filesTitle">模组物理文件清单 (Files)</text>
+        <text class="filesBadge" :class="{ loading: loadingFiles }">
+          {{ loadingFiles ? '拉取中...' : `${modFiles.length} 个文件` }}
+        </text>
+      </view>
+
+      <view class="filesBody">
+        <!-- 加载中骨架 -->
+        <view class="filesLoadingNotice" v-if="loadingFiles">
+          <text class="loadingNoticeText">⏳ 正在从 Nexus 节点拉取最新文件列表...</text>
+        </view>
+
+        <!-- 无文件回退 -->
+        <view class="filesEmptyNotice" v-else-if="modFiles.length === 0">
+          <text class="emptyNoticeText">ℹ️ 暂未解析到独立可选包，推送时电脑端将默认拉取官方最新主文件。</text>
+        </view>
+
+        <!-- 文件项列表 -->
+        <view class="filesList" v-else>
+          <view
+            class="fileItem"
+            v-for="file in modFiles"
+            :key="file.fileId"
+            :class="{ selected: selectedFileId === file.fileId, isMain: file.category === 'MAIN' }"
+            @click="selectFile(file)"
+          >
+            <view class="fileItemTop">
+              <view class="fileCategoryBadge" :class="fileCategoryClass(file.category)">
+                <text class="fileCategoryText">{{ fileCategoryLabel(file.category) }}</text>
+              </view>
+              <text class="fileNameText">{{ file.name }}</text>
+              <view class="fileRadioIndicator">
+                <text class="radioIcon">{{ selectedFileId === file.fileId ? '🟢' : '⚪' }}</text>
+              </view>
+            </view>
+
+            <view class="fileMetaRow">
+              <text class="fileMetaTag">🏷️ v{{ file.version }}</text>
+              <text class="fileMetaTag">💾 {{ file.sizeFormatted }}</text>
+              <text class="fileMetaPrimary" v-if="file.isPrimary">★ 官方推荐</text>
+            </view>
+
+            <view class="fileDescBox" v-if="file.description">
+              <text class="fileDescText">{{ file.description }}</text>
+            </view>
+
+            <view class="fileItemActionRow">
+              <view class="singlePushBtn" @click.stop="handlePushSingleFile(file)">
+                <text class="singlePushBtnText">🚀 仅推送此文件</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ==================================================================== -->
     <!-- 区域 4：底部固定操作栏 -->
     <!-- ==================================================================== -->
     <view class="fixedBottomBar">
@@ -193,7 +255,7 @@
 // ============================================================================
 // 脚本逻辑：模组详情图鉴与全屏交互
 // ============================================================================
-import { pushModToDesktop, getDesktopConfig, fetchModRequirements } from '../../services/nexus.js';
+import { pushModToDesktop, getDesktopConfig, fetchModRequirements, fetchModFiles } from '../../services/nexus.js';
 import { translateTextToZh, formatAiModSummary } from '../../services/translate.js';
 import { isFavorited, toggleFavorite } from '../../services/favorites.js';
 
@@ -226,6 +288,12 @@ export default {
       // 前置依赖
       requirements: [],
       loadingRequirements: false,
+
+      // 物理文件列表 (Files)
+      modFiles: [],
+      loadingFiles: false,
+      selectedFileId: null,
+      selectedFile: null,
 
       // 图集相册
       imageGallery: [],
@@ -277,6 +345,9 @@ export default {
       // 异步探测前置依赖
       this.loadRequirements(mod);
 
+      // 异步拉取物理文件清单
+      this.loadModFiles(mod);
+
       // 立即触发中文翻译与要点提炼
       try {
         const [zhTitle, zhSummary] = await Promise.all([
@@ -310,6 +381,73 @@ export default {
       } finally {
         this.loadingRequirements = false;
       }
+    },
+
+    /**
+     * 异步拉取物理文件列表 (Files)
+     */
+    async loadModFiles(mod) {
+      const modId = mod.modId || mod.id;
+      const gameId = mod.game?.id;
+      if (!modId || !gameId) return;
+
+      this.loadingFiles = true;
+      try {
+        const files = await fetchModFiles(modId, gameId);
+        this.modFiles = files;
+
+        // 默认自动选中推荐主文件 (isPrimary 或 MAIN 或首项)
+        if (files && files.length > 0) {
+          const primaryFile = files.find(f => f.isPrimary) ||
+                              files.find(f => f.category === 'MAIN') ||
+                              files[0];
+          this.selectedFileId = primaryFile.fileId;
+          this.selectedFile = primaryFile;
+        }
+      } catch (e) {
+        this.modFiles = [];
+      } finally {
+        this.loadingFiles = false;
+      }
+    },
+
+    /**
+     * 用户单选文件项
+     */
+    selectFile(file) {
+      this.selectedFileId = file.fileId;
+      this.selectedFile = file;
+    },
+
+    /**
+     * 获取文件分类徽章样式类
+     */
+    fileCategoryClass(category) {
+      const cat = String(category || '').toUpperCase();
+      if (cat === 'MAIN') return 'catMain';
+      if (cat === 'UPDATE') return 'catUpdate';
+      if (cat === 'OPTIONAL') return 'catOptional';
+      return 'catDefault';
+    },
+
+    /**
+     * 获取文件分类友好中文展示
+     */
+    fileCategoryLabel(category) {
+      const cat = String(category || '').toUpperCase();
+      if (cat === 'MAIN') return '主文件';
+      if (cat === 'UPDATE') return '更新补丁';
+      if (cat === 'OPTIONAL') return '可选扩展';
+      if (cat === 'OLD_VERSION') return '历史旧版';
+      return '其他附件';
+    },
+
+    /**
+     * 单独推送指定文件到电脑
+     */
+    async handlePushSingleFile(file) {
+      this.selectFile(file);
+      await this.handlePushToDesktop();
     },
 
     /**
@@ -378,18 +516,31 @@ export default {
       if (this.isPushing) return;
       this.isPushing = true;
 
+      const fileDesc = this.selectedFile ? ` (${this.selectedFile.name})` : '';
       uni.showLoading({
         title: '正在唤醒电脑端...'
       });
 
       try {
-        const result = await pushModToDesktop(this.modInfo);
+        // 如果用户选中了特定的文件，装配精准物理文件参数
+        const targetPayload = {
+          ...this.modInfo
+        };
+        if (this.selectedFile) {
+          targetPayload.fileId = this.selectedFile.fileId;
+          targetPayload.fileName = this.selectedFile.name;
+          targetPayload.fileVersion = this.selectedFile.version;
+          targetPayload.fileSize = this.selectedFile.sizeInBytes;
+          targetPayload.fileSizeFormatted = this.selectedFile.sizeFormatted;
+        }
+
+        const result = await pushModToDesktop(targetPayload);
         uni.hideLoading();
 
         if (result.success) {
           uni.showModal({
             title: '推送成功 🚀',
-            content: result.message,
+            content: result.message + fileDesc,
             showCancel: false
           });
         } else {
@@ -869,6 +1020,207 @@ export default {
   color: #64748b;
   margin-top: 8rpx;
   line-height: 1.4;
+}
+
+/* 区域 3.6：模组物理文件清单 (Files) 卡片 */
+.filesCard {
+  background-color: #121927;
+  margin: 0 24rpx 24rpx;
+  border-radius: 24rpx;
+  border: 1rpx solid #1f2b42;
+  padding: 26rpx;
+}
+
+.filesHeader {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.filesIcon {
+  font-size: 28rpx;
+}
+
+.filesTitle {
+  font-size: 28rpx;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+
+.filesBadge {
+  font-size: 20rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 10rpx;
+  font-weight: 700;
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  margin-left: auto;
+}
+
+.filesBadge.loading {
+  background-color: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+.filesLoadingNotice,
+.filesEmptyNotice {
+  background-color: #1a2436;
+  border-radius: 14rpx;
+  padding: 20rpx;
+  text-align: center;
+}
+
+.loadingNoticeText,
+.emptyNoticeText {
+  font-size: 22rpx;
+  color: #94a3b8;
+}
+
+.filesList {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.fileItem {
+  background-color: #162032;
+  border: 1.5rpx solid #23314d;
+  border-radius: 18rpx;
+  padding: 20rpx 22rpx;
+  transition: all 0.2s ease;
+}
+
+.fileItem.selected {
+  border-color: #38bdf8;
+  background-color: rgba(56, 189, 248, 0.08);
+  box-shadow: 0 0 16rpx rgba(56, 189, 248, 0.2);
+}
+
+.fileItem.isMain {
+  border-left: 6rpx solid #10b981;
+}
+
+.fileItemTop {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.fileCategoryBadge {
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+
+.fileCategoryBadge.catMain {
+  background-color: rgba(16, 185, 129, 0.2);
+  border: 1rpx solid rgba(16, 185, 129, 0.5);
+}
+
+.fileCategoryBadge.catMain .fileCategoryText {
+  color: #34d399;
+}
+
+.fileCategoryBadge.catUpdate {
+  background-color: rgba(245, 158, 11, 0.2);
+  border: 1rpx solid rgba(245, 158, 11, 0.5);
+}
+
+.fileCategoryBadge.catUpdate .fileCategoryText {
+  color: #fbbf24;
+}
+
+.fileCategoryBadge.catOptional {
+  background-color: rgba(168, 85, 247, 0.2);
+  border: 1rpx solid rgba(168, 85, 247, 0.5);
+}
+
+.fileCategoryBadge.catOptional .fileCategoryText {
+  color: #c084fc;
+}
+
+.fileCategoryBadge.catDefault {
+  background-color: rgba(148, 163, 184, 0.2);
+  border: 1rpx solid rgba(148, 163, 184, 0.4);
+}
+
+.fileCategoryBadge.catDefault .fileCategoryText {
+  color: #cbd5e1;
+}
+
+.fileCategoryText {
+  font-size: 18rpx;
+  font-weight: 700;
+}
+
+.fileNameText {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #ffffff;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileRadioIndicator {
+  flex-shrink: 0;
+}
+
+.radioIcon {
+  font-size: 24rpx;
+}
+
+.fileMetaRow {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 10rpx;
+}
+
+.fileMetaTag {
+  font-size: 20rpx;
+  color: #94a3b8;
+}
+
+.fileMetaPrimary {
+  font-size: 20rpx;
+  color: #34d399;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+.fileDescBox {
+  background-color: #0d1522;
+  border-radius: 10rpx;
+  padding: 10rpx 14rpx;
+  margin-bottom: 12rpx;
+}
+
+.fileDescText {
+  font-size: 20rpx;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.fileItemActionRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.singlePushBtn {
+  background-color: rgba(56, 189, 248, 0.15);
+  border: 1rpx solid rgba(56, 189, 248, 0.35);
+  border-radius: 12rpx;
+  padding: 6rpx 18rpx;
+}
+
+.singlePushBtnText {
+  font-size: 20rpx;
+  color: #38bdf8;
+  font-weight: 600;
 }
 
 /* 区域 4：底部固定栏 */

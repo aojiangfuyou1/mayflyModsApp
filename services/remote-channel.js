@@ -32,9 +32,12 @@ export function buildRemoteInstallPayload(modItem, deviceToken = 'MF-PC-8891') {
     sourceType: modItem.sourceType || 'nexus',
     sourceModId: String(modItem.modId || modItem.id),
     title: modItem.title || '未知模组',
-    version: modItem.version || '1.0',
+    version: modItem.fileVersion || modItem.version || '1.0',
     coverImageUrl: modItem.coverImageUrl || '',
     downloadUrl: modItem.downloadUrl || '',
+    fileId: modItem.fileId ? Number(modItem.fileId) : null,
+    fileName: modItem.fileName || '',
+    fileSize: modItem.fileSizeFormatted || modItem.fileSize || '',
     timestamp: Date.now()
   };
 }
@@ -256,6 +259,8 @@ export async function pushModAdaptive(modItem, customConfig = null) {
       id: String(modItem.modId || modItem.id),
       modId: String(modItem.modId || modItem.id),
       title: modItem.title,
+      fileName: modItem.fileName || '',
+      fileVersion: modItem.fileVersion || modItem.version || '',
       coverImageUrl: modItem.coverImageUrl,
       gameName: modItem.game?.name || '',
       gameDomain: modItem.game?.domainName || '',
