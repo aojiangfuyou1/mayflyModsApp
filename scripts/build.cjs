@@ -16,7 +16,10 @@ const requiredFiles = [
   'manifest.json',
   'App.vue',
   'main.js',
-  'pages/index/index.vue'
+  'pages/index/index.vue',
+  'pages/detail/detail.vue',
+  'services/nexus.js',
+  'services/translate.js'
 ];
 
 let hasError = false;

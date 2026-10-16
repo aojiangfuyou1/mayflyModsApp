@@ -9,10 +9,20 @@
         <text class="brandSub">MODS</text>
         <text class="sourceTag">NexusMods</text>
       </view>
-      <!-- 电脑连接状态胶囊 -->
-      <view class="deviceBadge" @click="openDeviceModal">
-        <view class="statusDot" :class="{ connected: desktopConfig.connected }"></view>
-        <text class="statusText">{{ desktopConfig.connected ? '电脑已连接' : '配对电脑' }}</text>
+      <view class="headerRightActions">
+        <!-- 中文图鉴切换按钮 -->
+        <view
+          class="zhToggleBadge"
+          :class="{ active: enableAutoTranslate }"
+          @click="toggleAutoTranslate"
+        >
+          <text class="zhToggleText">{{ enableAutoTranslate ? '🌐 译 中文' : '🌐 原 英文' }}</text>
+        </view>
+        <!-- 电脑连接状态胶囊 -->
+        <view class="deviceBadge" @click="openDeviceModal">
+          <view class="statusDot" :class="{ connected: desktopConfig.connected }"></view>
+          <text class="statusText">{{ desktopConfig.connected ? '电脑已连' : '配对电脑' }}</text>
+        </view>
       </view>
     </view>
 
@@ -87,7 +97,9 @@
 
           <!-- 卡片信息主体 -->
           <view class="cardBody">
-            <text class="modTitle">{{ item.title }}</text>
+            <text class="modTitle">
+              {{ enableAutoTranslate && zhTitleMap[item.id] ? zhTitleMap[item.id] : item.title }}
+            </text>
             <text class="modSummary">{{ item.summary }}</text>
 
             <view class="modMetaRow">
@@ -200,6 +212,17 @@
         </view>
 
         <view class="deviceForm">
+          <!-- 扫码一键配对按钮 -->
+          <button class="scanCodeBtn" @click="handleScanCodePair">
+            <text class="scanCodeBtnText">📷 扫一扫屏幕二维码自动配对</text>
+          </button>
+
+          <view class="formDividerRow">
+            <view class="dividerLine"></view>
+            <text class="dividerText">或手动输入配置</text>
+            <view class="dividerLine"></view>
+          </view>
+
           <view class="formItem">
             <text class="formLabel">电脑局域网 IP 地址</text>
             <input
@@ -258,6 +281,7 @@ import {
   saveDesktopConfig,
   testDesktopConnection
 } from '../../services/nexus.js';
+import { batchTranslateToZh } from '../../services/translate.js';
 
 export default {
   data() {
@@ -270,6 +294,10 @@ export default {
       hasMore: true,
       loading: false,
       loadingMore: false,
+
+      // 智能翻译与双语图鉴
+      enableAutoTranslate: false,
+      zhTitleMap: {},
 
       // 搜索与排序
       searchText: '',
@@ -338,6 +366,10 @@ export default {
         this.modList = result.items;
         this.totalCount = result.totalCount;
         this.hasMore = result.hasMore;
+
+        if (this.enableAutoTranslate) {
+          this.translateCurrentTitles(result.items);
+        }
       } catch (err) {
         uni.showToast({
           title: '从 N网 加载失败，请检查网络',
@@ -367,6 +399,10 @@ export default {
         this.modList = [...this.modList, ...result.items];
         this.page = nextPage;
         this.hasMore = result.hasMore;
+
+        if (this.enableAutoTranslate) {
+          this.translateCurrentTitles(result.items);
+        }
       } catch (err) {
         uni.showToast({
           title: '加载下一页失败',
@@ -422,19 +458,150 @@ export default {
     // ------------------------------------------------------------------------
 
     /**
-     * 打开 Mod 详情模态框
+     * 打开 Mod 详情页 (优先页面路由跳转，失败则回退为弹窗)
      */
     openDetail(item) {
       this.selectedMod = item;
-      this.detailVisible = true;
+      try {
+        const payloadStr = encodeURIComponent(JSON.stringify(item));
+        uni.navigateTo({
+          url: `/pages/detail/detail?payload=${payloadStr}`,
+          fail: () => {
+            this.detailVisible = true;
+          }
+        });
+      } catch (err) {
+        this.detailVisible = true;
+      }
     },
 
     /**
-     * 关闭 Mod 详情
+     * 关闭 Mod 详情模态框
      */
     closeDetail() {
       this.detailVisible = false;
       this.selectedMod = null;
+    },
+
+    /**
+     * 切换中文图鉴/英文原标题模式
+     */
+    async toggleAutoTranslate() {
+      this.enableAutoTranslate = !this.enableAutoTranslate;
+      if (this.enableAutoTranslate) {
+        uni.showToast({
+          title: '已开启智能中文图鉴',
+          icon: 'none'
+        });
+        await this.translateCurrentTitles(this.modList);
+      } else {
+        uni.showToast({
+          title: '已切换为英文原标题',
+          icon: 'none'
+        });
+      }
+    },
+
+    /**
+     * 批量翻译当前列表的 Mod 标题
+     */
+    async translateCurrentTitles(items) {
+      if (!Array.isArray(items) || items.length === 0) return;
+      const titles = items.map((m) => m.title).filter(Boolean);
+      try {
+        const resMap = await batchTranslateToZh(titles);
+        const nextZhMap = { ...this.zhTitleMap };
+        items.forEach((m) => {
+          if (resMap.has(m.title)) {
+            nextZhMap[m.id] = resMap.get(m.title);
+          }
+        });
+        this.zhTitleMap = nextZhMap;
+      } catch (e) {
+        console.warn('[MayflyIndex] 标题批量翻译异常:', e);
+      }
+    },
+
+    /**
+     * 扫一扫屏幕二维码自动配对电脑
+     */
+    handleScanCodePair() {
+      // #ifdef MP-WEIXIN || APP-PLUS || MP-ALIPAY
+      uni.scanCode({
+        scanType: ['qrCode'],
+        success: (res) => {
+          const raw = res.result || '';
+          this.parseAndApplyPairCode(raw);
+        },
+        fail: () => {
+          uni.showToast({
+            title: '扫码取消或未识别二维码',
+            icon: 'none'
+          });
+        }
+      });
+      // #endif
+
+      // #ifdef H5
+      uni.showModal({
+        title: 'H5 浏览器环境提示',
+        content: '网页端可通过上方直接手动输入电脑 IP、端口与 Token 完成配对。',
+        showCancel: false
+      });
+      // #endif
+    },
+
+    /**
+     * 解析二维码数据并自动填入表单测试连接
+     */
+    async parseAndApplyPairCode(rawText) {
+      try {
+        let host = '';
+        let port = 9876;
+        let token = '';
+
+        if (rawText.startsWith('mayfly://pair')) {
+          // 协议格式：mayfly://pair?host=192.168.1.100&port=9876&token=MF-PC-8891
+          const query = rawText.split('?')[1] || '';
+          const params = new URLSearchParams(query);
+          host = params.get('host') || '';
+          port = Number(params.get('port')) || 9876;
+          token = params.get('token') || '';
+        } else if (rawText.startsWith('{') && rawText.endsWith('}')) {
+          // JSON 格式
+          const parsed = JSON.parse(rawText);
+          host = parsed.host || '';
+          port = Number(parsed.port) || 9876;
+          token = parsed.deviceToken || parsed.token || '';
+        } else if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(rawText.trim())) {
+          // 纯 IP 格式
+          const parts = rawText.trim().split(':');
+          host = parts[0];
+          if (parts[1]) port = Number(parts[1]) || 9876;
+        }
+
+        if (host) {
+          this.deviceForm.host = host;
+          this.deviceForm.port = port;
+          if (token) this.deviceForm.deviceToken = token;
+
+          uni.showToast({
+            title: '二维码解析成功，正在连接...',
+            icon: 'none'
+          });
+          await this.runTestConnection();
+        } else {
+          uni.showToast({
+            title: '未识别出有效的 Mayfly 配对码',
+            icon: 'none'
+          });
+        }
+      } catch (e) {
+        uni.showToast({
+          title: '配对码解析失败',
+          icon: 'none'
+        });
+      }
     },
 
     /**
@@ -653,6 +820,35 @@ export default {
   border-radius: 12rpx;
   font-weight: 600;
   margin-left: 8rpx;
+}
+
+.headerRightActions {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.zhToggleBadge {
+  background-color: #1e293b;
+  border: 1rpx solid #334155;
+  padding: 10rpx 18rpx;
+  border-radius: 30rpx;
+  transition: all 0.2s;
+}
+
+.zhToggleBadge.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.25));
+  border-color: #38bdf8;
+}
+
+.zhToggleText {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.zhToggleBadge.active .zhToggleText {
+  color: #38bdf8;
 }
 
 .deviceBadge {
@@ -1099,6 +1295,40 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 20rpx;
+}
+
+.scanCodeBtn {
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  border-radius: 16rpx;
+  border: none;
+  padding: 16rpx 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scanCodeBtnText {
+  font-size: 24rpx;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.formDividerRow {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 4rpx 0;
+}
+
+.dividerLine {
+  flex: 1;
+  height: 1rpx;
+  background-color: #243048;
+}
+
+.dividerText {
+  font-size: 20rpx;
+  color: #64748b;
 }
 
 .formItem {
