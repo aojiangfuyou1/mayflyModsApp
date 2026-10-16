@@ -385,6 +385,8 @@ import {
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
 import { getFavorites, toggleFavorite } from '../../services/favorites.js';
 import { parseShareClipboard, formatFavoritesShareText } from '../../services/poster.js';
+import NexusHeader from '../../components/NexusHeader.vue';
+import NexusDrawer from '../../components/NexusDrawer.vue';
 import ModCard from '../../components/ModCard.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import PushHistoryModal from '../../components/PushHistoryModal.vue';
@@ -392,6 +394,8 @@ import NexusAuthModal from '../../components/NexusAuthModal.vue';
 
 export default {
   components: {
+    NexusHeader,
+    NexusDrawer,
     ModCard,
     DevicePairModal,
     PushHistoryModal,
@@ -570,23 +574,44 @@ export default {
     }
   },
 
-  onLoad() {
+  onLoad(query) {
     this.initDesktopConfig();
     this.refreshHistory();
     this.refreshFavorites();
     this.refreshNexusUser();
 
-    // 恢复上次激活的游戏状态与视图，防止刷新后上下文丢失
-    try {
-      const savedGame = uni.getStorageSync('mayfly_active_game');
-      if (savedGame && savedGame.domain) {
-        this.selectedGameDomain = savedGame.domain;
-        this.selectedGameName = savedGame.name || '';
-        this.selectedGameZhName = savedGame.zhName || '';
-        this.selectedGameTileUrl = savedGame.tileUrl || '';
-        this.currentView = 'mods';
-      }
-    } catch (e) {}
+    // 优先处理由独立专区页面 (如 games.vue) 或外部链接传入的游戏查询参数
+    if (query && query.domain) {
+      this.selectedGameDomain = query.domain;
+      this.selectedGameName = query.name ? decodeURIComponent(query.name) : query.domain;
+      this.selectedGameZhName = query.zhName ? decodeURIComponent(query.zhName) : this.selectedGameName;
+      this.selectedGameTileUrl = query.tileUrl ? decodeURIComponent(query.tileUrl) : '';
+      this.currentView = 'mods';
+      this.favoritesScope = 'current';
+
+      try {
+        uni.setStorageSync('mayfly_active_game', {
+          domain: query.domain,
+          name: this.selectedGameName,
+          zhName: this.selectedGameZhName,
+          tileUrl: this.selectedGameTileUrl
+        });
+      } catch (e) {}
+    } else if (query && query.view) {
+      this.currentView = query.view;
+    } else {
+      // 恢复上次激活的游戏状态与视图，防止刷新后上下文丢失
+      try {
+        const savedGame = uni.getStorageSync('mayfly_active_game');
+        if (savedGame && savedGame.domain) {
+          this.selectedGameDomain = savedGame.domain;
+          this.selectedGameName = savedGame.name || '';
+          this.selectedGameZhName = savedGame.zhName || '';
+          this.selectedGameTileUrl = savedGame.tileUrl || '';
+          this.currentView = 'mods';
+        }
+      } catch (e) {}
+    }
 
     // 首次进入动态加载游戏列表与模组列表
     this.loadGames();
@@ -651,6 +676,32 @@ export default {
 
     closeDrawer() {
       this.drawerVisible = false;
+    },
+
+    /**
+     * 处理全局抽屉菜单路由导航 (支持下钻独立子页面与弹窗)
+     */
+    handleDrawerNav(target) {
+      this.drawerVisible = false;
+      if (target === 'home') {
+        this.currentView = 'mods';
+      } else if (target === 'games') {
+        uni.navigateTo({
+          url: '/pages/games/games'
+        });
+      } else if (target === 'favorites') {
+        uni.navigateTo({
+          url: '/pages/favorites/favorites'
+        });
+      } else if (target === 'history') {
+        uni.navigateTo({
+          url: '/pages/history/history'
+        });
+      } else if (target === 'auth') {
+        this.openNexusAuthModal();
+      } else if (target === 'device') {
+        this.openDeviceModal();
+      }
     },
 
     /**
