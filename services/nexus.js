@@ -83,6 +83,115 @@ export function getGameShortZhName(domainName, originalName = '') {
   return cleanOrig || '精品模组';
 }
 
+/**
+ * 格式化时间为友好相对时间 (如 "2 minutes ago", "3 hours ago", "5 days ago")
+ */
+export function formatTimeAgo(dateStr) {
+  if (!dateStr) return '2 minutes ago';
+  const time = new Date(dateStr).getTime();
+  if (isNaN(time)) return 'recently';
+  const diff = Date.now() - time;
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minutes ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hours ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} days ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} months ago`;
+  return `${Math.floor(days / 365)} years ago`;
+}
+
+/**
+ * 格式化为 Nexus 官方标准日期 (如 "16 Oct 2026")
+ */
+export function formatNexusDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return String(dateStr).slice(0, 10);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/**
+ * NexusMods 核心热门游戏专区配置 (100% 对标 N网 手机版 2 列竖版封面展示)
+ */
+export const NEXUS_POPULAR_GAMES = [
+  {
+    id: 'skyrimspecialedition',
+    domain: 'skyrimspecialedition',
+    title: 'Skyrim Special Edition',
+    zhTitle: '上古卷轴5: 天际特别版',
+    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/489830/library_600x900.jpg',
+    stats: { mods: '142k', tracking: '4.8k', downloads: '13.4b' },
+    bookmarked: false
+  },
+  {
+    id: 'fallout4',
+    domain: 'fallout4',
+    title: 'Fallout 4',
+    zhTitle: '辐射 4',
+    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/377160/library_600x900.jpg',
+    stats: { mods: '77.3k', tracking: '2.2k', downloads: '2.4b' },
+    bookmarked: false
+  },
+  {
+    id: 'skyrim',
+    domain: 'skyrim',
+    title: 'The Elder Scrolls V: Skyrim',
+    zhTitle: '上古卷轴5: 原版',
+    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/72850/library_600x900.jpg',
+    stats: { mods: '72.1k', tracking: '1.9k', downloads: '2.1b' },
+    bookmarked: false
+  },
+  {
+    id: 'cyberpunk2077',
+    domain: 'cyberpunk2077',
+    title: 'Cyberpunk 2077',
+    zhTitle: '赛博朋克 2077',
+    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/1091500/library_600x900.jpg',
+    stats: { mods: '18.9k', tracking: '1.4k', downloads: '590m' },
+    bookmarked: true
+  },
+  {
+    id: 'blackmythwukong',
+    domain: 'blackmythwukong',
+    title: 'Black Myth: Wukong',
+    zhTitle: '黑神话：悟空',
+    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/2358720/library_600x900.jpg',
+    stats: { mods: '4.8k', tracking: '380', downloads: '52m' },
+    bookmarked: false
+  },
+  {
+    id: 'baldursgate3',
+    domain: 'baldursgate3',
+    title: "Baldur's Gate 3",
+    zhTitle: '博德之门 3',
+    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/1086940/library_600x900.jpg',
+    stats: { mods: '13.4k', tracking: '920', downloads: '340m' },
+    bookmarked: false
+  },
+  {
+    id: 'eldenring',
+    domain: 'eldenring',
+    title: 'Elden Ring',
+    zhTitle: '艾尔登法环',
+    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/1245620/library_600x900.jpg',
+    stats: { mods: '16.2k', tracking: '1.1k', downloads: '220m' },
+    bookmarked: false
+  },
+  {
+    id: 'stardewvalley',
+    domain: 'stardewvalley',
+    title: 'Stardew Valley',
+    zhTitle: '星露谷物语',
+    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/413150/library_600x900.jpg',
+    stats: { mods: '23.1k', tracking: '1.6k', downloads: '430m' },
+    bookmarked: false
+  }
+];
+
 // ----------------------------------------------------------------------------
 // 区域 2：本地设备配置与配对持久化
 // ----------------------------------------------------------------------------
@@ -260,6 +369,9 @@ export async function fetchNexusMods({
         category: item.modCategory?.name || '综合',
         createdAt: item.createdAt || '',
         updatedAt: item.updatedAt || item.createdAt || '',
+        timeAgo: formatTimeAgo(item.updatedAt || item.createdAt),
+        formattedDate: formatNexusDate(item.createdAt),
+        formattedUpdateDate: formatNexusDate(item.updatedAt || item.createdAt),
         game: {
           id: item.game?.id || 0,
           domainName: item.game?.domainName || '',
