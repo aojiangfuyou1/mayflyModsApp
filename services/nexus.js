@@ -115,82 +115,108 @@ export function formatNexusDate(dateStr) {
 }
 
 /**
- * NexusMods 核心热门游戏专区配置 (100% 对标 N网 手机版 2 列竖版封面展示)
+ * 格式化数值展示为标准 Nexus 计量单位 (如 142k, 4.8k, 13.4b)
  */
-export const NEXUS_POPULAR_GAMES = [
-  {
-    id: 'skyrimspecialedition',
-    domain: 'skyrimspecialedition',
-    title: 'Skyrim Special Edition',
-    zhTitle: '上古卷轴5: 天际特别版',
-    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/489830/library_600x900.jpg',
-    stats: { mods: '142k', tracking: '4.8k', downloads: '13.4b' },
-    bookmarked: false
-  },
-  {
-    id: 'fallout4',
-    domain: 'fallout4',
-    title: 'Fallout 4',
-    zhTitle: '辐射 4',
-    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/377160/library_600x900.jpg',
-    stats: { mods: '77.3k', tracking: '2.2k', downloads: '2.4b' },
-    bookmarked: false
-  },
-  {
-    id: 'skyrim',
-    domain: 'skyrim',
-    title: 'The Elder Scrolls V: Skyrim',
-    zhTitle: '上古卷轴5: 原版',
-    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/72850/library_600x900.jpg',
-    stats: { mods: '72.1k', tracking: '1.9k', downloads: '2.1b' },
-    bookmarked: false
-  },
-  {
-    id: 'cyberpunk2077',
-    domain: 'cyberpunk2077',
-    title: 'Cyberpunk 2077',
-    zhTitle: '赛博朋克 2077',
-    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/1091500/library_600x900.jpg',
-    stats: { mods: '18.9k', tracking: '1.4k', downloads: '590m' },
-    bookmarked: true
-  },
-  {
-    id: 'blackmythwukong',
-    domain: 'blackmythwukong',
-    title: 'Black Myth: Wukong',
-    zhTitle: '黑神话：悟空',
-    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/2358720/library_600x900.jpg',
-    stats: { mods: '4.8k', tracking: '380', downloads: '52m' },
-    bookmarked: false
-  },
-  {
-    id: 'baldursgate3',
-    domain: 'baldursgate3',
-    title: "Baldur's Gate 3",
-    zhTitle: '博德之门 3',
-    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/1086940/library_600x900.jpg',
-    stats: { mods: '13.4k', tracking: '920', downloads: '340m' },
-    bookmarked: false
-  },
-  {
-    id: 'eldenring',
-    domain: 'eldenring',
-    title: 'Elden Ring',
-    zhTitle: '艾尔登法环',
-    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/1245620/library_600x900.jpg',
-    stats: { mods: '16.2k', tracking: '1.1k', downloads: '220m' },
-    bookmarked: false
-  },
-  {
-    id: 'stardewvalley',
-    domain: 'stardewvalley',
-    title: 'Stardew Valley',
-    zhTitle: '星露谷物语',
-    coverUrl: 'https://cdn.akamai.steamstatic.com/steam/apps/413150/library_600x900.jpg',
-    stats: { mods: '23.1k', tracking: '1.6k', downloads: '430m' },
-    bookmarked: false
+export function formatNexusMetric(num) {
+  const val = Number(num) || 0;
+  if (val >= 1000000000) {
+    return (val / 1000000000).toFixed(1).replace(/\.0$/, '') + 'b';
   }
-];
+  if (val >= 1000000) {
+    return (val / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+  }
+  if (val >= 1000) {
+    return (val / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+  return String(val);
+}
+
+/**
+ * 动态检索 NexusMods 官方全库游戏列表（100% 动态，零硬编码）
+ * @param {Object} options
+ * @param {number} [options.count=20] - 数量
+ * @param {number} [options.offset=0] - 偏移
+ * @param {string} [options.sort="downloads"] - 排序方式: "downloads" | "name"
+ * @returns {Promise<{ games: Array, totalCount: number }>}
+ */
+export async function fetchNexusGames({
+  count = 20,
+  offset = 0,
+  sort = 'downloads'
+} = {}) {
+  const gqlQuery = `
+    query NexusGames($count: Int = 20, $offset: Int = 0, $sort: [GamesSort!]) {
+      games(count: $count, offset: $offset, sort: $sort) {
+        totalCount
+        nodes {
+          id
+          name
+          domainName
+          modCount
+          downloadCount
+          collectionCount
+        }
+      }
+    }
+  `;
+
+  const sortVariable = sort === 'name'
+    ? [{ name: { direction: 'ASC' } }]
+    : [{ downloads: { direction: 'DESC' } }];
+
+  try {
+    const res = await uni.request({
+      url: NEXUS_GRAPHQL_ENDPOINT,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      data: JSON.stringify({
+        query: gqlQuery,
+        variables: {
+          count: Math.min(50, Math.max(1, count)),
+          offset: Math.max(0, offset),
+          sort: sortVariable
+        }
+      }),
+      timeout: 15000
+    });
+
+    if (res.statusCode !== 200 || !res.data) {
+      throw new Error(`Nexus 游戏接口响应异常 (${res.statusCode || '未知'})`);
+    }
+
+    const payload = res.data;
+    const rawNodes = payload?.data?.games?.nodes || [];
+    const totalCount = Number(payload?.data?.games?.totalCount) || 0;
+
+    const games = rawNodes.map((node) => {
+      return {
+        id: node.id,
+        name: node.name,
+        domain: node.domainName,
+        modCount: Number(node.modCount) || 0,
+        downloadCount: Number(node.downloadCount) || 0,
+        collectionCount: Number(node.collectionCount) || 0,
+        // 动态根据 Nexus 官方 artwork 规范拼接官方原生海报直连图
+        tileUrl: `https://images.nexusmods.com/images/games/v2/${node.id}/tile.jpg`,
+        heroUrl: `https://images.nexusmods.com/images/games/v2/${node.id}/hero.jpg`,
+        shortZhName: getGameShortZhName(node.domainName, node.name),
+        stats: {
+          mods: formatNexusMetric(node.modCount),
+          tracking: formatNexusMetric(node.collectionCount),
+          downloads: formatNexusMetric(node.downloadCount)
+        }
+      };
+    });
+
+    return { games, totalCount };
+  } catch (error) {
+    console.error('[MayflyNexus] 抓取游戏列表失败:', error);
+    throw error;
+  }
+}
 
 // ----------------------------------------------------------------------------
 // 区域 2：本地设备配置与配对持久化
