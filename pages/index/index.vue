@@ -1,44 +1,77 @@
 <template>
   <view class="pageContainer">
     <!-- ==================================================================== -->
-    <!-- 区域 1：顶部状态导航栏与电脑配对状态 -->
+    <!-- 区域 1：沉浸式 Hero 轮播画幅 (对标参考图 1 顶部泰坦陨落大图风格) -->
     <!-- ==================================================================== -->
-    <view class="headerNav">
-      <view class="brandArea">
-        <text class="brandLogo">MAYFLY</text>
-        <text class="brandSub">MODS</text>
-        <text class="sourceTag">NexusMods</text>
-      </view>
-      <view class="headerRightActions">
-        <!-- 推送任务清单入口 -->
-        <view class="historyBadge" @click="openHistoryModal">
-          <text class="historyBadgeIcon">📋</text>
-          <view class="historyCountDot" v-if="historyList.length > 0">
-            <text class="historyCountText">{{ historyList.length }}</text>
+    <view class="heroSwiperWrapper">
+      <swiper
+        class="heroSwiper"
+        circular
+        autoplay
+        :interval="5000"
+        @change="onHeroChange"
+      >
+        <swiper-item
+          v-for="(banner, bIdx) in heroBanners"
+          :key="bIdx"
+          @click="onHeroBannerClick(banner)"
+        >
+          <image
+            class="heroBgImage"
+            :src="banner.image"
+            mode="aspectFill"
+            lazy-load
+          />
+          <view class="heroGradientMask"></view>
+
+          <!-- 大作标题与西文艺术字 -->
+          <view class="heroContentBox">
+            <text class="heroSubTitle">{{ banner.subTitle }}</text>
+            <view class="heroTitleRow">
+              <text class="heroMainTitle">{{ banner.title }}</text>
+              <view class="heroTagBadge">
+                <text class="heroTagText">{{ banner.tag }}</text>
+              </view>
+            </view>
+          </view>
+        </swiper-item>
+      </swiper>
+
+      <!-- 顶部半透明浮层导航 (左侧Logo，右侧消息配对与搜索) -->
+      <view class="heroFloatNav">
+        <view class="heroNavBrand">
+          <text class="brandLogoText">MAYFLY</text>
+          <text class="brandSubText">MODS</text>
+        </view>
+        <view class="heroNavActions">
+          <!-- 电脑配对状态按钮 (带呼吸绿点) -->
+          <view class="navCircleBtn" @click="openDeviceModal">
+            <view class="pulseDot" :class="{ connected: desktopConfig.connected }"></view>
+            <text class="navCircleIcon">💻</text>
+          </view>
+          <!-- 搜索呼出按钮 -->
+          <view class="navCircleBtn" @click="toggleSearchExpand">
+            <text class="navCircleIcon">🔍</text>
           </view>
         </view>
-        <!-- 中文图鉴切换按钮 -->
+      </view>
+
+      <!-- 轮播指示器小胶囊 (右下角) -->
+      <view class="heroIndicators">
         <view
-          class="zhToggleBadge"
-          :class="{ active: enableAutoTranslate }"
-          @click="toggleAutoTranslate"
-        >
-          <text class="zhToggleText">{{ enableAutoTranslate ? '🌐 译 中文' : '🌐 原 英文' }}</text>
-        </view>
-        <!-- 电脑连接状态胶囊 -->
-        <view class="deviceBadge" @click="openDeviceModal">
-          <view class="statusDot" :class="{ connected: desktopConfig.connected }"></view>
-          <text class="statusText">{{ desktopConfig.connected ? '电脑已连' : '配对电脑' }}</text>
-        </view>
+          class="indicatorDot"
+          v-for="(_, iIdx) in heroBanners"
+          :key="iIdx"
+          :class="{ active: currentHeroIndex === iIdx }"
+        ></view>
       </view>
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 2：搜索栏与排序过滤栏 -->
+    <!-- 区域 1.5：平滑展开的搜索输入栏 -->
     <!-- ==================================================================== -->
-    <view class="controlSection">
-      <!-- 搜索输入框 -->
-      <view class="searchBar">
+    <view class="searchExpandSection" v-if="searchExpanded || searchText">
+      <view class="searchBarBox">
         <text class="searchIcon">🔍</text>
         <input
           class="searchInput"
@@ -50,8 +83,114 @@
         />
         <text v-if="searchText" class="clearIcon" @click="clearSearch">✕</text>
       </view>
+    </view>
 
-      <!-- 快捷类型标签胶囊栏 (横向滚动) -->
+    <!-- ==================================================================== -->
+    <!-- 区域 2：金刚区 4 大高质感功能入口 (对标图 1 签到/商城/特惠/会员) -->
+    <!-- ==================================================================== -->
+    <view class="kingKongGrid">
+      <!-- 1. 电脑配对 -->
+      <view class="kingKongItem" @click="openDeviceModal">
+        <view class="kingKongIconWrap bgBlue">
+          <text class="kingKongEmoji">💻</text>
+          <view class="badgeDot" :class="{ online: desktopConfig.connected }"></view>
+        </view>
+        <text class="kingKongLabel">电脑配对</text>
+        <text class="kingKongSubLabel">{{ desktopConfig.connected ? '已连WiFi' : '未连接' }}</text>
+      </view>
+
+      <!-- 2. 装机心愿单 -->
+      <view class="kingKongItem" @click="changeSort('favorites')">
+        <view class="kingKongIconWrap bgRed">
+          <text class="kingKongEmoji">❤️</text>
+          <view class="countBadge" v-if="favoritesCount > 0">
+            <text class="countBadgeText">{{ favoritesCount }}</text>
+          </view>
+        </view>
+        <text class="kingKongLabel">装机心愿单</text>
+        <text class="kingKongSubLabel">我的收藏</text>
+      </view>
+
+      <!-- 3. AI 极简中文 -->
+      <view class="kingKongItem" @click="toggleAutoTranslate">
+        <view class="kingKongIconWrap bgPurple" :class="{ activeGlow: enableAutoTranslate }">
+          <text class="kingKongEmoji">🌐</text>
+        </view>
+        <text class="kingKongLabel">AI 中文图鉴</text>
+        <text class="kingKongSubLabel" :class="{ textHighlight: enableAutoTranslate }">
+          {{ enableAutoTranslate ? '已开启' : '英文原版' }}
+        </text>
+      </view>
+
+      <!-- 4. 推送任务清单 -->
+      <view class="kingKongItem" @click="openHistoryModal">
+        <view class="kingKongIconWrap bgAmber">
+          <text class="kingKongEmoji">🚀</text>
+          <view class="countBadge" v-if="historyList.length > 0">
+            <text class="countBadgeText">{{ historyList.length }}</text>
+          </view>
+        </view>
+        <text class="kingKongLabel">推送历史</text>
+        <text class="kingKongSubLabel">{{ historyList.length }} 个任务</text>
+      </view>
+    </view>
+
+    <!-- ==================================================================== -->
+    <!-- 区域 3：热门大作模组推荐 (对标图 1 的四格大作展示) -->
+    <!-- ==================================================================== -->
+    <view class="featuredSection" v-if="featuredTopMods.length > 0 && currentSort !== 'favorites'">
+      <view class="sectionHeaderRow">
+        <view class="sectionTitleLeft">
+          <text class="sectionIcon">🔥</text>
+          <text class="sectionMainTitle">热门大作模组</text>
+        </view>
+        <text class="sectionSubHint">N网下载风向标</text>
+      </view>
+
+      <!-- 四格大作卡片网格 -->
+      <view class="featuredFourGrid">
+        <view
+          class="featuredCard"
+          v-for="item in featuredTopMods"
+          :key="item.id"
+          @click="openDetail(item)"
+        >
+          <view class="featuredCoverBox">
+            <image
+              class="featuredCover"
+              :src="item.coverImageUrl || '/static/logo.png'"
+              mode="aspectFill"
+              lazy-load
+            />
+            <!-- 游戏角标 (仿图 1 绿色控制器角标) -->
+            <view class="featuredGameBadge">
+              <text class="featuredGameText">🎮 {{ item.game.name }}</text>
+            </view>
+            <!-- 收藏小爱心 -->
+            <view class="featuredFavBtn" @click.stop="toggleCardFavorite(item)">
+              <text class="favIcon">{{ favoriteIdMap[item.id] ? '❤️' : '🤍' }}</text>
+            </view>
+          </view>
+          <text class="featuredTitle">
+            {{ enableAutoTranslate && zhTitleMap[item.id] ? zhTitleMap[item.id] : item.title }}
+          </text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ==================================================================== -->
+    <!-- 区域 4：模组聚合发现与随心点菜流 -->
+    <!-- ==================================================================== -->
+    <view class="streamSection">
+      <view class="sectionHeaderRow">
+        <view class="sectionTitleLeft">
+          <text class="sectionIcon">⚡</text>
+          <text class="sectionMainTitle">全网模组发现</text>
+          <text class="sectionSubBadge">随心点菜</text>
+        </view>
+      </view>
+
+      <!-- 快捷类型标签胶囊 (横向平滑滚动，绝不竖排) -->
       <scroll-view class="categoryScroll" scroll-x show-scrollbar="false">
         <view class="categoryCapsuleList">
           <view
@@ -97,12 +236,7 @@
           <text class="sortLabel">❤️ 心愿单{{ favoritesCount > 0 ? ` (${favoritesCount})` : '' }}</text>
         </view>
       </view>
-    </view>
 
-    <!-- ==================================================================== -->
-    <!-- 区域 3：双列大图瀑布流卡片列表 (N网有啥显示啥) -->
-    <!-- ==================================================================== -->
-    <view class="modsWaterfallSection">
       <!-- 心愿单模式下的批量操作工具条 -->
       <view class="favBatchBar" v-if="currentSort === 'favorites' && favoritesList.length > 0">
         <view class="favSummaryText">
@@ -128,11 +262,11 @@
         </view>
       </view>
 
-      <!-- 列表内容区 -->
-      <view class="waterfallGrid" v-if="displayModList.length > 0">
+      <!-- 双列瀑布流卡片列表 -->
+      <view class="waterfallGrid" v-if="streamModList.length > 0">
         <view
           class="modCard"
-          v-for="item in displayModList"
+          v-for="item in streamModList"
           :key="item.id"
           @click="openDetail(item)"
         >
@@ -182,6 +316,7 @@
           </view>
         </view>
       </view>
+    </view>
 
       <!-- 加载中状态 -->
       <view class="loadingBox" v-if="loading && modList.length === 0">
@@ -427,6 +562,40 @@ export default {
         { label: '🛠️ 修复优化', query: 'patch' }
       ],
 
+      // 沉浸式 Hero 轮播大图 (对标参考图 1 泰坦陨落大图风格)
+      heroBanners: [
+        {
+          title: '泰坦陨落 2',
+          subTitle: 'TITANFALL 2',
+          image: 'https://images.nexusmods.com/assets/games/banner/titanfall2.jpg',
+          gameDomain: 'titanfall2',
+          tag: '机甲巅峰'
+        },
+        {
+          title: '黑神话：悟空',
+          subTitle: 'BLACK MYTH: WUKONG',
+          image: 'https://images.nexusmods.com/assets/games/banner/blackmythwukong.jpg',
+          gameDomain: 'blackmythwukong',
+          tag: '动作大作'
+        },
+        {
+          title: '赛博朋克 2077',
+          subTitle: 'CYBERPUNK 2077',
+          image: 'https://images.nexusmods.com/assets/games/banner/cyberpunk2077.jpg',
+          gameDomain: 'cyberpunk2077',
+          tag: '夜之城'
+        },
+        {
+          title: '怪猎：荒野',
+          subTitle: 'MONSTER HUNTER WILDS',
+          image: 'https://images.nexusmods.com/assets/games/banner/monsterhunterwilds.jpg',
+          gameDomain: 'monsterhunterwilds',
+          tag: '全网期待'
+        }
+      ],
+      currentHeroIndex: 0,
+      searchExpanded: false,
+
       // 详情弹窗
       detailVisible: false,
       selectedMod: null,
@@ -474,6 +643,30 @@ export default {
      */
     favoritesCount() {
       return this.favoritesList.length;
+    },
+
+    /**
+     * 前 4 款精选热门爆款模组 (对标图 1 的四格大作展示)
+     */
+    featuredTopMods() {
+      if (this.currentSort === 'favorites') return [];
+      if (this.modList && this.modList.length >= 4) {
+        return this.modList.slice(0, 4);
+      }
+      return this.modList || [];
+    },
+
+    /**
+     * 流水线瀑布流列表 (如果大于 4 款，从第 5 款开始瀑布流，避免重复展示)
+     */
+    streamModList() {
+      if (this.currentSort === 'favorites') {
+        return this.favoritesList;
+      }
+      if (this.modList && this.modList.length > 4) {
+        return this.modList.slice(4);
+      }
+      return this.modList;
     }
   },
 
@@ -508,6 +701,34 @@ export default {
   },
 
   methods: {
+    // ------------------------------------------------------------------------
+    // Hero 轮播与全屏交互
+    // ------------------------------------------------------------------------
+
+    /**
+     * Hero 轮播页面改变
+     */
+    onHeroChange(e) {
+      this.currentHeroIndex = e.detail?.current || 0;
+    },
+
+    /**
+     * 点击 Hero 大图，按游戏快速检索
+     */
+    onHeroBannerClick(banner) {
+      if (!banner) return;
+      this.searchText = banner.title;
+      this.searchExpanded = true;
+      this.resetAndLoad();
+    },
+
+    /**
+     * 切换搜索条展开状态
+     */
+    toggleSearchExpand() {
+      this.searchExpanded = !this.searchExpanded;
+    },
+
     // ------------------------------------------------------------------------
     // 数据拉取与列表生命周期
     // ------------------------------------------------------------------------
@@ -1217,131 +1438,215 @@ export default {
 
 <style scoped>
 /* ============================================================================ */
-/* 样式体系：现代暗黑电竞科技风 (Mayfly Cyber Dark) */
+/* 样式体系：现代主机级暗黑电竞画幅风 (对标参考图 1 泰坦陨落高端社区质感) */
 /* ============================================================================ */
 
 .pageContainer {
   min-height: 100vh;
-  background-color: #0f1117;
+  background-color: #0b0e14;
   color: #e5e7eb;
-  padding: 24rpx 20rpx 40rpx;
+  padding: 0 0 60rpx 0;
   box-sizing: border-box;
 }
 
-/* 区域 1：头部品牌与状态栏 */
-.headerNav {
+/* ---------------------------------------------------------------------------- */
+/* 区域 1：沉浸式 Hero 轮播画幅 (对标图 1 泰坦陨落大图顶部) */
+/* ---------------------------------------------------------------------------- */
+.heroSwiperWrapper {
+  position: relative;
+  width: 100%;
+  height: 520rpx;
+  background-color: #05080e;
+}
+
+.heroSwiper {
+  width: 100%;
+  height: 100%;
+}
+
+.heroBgImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.heroGradientMask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(11, 14, 20, 0.4) 0%,
+    rgba(11, 14, 20, 0) 35%,
+    rgba(11, 14, 20, 0.7) 75%,
+    #0b0e14 100%
+  );
+  pointer-events: none;
+}
+
+.heroFloatNav {
+  position: absolute;
+  top: 70rpx;
+  /* #ifdef MP-WEIXIN */
+  top: 88rpx;
+  /* #endif */
+  left: 28rpx;
+  right: 28rpx;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24rpx;
-  padding: 8rpx 6rpx;
+  z-index: 10;
 }
 
-.brandArea {
+.heroNavBrand {
   display: flex;
   align-items: baseline;
-  gap: 10rpx;
+  gap: 8rpx;
 }
 
-.brandLogo {
-  font-size: 40rpx;
+.brandLogoText {
+  font-size: 38rpx;
   font-weight: 900;
   letter-spacing: 2rpx;
-  background: linear-gradient(135deg, #38bdf8, #818cf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #ffffff;
+  text-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.6);
 }
 
-.brandSub {
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #94a3b8;
-}
-
-.sourceTag {
-  font-size: 20rpx;
-  background-color: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  padding: 4rpx 14rpx;
-  border-radius: 12rpx;
-  font-weight: 600;
-  margin-left: 8rpx;
-}
-
-.headerRightActions {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-}
-
-.zhToggleBadge {
-  background-color: #1e293b;
-  border: 1rpx solid #334155;
-  padding: 10rpx 18rpx;
-  border-radius: 30rpx;
-  transition: all 0.2s;
-}
-
-.zhToggleBadge.active {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.25));
-  border-color: #38bdf8;
-}
-
-.zhToggleText {
-  font-size: 20rpx;
-  font-weight: 700;
-  color: #94a3b8;
-}
-
-.zhToggleBadge.active .zhToggleText {
+.brandSubText {
+  font-size: 24rpx;
+  font-weight: 800;
   color: #38bdf8;
+  letter-spacing: 1rpx;
 }
 
-.deviceBadge {
+.heroNavActions {
   display: flex;
   align-items: center;
-  background-color: #1e293b;
-  padding: 10rpx 20rpx;
-  border-radius: 30rpx;
-  border: 1rpx solid #334155;
+  gap: 16rpx;
 }
 
-.statusDot {
+.navCircleBtn {
+  position: relative;
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  border: 1rpx solid rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navCircleIcon {
+  font-size: 30rpx;
+}
+
+.pulseDot {
+  position: absolute;
+  top: 6rpx;
+  right: 6rpx;
   width: 14rpx;
   height: 14rpx;
   border-radius: 50%;
   background-color: #94a3b8;
-  margin-right: 12rpx;
 }
 
-.statusDot.connected {
+.pulseDot.connected {
+  background-color: #10b981;
+  box-shadow: 0 0 12rpx #10b981;
+}
+
+.heroContentBox {
+  position: absolute;
+  left: 32rpx;
+  bottom: 30rpx;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+}
+
+.heroSubTitle {
+  font-size: 26rpx;
+  font-weight: 800;
+  letter-spacing: 4rpx;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 6rpx;
+  text-transform: uppercase;
+}
+
+.heroTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.heroMainTitle {
+  font-size: 44rpx;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.8);
+}
+
+.heroTagBadge {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1rpx solid rgba(16, 185, 129, 0.5);
+  border-radius: 10rpx;
+  padding: 4rpx 14rpx;
+}
+
+.heroTagText {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #34d399;
+}
+
+.heroIndicators {
+  position: absolute;
+  right: 32rpx;
+  bottom: 38rpx;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  z-index: 5;
+}
+
+.indicatorDot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 5rpx;
+  background-color: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.indicatorDot.active {
+  width: 28rpx;
   background-color: #10b981;
   box-shadow: 0 0 10rpx #10b981;
 }
 
-.statusText {
-  font-size: 22rpx;
-  color: #cbd5e1;
+/* ---------------------------------------------------------------------------- */
+/* 区域 1.5：平滑展开的搜索输入栏 */
+/* ---------------------------------------------------------------------------- */
+.searchExpandSection {
+  padding: 10rpx 28rpx 18rpx;
 }
 
-/* 区域 2：搜索与排序 */
-.controlSection {
-  margin-bottom: 24rpx;
-}
-
-.searchBar {
+.searchBarBox {
   display: flex;
   align-items: center;
-  background-color: #1a2234;
-  border: 1rpx solid #2e3a52;
-  border-radius: 20rpx;
-  padding: 14rpx 20rpx;
-  margin-bottom: 18rpx;
+  background: rgba(22, 27, 38, 0.9);
+  border: 1.5rpx solid rgba(56, 189, 248, 0.4);
+  border-radius: 22rpx;
+  padding: 16rpx 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.3);
 }
 
 .searchIcon {
-  font-size: 28rpx;
-  margin-right: 12rpx;
+  font-size: 30rpx;
+  margin-right: 14rpx;
 }
 
 .searchInput {
@@ -1356,85 +1661,323 @@ export default {
 }
 
 .clearIcon {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: #94a3b8;
   padding: 6rpx;
 }
 
-/* 快捷类型标签胶囊滚动栏 */
+/* ---------------------------------------------------------------------------- */
+/* 区域 2：金刚区 4 大高质感功能入口 (对标图 1 签到/商城/特惠/会员) */
+/* ---------------------------------------------------------------------------- */
+.kingKongGrid {
+  display: flex;
+  justify-content: space-around;
+  padding: 24rpx 20rpx 36rpx;
+  background-color: #0b0e14;
+}
+
+.kingKongItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10rpx;
+  flex: 1;
+}
+
+.kingKongIconWrap {
+  position: relative;
+  width: 108rpx;
+  height: 108rpx;
+  border-radius: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease;
+}
+
+.kingKongIconWrap:active {
+  transform: scale(0.94);
+}
+
+.bgBlue {
+  background: linear-gradient(135deg, #1e293b, #0ea5e9);
+  border: 1rpx solid rgba(14, 165, 233, 0.4);
+}
+
+.bgRed {
+  background: linear-gradient(135deg, #2d1822, #f43f5e);
+  border: 1rpx solid rgba(244, 63, 94, 0.4);
+}
+
+.bgPurple {
+  background: linear-gradient(135deg, #221a36, #a855f7);
+  border: 1rpx solid rgba(168, 85, 247, 0.4);
+}
+
+.bgAmber {
+  background: linear-gradient(135deg, #2b2111, #f59e0b);
+  border: 1rpx solid rgba(245, 158, 11, 0.4);
+}
+
+.activeGlow {
+  box-shadow: 0 0 20rpx rgba(168, 85, 247, 0.5);
+  border-color: #c084fc;
+}
+
+.kingKongEmoji {
+  font-size: 46rpx;
+}
+
+.badgeDot {
+  position: absolute;
+  top: 10rpx;
+  right: 10rpx;
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  border: 3rpx solid #0b0e14;
+}
+
+.badgeDot.online {
+  background-color: #10b981;
+  box-shadow: 0 0 10rpx #10b981;
+}
+
+.countBadge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  background: #f43f5e;
+  border-radius: 20rpx;
+  padding: 2rpx 10rpx;
+  border: 2rpx solid #0b0e14;
+}
+
+.countBadgeText {
+  font-size: 18rpx;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.kingKongLabel {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.kingKongSubLabel {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.textHighlight {
+  color: #a855f7;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 3：热门大作四格推荐 (对标图 1 地平线5/看门狗2等) */
+/* ---------------------------------------------------------------------------- */
+.featuredSection {
+  padding: 0 24rpx 36rpx;
+}
+
+.sectionHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding: 0 4rpx;
+}
+
+.sectionTitleLeft {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.sectionIcon {
+  font-size: 32rpx;
+}
+
+.sectionMainTitle {
+  font-size: 32rpx;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.sectionSubBadge {
+  font-size: 20rpx;
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  font-weight: 700;
+}
+
+.sectionSubHint {
+  font-size: 22rpx;
+  color: #64748b;
+}
+
+.featuredFourGrid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.featuredCard {
+  width: 48.6%;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.featuredCoverBox {
+  position: relative;
+  width: 100%;
+  height: 200rpx;
+  border-radius: 20rpx;
+  overflow: hidden;
+  background-color: #161b26;
+  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.4);
+}
+
+.featuredCover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.featuredGameBadge {
+  position: absolute;
+  top: 12rpx;
+  left: 12rpx;
+  background: rgba(16, 185, 129, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 4rpx 14rpx;
+  border-radius: 10rpx;
+  max-width: 75%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.featuredGameText {
+  font-size: 18rpx;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.featuredFavBtn {
+  position: absolute;
+  top: 10rpx;
+  right: 10rpx;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.featuredTitle {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4rpx;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 4：全网模组发现与随心点菜流 */
+/* ---------------------------------------------------------------------------- */
+.streamSection {
+  padding: 0 24rpx;
+}
+
+/* 快捷类型标签胶囊滚动栏 (单行横滑，绝不折叠为竖条) */
 .categoryScroll {
   width: 100%;
   white-space: nowrap;
-  margin-bottom: 18rpx;
+  margin-bottom: 20rpx;
 }
 
 .categoryCapsuleList {
   display: inline-flex;
-  gap: 14rpx;
-  padding: 4rpx 2rpx;
+  gap: 16rpx;
+  padding: 6rpx 2rpx;
 }
 
 .categoryCapsule {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background-color: #162133;
-  border: 1rpx solid #23334d;
-  border-radius: 24rpx;
-  padding: 8rpx 22rpx;
-  transition: all 0.2s ease;
+  background-color: #151a26;
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  border-radius: 20rpx;
+  padding: 12rpx 26rpx;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
 }
 
 .categoryCapsule.active {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.25));
-  border-color: #38bdf8;
-  box-shadow: 0 0 12rpx rgba(56, 189, 248, 0.25);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.3));
+  border-color: #10b981;
+  box-shadow: 0 0 16rpx rgba(16, 185, 129, 0.3);
 }
 
 .categoryCapsuleText {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: #94a3b8;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .categoryCapsule.active .categoryCapsuleText {
-  color: #38bdf8;
-  font-weight: 700;
+  color: #34d399;
+  font-weight: 800;
 }
 
+/* 排序切换胶囊 */
 .sortBar {
   display: flex;
   gap: 16rpx;
+  margin-bottom: 24rpx;
 }
 
 .sortItem {
   flex: 1;
   text-align: center;
   padding: 14rpx 0;
-  background-color: #1e293b;
+  background-color: #151a26;
   border-radius: 16rpx;
-  border: 1rpx solid #334155;
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .sortItem.active {
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(129, 140, 248, 0.2));
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(99, 102, 241, 0.2));
   border-color: #38bdf8;
 }
 
 .sortLabel {
-  font-size: 24rpx;
-  font-weight: 600;
+  font-size: 22rpx;
+  font-weight: 700;
   color: #94a3b8;
+  white-space: nowrap;
 }
 
 .sortItem.active .sortLabel {
   color: #38bdf8;
-}
-
-/* 区域 3：双列大图瀑布流 */
-.modsWaterfallSection {
-  width: 100%;
 }
 
 /* 心愿单批量推送工具条 */
@@ -1502,28 +2045,37 @@ export default {
   font-weight: 700;
 }
 
+/* ---------------------------------------------------------------------------- */
+/* 区域 5：双列瀑布流卡片列表 */
+/* ---------------------------------------------------------------------------- */
 .waterfallGrid {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
+  gap: 20rpx 0;
 }
 
 .modCard {
-  width: 48.5%;
-  background-color: #182030;
-  border: 1rpx solid #28354d;
-  border-radius: 20rpx;
+  width: 48.6%;
+  background-color: #151a26;
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 22rpx;
   overflow: hidden;
-  margin-bottom: 22rpx;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 6rpx 20rpx rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.modCard:active {
+  transform: translateY(-4rpx);
 }
 
 .cardCoverWrapper {
   position: relative;
   width: 100%;
   height: 240rpx;
-  background-color: #0d131f;
+  background-color: #0c1017;
 }
 
 .cardCover {
@@ -1540,41 +2092,53 @@ export default {
   backdrop-filter: blur(8px);
   padding: 4rpx 14rpx;
   border-radius: 10rpx;
-  border: 1rpx solid rgba(255, 255, 255, 0.15);
-  max-width: 80%;
-  white-space: nowrap;
+  max-width: 70%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gameTagText {
-  font-size: 20rpx;
+  font-size: 18rpx;
+  font-weight: 700;
   color: #38bdf8;
-  font-weight: 600;
 }
 
 .favTagBtn {
   position: absolute;
-  top: 10rpx;
-  right: 10rpx;
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(6px);
-  width: 44rpx;
-  height: 44rpx;
+  top: 12rpx;
+  right: 12rpx;
+  width: 48rpx;
+  height: 48rpx;
   border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1rpx solid rgba(255, 255, 255, 0.15);
-  z-index: 5;
 }
 
 .favIcon {
-  font-size: 20rpx;
+  font-size: 24rpx;
+}
+
+.pushedTag {
+  position: absolute;
+  bottom: 12rpx;
+  right: 12rpx;
+  background: rgba(16, 185, 129, 0.9);
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+}
+
+.pushedTagText {
+  font-size: 18rpx;
+  font-weight: 800;
+  color: #ffffff;
 }
 
 .cardBody {
-  padding: 16rpx 14rpx;
+  padding: 16rpx 18rpx 20rpx;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -1583,57 +2147,66 @@ export default {
 .modTitle {
   font-size: 26rpx;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #f8fafc;
   line-height: 1.35;
-  margin-bottom: 8rpx;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  height: 70rpx;
+  margin-bottom: 10rpx;
+  min-height: 70rpx;
 }
 
 .modSummary {
-  font-size: 22rpx;
-  color: #94a3b8;
-  line-height: 1.3;
-  margin-bottom: 14rpx;
+  font-size: 20rpx;
+  color: #64748b;
+  line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  height: 58rpx;
+  margin-bottom: 14rpx;
 }
 
 .modMetaRow {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 16rpx;
   font-size: 20rpx;
-  color: #64748b;
-  margin-bottom: 14rpx;
+  color: #94a3b8;
 }
 
 .modAuthor {
-  max-width: 60%;
-  white-space: nowrap;
+  max-width: 55%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modDownloads {
+  color: #38bdf8;
+  font-weight: 600;
 }
 
 .quickPushBtn {
   background: linear-gradient(135deg, #0284c7, #4f46e5);
   color: #ffffff;
-  border: none;
   border-radius: 14rpx;
+  border: none;
   padding: 10rpx 0;
   line-height: 1.4;
-  margin-top: auto;
+  margin: 0;
+  transition: all 0.2s;
+}
+
+.quickPushBtn:active {
+  opacity: 0.85;
 }
 
 .pushBtnText {
   font-size: 22rpx;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* 加载与空提示 */
