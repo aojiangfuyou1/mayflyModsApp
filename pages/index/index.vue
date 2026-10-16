@@ -173,13 +173,13 @@
             <text class="pillLabel">{{ enableAutoTranslate ? '最近更新' : 'Updated' }}</text>
           </view>
 
-          <!-- 📈 Trending -->
+          <!-- ↗ Trending -->
           <view
             class="filterPill"
             :class="{ active: currentSort === 'trending' }"
             @click="changeSort('trending')"
           >
-            <text class="pillIcon">📈</text>
+            <text class="pillIcon">↗</text>
             <text class="pillLabel">{{ enableAutoTranslate ? '飙升排行' : 'Trending' }}</text>
           </view>
 
@@ -222,7 +222,8 @@
             :class="{ active: selectedCategory === cat.name }"
             @click="selectCategory(cat.name)"
           >
-            <text class="catPillText">{{ getCategoryPillLabel(cat) }}</text>
+            <text class="catPillText">{{ getCategoryPillTitle(cat) }}</text>
+            <text class="catPillCount" v-if="cat.count">{{ formatCount(cat.count) }}</text>
           </view>
         </view>
       </scroll-view>
@@ -293,7 +294,7 @@
               mode="aspectFill"
               lazy-load
             />
-            <view class="modGameBadge">
+            <view class="modGameBadge" v-if="!selectedGameDomain">
               <text class="modGameBadgeText">{{ item.game.shortZhName || item.game.name }}</text>
             </view>
             <view class="modActionBtn" @click.stop="toggleCardFavorite(item)">
@@ -310,7 +311,7 @@
 
             <!-- 作者信息 (Nexus 经典暖金色 #d4a373) -->
             <view class="modAuthorRow">
-              <text class="authorGlyph">👤</text>
+              <text class="authorGlyph">❖</text>
               <text class="authorNameText">{{ item.author }}</text>
             </view>
 
@@ -656,6 +657,7 @@ export default {
       // N网官方实时动态分类 (零硬编码，从 GraphQL 聚合返回)
       dynamicCategories: [],
       selectedCategory: '',
+      gameCategoriesCache: {}, // 缓存各游戏的全量官方分类集合，防止切换分类时分类条消失
 
       // 排序维度: 'createdAt' (New) | 'updatedAt' (Updated) | 'trending' | 'downloads' (Popular) | 'favorites'
       currentSort: 'createdAt',
@@ -793,7 +795,7 @@ export default {
      */
     currentTimeFilterOptions() {
       if (this.enableAutoTranslate) {
-        return ['全部时间 (All time)', '过去 24 小时', '过去 7 天', '过去 14 天', '过去 30 天', '过去 1 年'];
+        return ['全部时间', '过去 24 小时', '过去 7 天', '过去 14 天', '过去 30 天', '过去 1 年'];
       }
       return ['All time', 'Last 24 hours', 'Last 7 days', 'Last 14 days', 'Last 30 days', '1 year'];
     }
@@ -890,6 +892,9 @@ export default {
     /**
      * 从 Games 视角选中某游戏并进入 Mods 列表筛选 (并持久化当前激活游戏)
      */
+    /**
+     * 从 Games 视角选中某游戏并进入 Mods 列表筛选 (并持久化当前激活游戏)
+     */
     selectGameAndJumpMods(game) {
       if (!game) return;
       this.selectedGameDomain = game.domain;
@@ -899,6 +904,12 @@ export default {
       this.selectedCategory = '';
       this.currentView = 'mods';
       this.favoritesScope = 'current';
+
+      // 预先载入已缓存的当前游戏全量分类，避免界面分类闪烁或空白
+      const cached = this.gameCategoriesCache[game.domain];
+      if (cached && cached.length > 0) {
+        this.dynamicCategories = cached;
+      }
 
       try {
         uni.setStorageSync('mayfly_active_game', {
@@ -923,6 +934,9 @@ export default {
       this.selectedCategory = '';
       this.currentView = 'games';
       this.favoritesScope = 'all';
+
+      const cached = this.gameCategoriesCache['all_games'];
+      this.dynamicCategories = cached && cached.length > 0 ? cached : [];
 
       try {
         uni.removeStorageSync('mayfly_active_game');
@@ -1025,9 +1039,24 @@ export default {
         this.hasMore = result.hasMore;
 
         if (result.dynamicCategories && result.dynamicCategories.length > 0) {
-          this.dynamicCategories = result.dynamicCategories;
+          const domainKey = this.selectedGameDomain || 'all_games';
+          if (!this.selectedCategory) {
+            // 当前处于无分类全量模式，返回的是该游戏官方完整全量分类集合
+            this.gameCategoriesCache[domainKey] = result.dynamicCategories;
+            this.dynamicCategories = result.dynamicCategories;
+          } else {
+            // 当前处于具体某个分类下，GraphQL facets 仅返回当前分类，必须保留全量分类集合，杜绝分类条消失
+            if (this.gameCategoriesCache[domainKey] && this.gameCategoriesCache[domainKey].length > 0) {
+              this.dynamicCategories = this.gameCategoriesCache[domainKey];
+            } else {
+              const map = new Map(this.dynamicCategories.map((c) => [c.name, c]));
+              result.dynamicCategories.forEach((c) => map.set(c.name, c));
+              this.dynamicCategories = Array.from(map.values());
+            }
+          }
+
           if (this.enableAutoTranslate) {
-            this.autoTranslateCategories(result.dynamicCategories);
+            this.autoTranslateCategories(this.dynamicCategories);
           }
         }
 
@@ -1284,6 +1313,23 @@ export default {
         if (mapped && mapped !== category) return mapped;
       }
       return category;
+    },
+
+    /**
+     * 获取分类胶囊显示的纯净友好中文标题 (不含数量，数量通过独立胶囊徽标展示)
+     */
+    getCategoryPillTitle(cat) {
+      if (!cat || !cat.name) return '';
+      if (this.enableAutoTranslate) {
+        if (this.zhCategoryMap[cat.name]) {
+          return this.zhCategoryMap[cat.name];
+        }
+        const zh = getCategoryZhName(cat.name);
+        if (zh && zh !== cat.name) {
+          return zh;
+        }
+      }
+      return cat.name;
     },
 
     /**
@@ -2048,24 +2094,28 @@ export default {
   display: flex;
   align-items: center;
   gap: 8rpx;
-  background-color: rgba(218, 107, 23, 0.15);
-  border: 1rpx solid rgba(218, 107, 23, 0.4);
-  border-radius: 20rpx;
-  padding: 8rpx 18rpx;
+  background-color: #242833;
+  border: 1rpx solid #373e4d;
+  border-radius: 999px;
+  padding: 8rpx 20rpx;
   cursor: pointer;
   flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.clearGamePillBtn:active {
+  background-color: #2d323f;
 }
 
 .clearGamePillIcon {
-  font-size: 22rpx;
-  color: #da6b17;
-  font-weight: 800;
+  font-size: 20rpx;
+  color: #9ca3af;
 }
 
 .clearGamePillText {
   font-size: 22rpx;
-  color: #da6b17;
-  font-weight: 700;
+  color: #e5e7eb;
+  font-weight: 600;
 }
 
 .globalModeIcon {
@@ -2087,35 +2137,49 @@ export default {
   font-weight: 600;
 }
 
-/* N网官方实时动态分类胶囊栏 */
+/* N网官方实时动态分类胶囊栏 (100% 精致暗黑胶囊流) */
 .categoryPillsScroll {
   width: 100%;
   white-space: nowrap;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.categoryPillsScroll::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .categoryPillsList {
   display: inline-flex;
   gap: 12rpx;
-  padding: 4rpx 0;
+  padding: 6rpx 0;
 }
 
 .catPill {
   display: inline-flex;
   align-items: center;
-  background-color: #1a1c22;
-  border: 1rpx solid #2c313d;
-  border-radius: 8rpx;
-  padding: 10rpx 20rpx;
+  gap: 10rpx;
+  background-color: #1a1d24;
+  border: 1rpx solid #2d3340;
+  border-radius: 999px;
+  padding: 10rpx 22rpx;
   white-space: nowrap;
   flex-shrink: 0;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.catPill:active {
+  transform: scale(0.96);
 }
 
 .catPill.active {
   background-color: #da6b17;
   border-color: #da6b17;
+  box-shadow: 0 4rpx 14rpx rgba(218, 107, 23, 0.35);
 }
 
 .catPillText {
@@ -2127,6 +2191,20 @@ export default {
 .catPill.active .catPillText {
   color: #ffffff;
   font-weight: 700;
+}
+
+.catPillCount {
+  font-size: 18rpx;
+  font-weight: 700;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2rpx 12rpx;
+  border-radius: 999px;
+}
+
+.catPill.active .catPillCount {
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.25);
 }
 
 /* Header Row: 🔷 Mods   View all (对标图 2) */
@@ -2162,11 +2240,21 @@ export default {
   cursor: pointer;
 }
 
-/* Filter Pills: ☀ New | ⟳ Updated | 📈 Trending | ★ Popular (对标图 2) */
+/* Filter Pills: ☀ New | ⟳ Updated | ↗ Trending | ★ Popular (对标图 2) */
 .filterPillsScroll {
   width: 100%;
   white-space: nowrap;
-  margin-bottom: 20rpx;
+  margin-bottom: 24rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #20242c;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.filterPillsScroll::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .filterPillsList {
@@ -2179,14 +2267,18 @@ export default {
   display: inline-flex;
   align-items: center;
   gap: 10rpx;
-  background-color: #1f2125;
-  border: 1rpx solid #373b43;
-  border-radius: 40rpx;
-  padding: 14rpx 32rpx;
+  background-color: #17191e;
+  border: 1rpx solid #2b3038;
+  border-radius: 999px;
+  padding: 12rpx 28rpx;
   white-space: nowrap;
   flex-shrink: 0;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.filterPill:active {
+  transform: scale(0.96);
 }
 
 .filterPill.active {
@@ -2196,7 +2288,7 @@ export default {
 
 .pillIcon {
   font-size: 24rpx;
-  color: #ffffff;
+  color: #9ca3af;
 }
 
 .filterPill.active .pillIcon {
@@ -2205,8 +2297,8 @@ export default {
 
 .pillLabel {
   font-size: 24rpx;
-  font-weight: 700;
-  color: #ffffff;
+  font-weight: 600;
+  color: #9ca3af;
 }
 
 .filterPill.active .pillLabel {
@@ -2223,22 +2315,22 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #1f2125;
-  border: 1rpx solid #373b43;
-  border-radius: 12rpx;
-  padding: 16rpx 24rpx;
+  background-color: #16181d;
+  border: 1rpx solid #272c36;
+  border-radius: 10rpx;
+  padding: 14rpx 22rpx;
   box-sizing: border-box;
 }
 
 .timeSelectLabel {
   font-size: 24rpx;
   font-weight: 600;
-  color: #ffffff;
+  color: #d1d5db;
 }
 
 .timeSelectArrow {
-  font-size: 24rpx;
-  color: #9ca3af;
+  font-size: 22rpx;
+  color: #6b7280;
 }
 
 /* 心愿单工具条 (支持按游戏切换过滤) */
@@ -2353,20 +2445,22 @@ export default {
 
 .modCard {
   width: 48.2%;
-  background-color: #1f2125;
-  border: 1rpx solid #2d3139;
+  background-color: #1a1d22;
+  border: 1rpx solid #282c36;
   border-radius: 12rpx;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 .modCoverBox {
   position: relative;
   width: 100%;
   height: 200rpx;
-  background-color: #121212;
+  background-color: #111317;
+  overflow: hidden;
 }
 
 .modCoverImg {
@@ -2403,7 +2497,8 @@ export default {
   width: 44rpx;
   height: 44rpx;
   border-radius: 50%;
-  background: rgba(18, 18, 18, 0.7);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2442,7 +2537,8 @@ export default {
 }
 
 .authorGlyph {
-  font-size: 20rpx;
+  font-size: 18rpx;
+  color: #d4a373;
 }
 
 .authorNameText {
