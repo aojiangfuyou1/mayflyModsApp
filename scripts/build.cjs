@@ -18,6 +18,10 @@ const requiredFiles = [
   'main.js',
   'pages/index/index.vue',
   'pages/detail/detail.vue',
+  'components/NexusAuthModal.vue',
+  'components/DevicePairModal.vue',
+  'components/PushHistoryModal.vue',
+  'components/ModCard.vue',
   'services/nexus.js',
   'services/translate.js',
   'services/remote-channel.js',
@@ -55,7 +59,15 @@ try {
 }
 
 // 3. 严格校验所有 Vue 文件的模板标签匹配与闭合完整性 (防止 Invalid end tag)
-const vueFiles = ['App.vue', 'pages/index/index.vue', 'pages/detail/detail.vue'];
+const vueFiles = [
+  'App.vue',
+  'pages/index/index.vue',
+  'pages/detail/detail.vue',
+  'components/NexusAuthModal.vue',
+  'components/DevicePairModal.vue',
+  'components/PushHistoryModal.vue',
+  'components/ModCard.vue'
+];
 for (const vFile of vueFiles) {
   try {
     const fullPath = path.join(rootDir, vFile);

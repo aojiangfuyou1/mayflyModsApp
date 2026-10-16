@@ -284,79 +284,22 @@
         </view>
       </view>
 
-      <!-- 双列模组卡片网格 (100% 对标图 2) -->
+      <!-- 双列模组卡片网格 (100% 对标图 2，已组件化) -->
       <view class="modsGrid" v-if="streamModList.length > 0">
-        <view
-          class="modCard"
+        <ModCard
           v-for="item in streamModList"
           :key="item.id"
+          :item="item"
+          :selected-game-domain="selectedGameDomain"
+          :enable-auto-translate="enableAutoTranslate"
+          :zh-title="zhTitleMap[item.id]"
+          :zh-summary="zhSummaryMap[item.id]"
+          :is-favorited="Boolean(favoriteIdMap[item.id])"
+          :is-pushing="pushingModId === item.id"
           @click="openDetail(item)"
-        >
-          <!-- 封面大图 (16:9) + 游戏短角标 + 右上角操作点 -->
-          <view class="modCoverBox">
-            <image
-              class="modCoverImg"
-              :src="item.coverImageUrl || '/static/logo.png'"
-              mode="aspectFill"
-              lazy-load
-            />
-            <view class="modGameBadge" v-if="!selectedGameDomain">
-              <text class="modGameBadgeText">{{ item.game.shortZhName || item.game.name }}</text>
-            </view>
-            <view class="modActionBtn" @click.stop="toggleCardFavorite(item)">
-              <text class="actionDotText">{{ favoriteIdMap[item.id] ? '❤️' : '···' }}</text>
-            </view>
-          </view>
-
-          <!-- 卡片信息主体 (对标图 2) -->
-          <view class="modBody">
-            <!-- 标题 (白字加粗) -->
-            <text class="modTitleText">
-              {{ enableAutoTranslate && zhTitleMap[item.id] ? zhTitleMap[item.id] : item.title }}
-            </text>
-
-            <!-- 作者信息 (Nexus 经典暖金色 #d4a373) -->
-            <view class="modAuthorRow">
-              <text class="authorGlyph">❖</text>
-              <text class="authorNameText">{{ item.author }}</text>
-            </view>
-
-            <!-- 模组类型 (对标图 2 Patches, Audio 等，中文友好映射) -->
-            <text class="modCategoryText">{{ getCategoryDisplayName(item.category) }}</text>
-
-            <!-- 更新与创建时间 (跟随本地化显示) -->
-            <view class="modTimeRow">
-              <view class="timeCol">
-                <text class="timeIcon">⟳</text>
-                <text class="timeVal">{{ item.timeAgo || (enableAutoTranslate ? '刚刚' : 'recently') }}</text>
-              </view>
-              <view class="timeCol" v-if="item.formattedDate">
-                <text class="timeIcon">⬆</text>
-                <text class="timeVal">{{ item.formattedDate }}</text>
-              </view>
-            </view>
-
-            <!-- 简介摘要预览 (灰色两行，自动中文翻译呈现) -->
-            <text class="modSummaryText">{{ getModDisplaySummary(item) }}</text>
-
-            <!-- 底部统计与推送 (对标图 2: 👍 0  📥 0  + Mayfly 独有推送到电脑) -->
-            <view class="modFooterRow">
-              <view class="modStatsLeft">
-                <text class="footerMetric">👍 {{ item.likes }}</text>
-                <text class="footerMetric">📥 {{ formatCount(item.downloads) }}</text>
-              </view>
-              <button
-                class="nexusPushBtn"
-                :disabled="pushingModId === item.id"
-                @click.stop="quickPushToDesktop(item)"
-              >
-                <text class="nexusPushBtnText">
-                  {{ pushingModId === item.id ? '推送中' : '🚀 推送' }}
-                </text>
-              </button>
-            </view>
-          </view>
-        </view>
+          @favorite="toggleCardFavorite(item)"
+          @push="quickPushToDesktop(item)"
+        />
       </view>
 
       <!-- 加载与空结果提示 -->
@@ -548,326 +491,37 @@
     </view>
 
     <!-- ==================================================================== -->
-    <!-- 区域 5：电脑端连接与配对设置弹窗 -->
+    <!-- 区域 5：电脑端连接与配对设置弹窗 (已组件化)                         -->
     <!-- ==================================================================== -->
-    <view class="modalOverlay" v-if="deviceModalVisible" @click="closeDeviceModal">
-      <view class="deviceModalContent" @click.stop>
-        <view class="deviceModalHeader">
-          <text class="modalTitle">💻 配对电脑端 Mayfly</text>
-          <view class="modalCloseBtn" @click="closeDeviceModal">✕</view>
-        </view>
-
-        <view class="deviceForm">
-          <!-- 扫码一键配对按钮 -->
-          <button class="scanCodeBtn" @click="handleScanCodePair">
-            <text class="scanCodeBtnText">📷 扫一扫屏幕二维码自动配对</text>
-          </button>
-
-          <view class="formDividerRow">
-            <view class="dividerLine"></view>
-            <text class="dividerText">或手动输入配置</text>
-            <view class="dividerLine"></view>
-          </view>
-
-          <view class="formItem">
-            <text class="formLabel">电脑局域网 IP 地址</text>
-            <input
-              class="formInput"
-              v-model="deviceForm.host"
-              placeholder="例如 192.168.1.100"
-            />
-          </view>
-
-          <view class="formItem">
-            <text class="formLabel">通信端口</text>
-            <input
-              class="formInput"
-              type="number"
-              v-model="deviceForm.port"
-              placeholder="默认 28888 或 9876"
-            />
-          </view>
-
-          <view class="formItem">
-            <text class="formLabel">设备配对 Token / Pin</text>
-            <input
-              class="formInput"
-              v-model="deviceForm.deviceToken"
-              placeholder="例如 MF-PC-8891"
-            />
-          </view>
-
-          <!-- 测试连接按钮 -->
-          <button
-            class="testConnBtn"
-            :disabled="testingConnection"
-            @click="runTestConnection"
-          >
-            <text class="testBtnText">{{ testingConnection ? '正在探测连通性...' : '⚡ 测试连接' }}</text>
-          </button>
-
-          <!-- 保存按钮 -->
-          <button class="saveConfigBtn" @click="saveDeviceSettings">
-            <text class="saveBtnText">保存配置</text>
-          </button>
-        </view>
-      </view>
-    </view>
+    <DevicePairModal
+      :visible="deviceModalVisible"
+      :config="desktopConfig"
+      @close="closeDeviceModal"
+      @saved="onDeviceConfigSaved"
+    />
 
     <!-- ==================================================================== -->
-    <!-- 区域 6：推送任务清单与历史记录抽屉 -->
+    <!-- 区域 6：推送任务清单与历史记录抽屉 (已组件化)                       -->
     <!-- ==================================================================== -->
-    <view class="modalOverlay" v-if="historyModalVisible" @click="closeHistoryModal">
-      <view class="historyDrawerContent" @click.stop>
-        <view class="drawerHeader">
-          <view class="drawerTitleBox">
-            <text class="drawerTitle">📋 推送任务清单</text>
-            <text class="drawerSub">已推送到电脑 Mayfly 的模组</text>
-          </view>
-          <view class="drawerActions">
-            <text class="clearHistoryText" v-if="historyList.length > 0" @click="handleClearHistory">清空</text>
-            <view class="modalCloseBtn" @click="closeHistoryModal">✕</view>
-          </view>
-        </view>
-
-        <!-- 历史清单滚动列表 -->
-        <scroll-view scroll-y class="historyScrollList">
-          <view class="historyEmpty" v-if="historyList.length === 0">
-            <text class="emptyTipIcon">📦</text>
-            <text class="emptyTipText">暂无推送记录，挑选心仪的 Mod 体验一键推送吧！</text>
-          </view>
-
-          <view class="historyItem" v-for="item in historyList" :key="item.id">
-            <image class="historyThumb" :src="item.coverImageUrl || '/static/logo.png'" mode="aspectFill" />
-            <view class="historyBody">
-              <text class="historyTitle">{{ item.title }}</text>
-              <view class="historyMeta">
-                <text class="historyGame">{{ item.gameName }}</text>
-                <text class="historyChannelTag">{{ item.channel === 'LAN_HTTP' ? '局域网' : '云通道' }}</text>
-                <text class="historyTime">{{ formatHistoryTime(item.timestamp) }}</text>
-              </view>
-            </view>
-            <button class="rePushBtn" @click="rePushItem(item)">
-              <text class="rePushText">重推</text>
-            </button>
-          </view>
-        </scroll-view>
-      </view>
-    </view>
+    <PushHistoryModal
+      :visible="historyModalVisible"
+      :history-list="historyList"
+      @close="closeHistoryModal"
+      @repush="rePushItem"
+      @clear="handleClearHistory"
+    />
 
     <!-- ==================================================================== -->
-    <!-- 区域 7：NexusMods 官方账户中心与 API 授权弹窗 -->
+    <!-- 区域 7：NexusMods 官方账户中心与 API 授权弹窗 (已组件化)            -->
     <!-- ==================================================================== -->
-    <view class="modalOverlay" v-if="nexusAuthModalVisible" @click="closeNexusAuthModal">
-      <view class="nexusAuthModalContent" @click.stop>
-        <view class="authModalHeader">
-          <view class="authModalTitleRow">
-            <text class="nexusAuthBrandIcon">❖</text>
-            <text class="modalTitle">NexusMods 账户与授权</text>
-          </view>
-          <view class="modalCloseBtn" @click="closeNexusAuthModal">✕</view>
-        </view>
-
-        <!-- A. 已登录状态展示 -->
-        <view class="authLoggedView" v-if="nexusUser">
-          <view class="loggedProfileHeader">
-            <view class="largeAvatarBox">
-              <image v-if="nexusUser.avatar" class="largeAvatarImg" :src="nexusUser.avatar" mode="aspectFill" />
-              <text v-else class="largeAvatarGlyph">👤</text>
-              <view v-if="nexusUser.isPremium" class="crownCornerBadge">👑</view>
-            </view>
-            <view class="largeProfileInfo">
-              <view class="largeNameRow">
-                <text class="largeUserName">{{ nexusUser.name }}</text>
-                <text v-if="nexusUser.isPremium" class="vipTag premium">👑 PREMIUM</text>
-                <text v-else-if="nexusUser.isSupporter" class="vipTag supporter">💎 SUPPORTER</text>
-                <text v-else class="vipTag standard">标准会员</text>
-              </view>
-              <text class="userUidText">N网用户 UID: {{ nexusUser.userId }}</text>
-              <text class="userEmailText" v-if="nexusUser.email">{{ nexusUser.email }}</text>
-            </view>
-          </view>
-
-          <!-- 账号特权清单 -->
-          <view class="privilegesBox">
-            <text class="privilegeTitle">💎 已激活特权服务</text>
-            <view class="privilegeGrid">
-              <view class="privilegeItem">
-                <text class="privItemIcon">⚡</text>
-                <view class="privItemTextCol">
-                  <text class="privMain">高速直连通道</text>
-                  <text class="privSub">{{ nexusUser.isPremium ? '尊享无限制最高速' : '标准官方 CDN 加速' }}</text>
-                </view>
-              </view>
-              <view class="privilegeItem">
-                <text class="privItemIcon">🚀</text>
-                <view class="privItemTextCol">
-                  <text class="privMain">电脑端一键装机</text>
-                  <text class="privSub">局域网 + 云信令无感落盘</text>
-                </view>
-              </view>
-              <view class="privilegeItem">
-                <text class="privItemIcon">🔖</text>
-                <view class="privItemTextCol">
-                  <text class="privMain">个人心愿单漫游</text>
-                  <text class="privSub">随时保存、分享与推送到电脑</text>
-                </view>
-              </view>
-              <view class="privilegeItem">
-                <text class="privItemIcon">🛡️</text>
-                <view class="privItemTextCol">
-                  <text class="privMain">官方 Personal Key</text>
-                  <text class="privSub">安全凭证本地加密存储</text>
-                </view>
-              </view>
-            </view>
-          </view>
-
-          <!-- 底部登出与重新授权操作 -->
-          <view class="authActionsRow">
-            <button class="authSubBtn" @click="handleSwitchApiKey">
-              <text class="authBtnText">更换 API Key</text>
-            </button>
-            <button class="authLogoutBtn" @click="handleLogoutNexus">
-              <text class="authBtnText">退出登录</text>
-            </button>
-          </view>
-        </view>
-
-        <!-- B. 未登录状态授权表单 -->
-        <view class="authLoginForm" v-else>
-          <!-- 登录方式切换 Tab -->
-          <view class="authTabRow">
-            <view
-              class="authTabItem"
-              :class="{ active: authTab === 'sso' }"
-              @click="switchAuthTab('sso')"
-            >
-              <text class="authTabIcon">🌐</text>
-              <text class="authTabText">网页免密授权 (推荐)</text>
-            </view>
-            <view
-              class="authTabItem"
-              :class="{ active: authTab === 'apikey' }"
-              @click="switchAuthTab('apikey')"
-            >
-              <text class="authTabIcon">🔑</text>
-              <text class="authTabText">API Key 密钥</text>
-            </view>
-          </view>
-
-          <!-- 方式一：网页免密授权 (SSO) -->
-          <view class="ssoAuthSection" v-if="authTab === 'sso'">
-            <view class="authIntroBanner">
-              <text class="authIntroTitle">🌐 NexusMods 官方网页免密授权</text>
-              <text class="authIntroDesc">
-                无需手动复制长密钥！点击前往 Nexus 官网登录并授权，本应用将通过安全信道自动接收授权并完成登录。
-              </text>
-            </view>
-
-            <!-- SSO 实时信道状态 -->
-            <view class="ssoStatusBox">
-              <view class="ssoStatusRow">
-                <view class="pulseDot" :class="ssoStatusClass"></view>
-                <text class="ssoStatusText">{{ ssoStatusLabel }}</text>
-              </view>
-              <text class="ssoSubTip" v-if="ssoStatus === 'waiting'">
-                请在打开的网页中点击绿色「Authorize」；若开启了 2FA，请在网页完成验证码校验。
-              </text>
-            </view>
-
-            <!-- 网页授权主操作按钮 -->
-            <button class="authLoginBtn ssoLaunchBtn" @click="handleOpenSsoUrl">
-              <text class="loginBtnText">🚀 前往 N 网网页完成授权</text>
-            </button>
-
-            <view class="ssoActionSubRow">
-              <button class="ssoSubActionBtn" @click="handleCopySsoUrl">
-                <text class="ssoSubBtnText">📋 复制授权网址到浏览器</text>
-              </button>
-              <button class="ssoSubActionBtn" @click="handleRestartSso">
-                <text class="ssoSubBtnText">⟳ 刷新信道</text>
-              </button>
-            </view>
-
-            <view class="keyGuideCard">
-              <view class="guideHeader">
-                <text class="guideIcon">💡</text>
-                <text class="guideTitle">网页授权操作指引</text>
-              </view>
-              <view class="guideSteps">
-                <text class="guideStepText">1. 点击上方「前往 N 网网页完成授权」打开官方页面；</text>
-                <text class="guideStepText">2. 登录您的 NexusMods 账号（若有双重验证则输入验证码）；</text>
-                <text class="guideStepText">3. 页面提示请求授权时，点击绿色「Authorize」按钮；</text>
-                <text class="guideStepText">4. 返回本应用，系统将通过官方安全信道自动登入！</text>
-              </view>
-            </view>
-          </view>
-
-          <!-- 方式二：API Key 密钥输入 -->
-          <view class="apiKeyAuthSection" v-else>
-            <view class="authIntroBanner">
-              <text class="authIntroTitle">🔑 粘贴 Personal API Key 登录</text>
-              <text class="authIntroDesc">
-                适合网络受限无法使用 WebSocket 的场景，在 NexusMods 个人设置中获取 Personal API Key 粘贴即可。
-              </text>
-            </view>
-
-            <!-- API Key 输入框 -->
-            <view class="formItem">
-              <view class="formLabelRow">
-                <text class="formLabel">Personal API Key (个人访问密钥)</text>
-                <text class="pasteQuickLink" @click="handlePasteClipboard">📋 粘贴剪贴板</text>
-              </view>
-              <view class="keyInputBox">
-                <input
-                  class="keyInput"
-                  type="text"
-                  password
-                  v-model="apiKeyInput"
-                  placeholder="粘贴以 nxm_ 或密钥开头的 API Key..."
-                />
-                <text v-if="apiKeyInput" class="clearKeyBtn" @click="apiKeyInput = ''">✕</text>
-              </view>
-            </view>
-
-            <!-- 登录按钮 -->
-            <button
-              class="authLoginBtn"
-              :disabled="isVerifyingNexusKey || !apiKeyInput.trim()"
-              @click="handleLoginWithApiKey"
-            >
-              <text class="loginBtnText">{{ isVerifyingNexusKey ? '正在向 NexusMods 验证授权...' : '🚀 验证并登录' }}</text>
-            </button>
-
-            <!-- 贴心获取指引卡片 -->
-            <view class="keyGuideCard">
-              <view class="guideHeader">
-                <text class="guideIcon">💡</text>
-                <text class="guideTitle">如何获取免费官方 API Key？</text>
-              </view>
-              <view class="guideSteps">
-                <text class="guideStepText">1. 登录 NexusMods 官网，进入个人账户安全设置；</text>
-                <text class="guideStepText">2. 滑至底部【Personal API Key】，点击【Request Key】生成；</text>
-                <text class="guideStepText">3. 复制生成的密钥并粘贴到上方输入框即可。</text>
-              </view>
-              <button class="copyUrlBtn" @click="handleCopyKeyUrl">
-                <text class="copyUrlBtnText">📋 复制官方 API Key 获取页面链接</text>
-              </button>
-            </view>
-          </view>
-
-          <!-- 底部常驻：从电脑端同步快捷入口 -->
-          <button
-            class="syncPcBtn"
-            :disabled="isSyncingFromPc"
-            @click="handleSyncFromDesktop"
-          >
-            <text class="syncPcBtnText">{{ isSyncingFromPc ? '正在从电脑同步...' : '💻 从电脑端 Mayfly 一键同步登录' }}</text>
-          </button>
-        </view>
-      </view>
-    </view>
+    <NexusAuthModal
+      :visible="nexusAuthModalVisible"
+      :nexus-user="nexusUser"
+      :desktop-config="desktopConfig"
+      @close="closeNexusAuthModal"
+      @login-success="onNexusLoginSuccess"
+      @logout="onNexusLogout"
+    />
   </view>
 </template>
 
@@ -883,12 +537,7 @@ import {
   saveDesktopConfig,
   testDesktopConnection,
   getNexusUser,
-  getNexusApiKey,
-  saveNexusUser,
-  logoutNexus,
-  validateNexusApiKey,
-  syncNexusFromDesktop,
-  startNexusSsoSession
+  getNexusApiKey
 } from '../../services/nexus.js';
 import {
   batchTranslateToZh,
@@ -898,8 +547,19 @@ import {
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
 import { getFavorites, toggleFavorite } from '../../services/favorites.js';
 import { parseShareClipboard, formatFavoritesShareText } from '../../services/poster.js';
+import ModCard from '../../components/ModCard.vue';
+import DevicePairModal from '../../components/DevicePairModal.vue';
+import PushHistoryModal from '../../components/PushHistoryModal.vue';
+import NexusAuthModal from '../../components/NexusAuthModal.vue';
 
 export default {
+  components: {
+    ModCard,
+    DevicePairModal,
+    PushHistoryModal,
+    NexusAuthModal
+  },
+
   data() {
     return {
       // 当前主视角: 默认优先展示全部游戏专区 ('games')，点击后进入对应游戏模组流 ('mods')
@@ -954,14 +614,14 @@ export default {
       drawerVisible: false,
       pushingModId: null,
 
-      // 推送历史与任务清单
+      // 推送历史与任务清单 (弹窗已组件化)
       historyModalVisible: false,
       historyList: [],
       pushedIdMap: {},
       isBatchPushing: false,
       lastHandledClipboard: '',
 
-      // 设备配对设置
+      // 设备配对设置 (弹窗已组件化)
       deviceModalVisible: false,
       desktopConfig: {
         host: '192.168.1.100',
@@ -969,66 +629,15 @@ export default {
         deviceToken: 'MF-PC-8891',
         connected: false
       },
-      deviceForm: {
-        host: '',
-        port: 9876,
-        deviceToken: ''
-      },
-      testingConnection: false,
 
-      // NexusMods 官方账户授权状态
+      // NexusMods 官方账户授权状态 (弹窗已组件化)
       nexusUser: null,
       nexusApiKey: '',
-      nexusAuthModalVisible: false,
-      authTab: 'sso', // 'sso' (网页免密/验证码) | 'apikey' (密钥输入)
-      ssoSession: null,
-      ssoStatus: 'idle', // 'idle' | 'connecting' | 'connected' | 'waiting' | 'verifying' | 'error'
-      ssoErrorMsg: '',
-      apiKeyInput: '',
-      isVerifyingNexusKey: false,
-      isSyncingFromPc: false
+      nexusAuthModalVisible: false
     };
   },
 
   computed: {
-    /**
-     * SSO 状态实时提示语
-     */
-    ssoStatusLabel() {
-      switch (this.ssoStatus) {
-        case 'connecting':
-          return '正在建立安全 SSO 授权信道...';
-        case 'connected':
-          return '信道已就绪，请前往 N 网网页确认授权';
-        case 'waiting':
-          return '已连接官方 SSO，等待您在网页中点击 Authorize...';
-        case 'verifying':
-          return '已接收到授权！正在验证账号身份...';
-        case 'error':
-          return this.ssoErrorMsg || 'SSO 信道连接异常，建议使用 API Key 登录';
-        default:
-          return '点击下方按钮一键前往 N 网授权';
-      }
-    },
-
-    /**
-     * SSO 呼吸点样式状态
-     */
-    ssoStatusClass() {
-      switch (this.ssoStatus) {
-        case 'connecting':
-          return 'yellow';
-        case 'connected':
-        case 'waiting':
-          return 'green pulse';
-        case 'verifying':
-          return 'green fast-pulse';
-        case 'error':
-          return 'red';
-        default:
-          return 'gray';
-      }
-    },
 
     /**
      * 当前选中的游戏封面图
@@ -1794,11 +1403,6 @@ export default {
     },
 
     openDeviceModal() {
-      this.deviceForm = {
-        host: this.desktopConfig.host,
-        port: this.desktopConfig.port,
-        deviceToken: this.desktopConfig.deviceToken
-      };
       this.deviceModalVisible = true;
     },
 
@@ -1806,47 +1410,8 @@ export default {
       this.deviceModalVisible = false;
     },
 
-    async runTestConnection() {
-      if (!this.deviceForm.host) {
-        uni.showToast({
-          title: '请先填写电脑局域网 IP',
-          icon: 'none'
-        });
-        return;
-      }
-      this.testingConnection = true;
-      const ok = await testDesktopConnection(this.deviceForm.host, this.deviceForm.port);
-      this.testingConnection = false;
-
-      if (ok) {
-        uni.showToast({
-          title: '连通成功！电脑 Mayfly 响应正常',
-          icon: 'success'
-        });
-        this.desktopConfig.connected = true;
-      } else {
-        uni.showModal({
-          title: '连接测试未成功',
-          content: '请确认电脑端 Mayfly 是否已启动，并确保手机与电脑连接同一 WiFi。',
-          showCancel: false
-        });
-        this.desktopConfig.connected = false;
-      }
-    },
-
-    saveDeviceSettings() {
-      this.desktopConfig = {
-        ...this.desktopConfig,
-        host: this.deviceForm.host.trim(),
-        port: Number(this.deviceForm.port) || 9876,
-        deviceToken: this.deviceForm.deviceToken.trim()
-      };
-      saveDesktopConfig(this.desktopConfig);
-      this.closeDeviceModal();
-      uni.showToast({
-        title: '电脑配对配置已保存',
-        icon: 'success'
-      });
+    onDeviceConfigSaved(newConfig) {
+      this.desktopConfig = { ...newConfig };
     },
 
     async runQuickTest() {
@@ -1866,73 +1431,6 @@ export default {
         title: ok ? '电脑连接成功' : '电脑未响应，请检查 WiFi',
         icon: ok ? 'success' : 'none'
       });
-    },
-
-    handleScanCodePair() {
-      // #ifdef MP-WEIXIN || APP-PLUS || MP-ALIPAY
-      uni.scanCode({
-        scanType: ['qrCode'],
-        success: (res) => {
-          const raw = res.result || '';
-          this.parseAndApplyPairCode(raw);
-        },
-        fail: () => {
-          uni.showToast({
-            title: '扫码取消或未识别二维码',
-            icon: 'none'
-          });
-        }
-      });
-      // #endif
-
-      // #ifdef H5
-      uni.showModal({
-        title: 'H5 浏览器环境提示',
-        content: '网页端可通过上方直接手动输入电脑 IP、端口与 Token 完成配对。',
-        showCancel: false
-      });
-      // #endif
-    },
-
-    async parseAndApplyPairCode(rawText) {
-      try {
-        let host = '';
-        let port = 9876;
-        let token = '';
-
-        if (rawText.startsWith('mayfly://pair')) {
-          const query = rawText.split('?')[1] || '';
-          const params = new URLSearchParams(query);
-          host = params.get('host') || '';
-          port = Number(params.get('port')) || 9876;
-          token = params.get('token') || '';
-        } else if (rawText.startsWith('http://') || rawText.startsWith('https://')) {
-          const urlMatch = rawText.match(/^https?:\/\/([^:/]+)(?::(\d+))?.*?[?&](?:token|pin)=([^&]+)/i);
-          if (urlMatch) {
-            host = urlMatch[1];
-            port = Number(urlMatch[2]) || 28888;
-            token = decodeURIComponent(urlMatch[3] || '');
-          } else {
-            const simpleUrl = rawText.match(/^https?:\/\/([^:/]+)(?::(\d+))?/i);
-            if (simpleUrl) {
-              host = simpleUrl[1];
-              port = Number(simpleUrl[2]) || 28888;
-            }
-          }
-        }
-
-        if (host) {
-          this.deviceForm.host = host;
-          this.deviceForm.port = port;
-          if (token) this.deviceForm.deviceToken = token;
-          await this.runTestConnection();
-          if (this.desktopConfig.connected) {
-            this.saveDeviceSettings();
-          }
-        }
-      } catch (e) {
-        console.warn('[MayflyIndex] 解析二维码失败:', e);
-      }
     },
 
     // ------------------------------------------------------------------------
@@ -2049,9 +1547,6 @@ export default {
     refreshNexusUser() {
       this.nexusUser = getNexusUser();
       this.nexusApiKey = getNexusApiKey();
-      if (this.nexusApiKey && !this.apiKeyInput) {
-        this.apiKeyInput = this.nexusApiKey;
-      }
     },
 
     openNexusAuthModal() {
@@ -2060,247 +1555,20 @@ export default {
       }
       this.refreshNexusUser();
       this.nexusAuthModalVisible = true;
-      if (!this.nexusUser && this.authTab === 'sso') {
-        this.initSsoSession();
-      }
     },
 
     closeNexusAuthModal() {
       this.nexusAuthModalVisible = false;
-      this.destroySsoSession();
     },
 
-    switchAuthTab(tab) {
-      this.authTab = tab;
-      if (tab === 'sso' && !this.ssoSession) {
-        this.initSsoSession();
-      }
+    onNexusLoginSuccess({ user, apiKey }) {
+      this.nexusUser = user;
+      this.nexusApiKey = apiKey;
     },
 
-    initSsoSession() {
-      this.destroySsoSession();
-      this.ssoStatus = 'connecting';
-      this.ssoErrorMsg = '';
-      this.ssoSession = startNexusSsoSession({
-        onStatusChange: (status, meta) => {
-          this.ssoStatus = status;
-          if (status === 'error' && meta?.error) {
-            this.ssoErrorMsg = typeof meta.error === 'string' ? meta.error : '信道连接异常';
-          }
-        },
-        onSuccess: (user, apiKey) => {
-          this.refreshNexusUser();
-          uni.showToast({
-            title: `授权成功！欢迎，${user.name}`,
-            icon: 'success',
-            duration: 2500
-          });
-        },
-        onError: (msg) => {
-          this.ssoStatus = 'error';
-          this.ssoErrorMsg = msg;
-        }
-      });
-    },
-
-    destroySsoSession() {
-      if (this.ssoSession) {
-        try {
-          this.ssoSession.close();
-        } catch (e) {}
-        this.ssoSession = null;
-      }
-      this.ssoStatus = 'idle';
-    },
-
-    handleOpenSsoUrl() {
-      if (!this.ssoSession || !this.ssoSession.ssoUrl) {
-        this.initSsoSession();
-      }
-      const url = this.ssoSession?.ssoUrl;
-      if (!url) return;
-
-      // #ifdef H5
-      window.open(url, '_blank');
-      // #endif
-
-      // #ifdef APP-PLUS
-      plus.runtime.openURL(url);
-      // #endif
-
-      // #ifdef MP
-      uni.setClipboardData({
-        data: url,
-        success: () => {
-          uni.showModal({
-            title: '已复制 N 网授权链接',
-            content: '请打开手机浏览器粘贴访问，登录并点击 Authorize 完成授权，完成后返回本应用即可自动登录。',
-            showCancel: false
-          });
-        }
-      });
-      // #endif
-
-      // #ifndef H5 || APP-PLUS || MP
-      uni.setClipboardData({
-        data: url,
-        success: () => {
-          uni.showToast({ title: '已复制授权链接，请在浏览器中打开', icon: 'none' });
-        }
-      });
-      // #endif
-    },
-
-    handleCopySsoUrl() {
-      if (!this.ssoSession || !this.ssoSession.ssoUrl) {
-        this.initSsoSession();
-      }
-      const url = this.ssoSession?.ssoUrl;
-      if (!url) return;
-      uni.setClipboardData({
-        data: url,
-        success: () => {
-          uni.showToast({
-            title: '授权链接已复制，请在浏览器中打开并授权',
-            icon: 'none',
-            duration: 3000
-          });
-        }
-      });
-    },
-
-    handleRestartSso() {
-      this.initSsoSession();
-      uni.showToast({ title: '已重置并刷新 SSO 授权信道', icon: 'none' });
-    },
-
-    async handleLoginWithApiKey() {
-      const key = (this.apiKeyInput || '').trim();
-      if (!key) {
-        uni.showToast({
-          title: '请先输入或粘贴 Nexus API Key',
-          icon: 'none'
-        });
-        return;
-      }
-
-      this.isVerifyingNexusKey = true;
-      try {
-        const res = await validateNexusApiKey(key);
-        if (res.success && res.user) {
-          this.refreshNexusUser();
-          uni.showToast({
-            title: `欢迎回来，${res.user.name}！`,
-            icon: 'success',
-            duration: 2500
-          });
-        } else {
-          uni.showModal({
-            title: '授权验证失败',
-            content: res.message || 'API Key 无法通过验证，请确认密钥正确无误。',
-            showCancel: false
-          });
-        }
-      } catch (err) {
-        uni.showToast({
-          title: '网络请求异常，请稍后重试',
-          icon: 'none'
-        });
-      } finally {
-        this.isVerifyingNexusKey = false;
-      }
-    },
-
-    handleLogoutNexus() {
-      uni.showModal({
-        title: '退出登录确认',
-        content: '退出后将清除本地存储的 Nexus API Key 与登录特权，是否确认退出？',
-        confirmText: '退出',
-        cancelText: '取消',
-        confirmColor: '#ef4444',
-        success: (res) => {
-          if (res.confirm) {
-            logoutNexus();
-            this.refreshNexusUser();
-            this.apiKeyInput = '';
-            this.initSsoSession();
-            uni.showToast({
-              title: '已安全退出 Nexus 账户',
-              icon: 'none'
-            });
-          }
-        }
-      });
-    },
-
-    handleSwitchApiKey() {
+    onNexusLogout() {
       this.nexusUser = null;
-    },
-
-    handleCopyKeyUrl() {
-      uni.setClipboardData({
-        data: 'https://www.nexusmods.com/users/myaccount?tab=api+access',
-        success: () => {
-          uni.showToast({
-            title: '链接已复制，请在浏览器中打开并生成密钥',
-            icon: 'none',
-            duration: 3000
-          });
-        }
-      });
-    },
-
-    handlePasteClipboard() {
-      uni.getClipboardData({
-        success: (res) => {
-          if (res.data) {
-            this.apiKeyInput = String(res.data).trim();
-            uni.showToast({
-              title: '已粘贴剪贴板内容',
-              icon: 'none'
-            });
-          } else {
-            uni.showToast({
-              title: '剪贴板为空',
-              icon: 'none'
-            });
-          }
-        },
-        fail: () => {
-          uni.showToast({
-            title: '获取剪贴板失败，请手动长按输入框粘贴',
-            icon: 'none'
-          });
-        }
-      });
-    },
-
-    async handleSyncFromDesktop() {
-      this.isSyncingFromPc = true;
-      try {
-        const res = await syncNexusFromDesktop(this.desktopConfig);
-        if (res.success && res.user) {
-          this.refreshNexusUser();
-          uni.showToast({
-            title: `已成功同步：${res.user.name}`,
-            icon: 'success',
-            duration: 2500
-          });
-        } else {
-          uni.showModal({
-            title: '同步失败',
-            content: res.message || '电脑端未响应或未配置 Nexus 账号。',
-            showCancel: false
-          });
-        }
-      } catch (err) {
-        uni.showToast({
-          title: '同步异常',
-          icon: 'none'
-        });
-      } finally {
-        this.isSyncingFromPc = false;
-      }
+      this.nexusApiKey = '';
     }
   }
 };
