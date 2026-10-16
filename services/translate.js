@@ -59,6 +59,55 @@ function persistTranslations() {
 loadPersistedTranslations();
 
 // ----------------------------------------------------------------------------
+// 区域 1.5：Nexus 常用分类中英映射表 (毫秒级直出，零网络延迟)
+// ----------------------------------------------------------------------------
+export const CATEGORY_ZH_MAP = {
+  'Armour': '护甲装备',
+  'Weapons': '武器装备',
+  'Models and Textures': '模型与材质',
+  'Patches': '补丁与修复',
+  'Gameplay': '玩法与机制',
+  'Visuals': '画质与视觉',
+  'Audio': '音效与音乐',
+  'Companions': '同伴随从',
+  'Followers': '随从随行',
+  'Overhauls': '大型全面重制',
+  'User Interface': '用户界面',
+  'UI': '界面 UI',
+  'Quests': '任务与剧情',
+  'Locations': '地点与建筑',
+  'Utilities': '实用工具',
+  'Animation': '动作与动画',
+  'Magic': '魔法与法术',
+  'Cheats': '作弊与辅助',
+  'Bug Fixes': '问题修复',
+  'Clothing': '服饰服装',
+  'Hair and Face': '发型脸型捏脸',
+  'Characters': '角色美化',
+  'Environment': '环境与天气',
+  'Vehicles': '载具与车辆',
+  'Crafting': '打造与锻造',
+  'Combat': '战斗系统',
+  'Items': '物品道具',
+  'Miscellaneous': '综合杂项'
+};
+
+/**
+ * 获取分类的友好中文名称
+ * @param {string} category - 英文分类名
+ * @returns {string} 中文分类名
+ */
+export function getCategoryZhName(category) {
+  if (!category) return '';
+  const clean = String(category).trim();
+  if (CATEGORY_ZH_MAP[clean]) return CATEGORY_ZH_MAP[clean];
+  for (const [en, zh] of Object.entries(CATEGORY_ZH_MAP)) {
+    if (clean.toLowerCase() === en.toLowerCase()) return zh;
+  }
+  return clean;
+}
+
+// ----------------------------------------------------------------------------
 // 区域 2：核心批量翻译与文本分块
 // ----------------------------------------------------------------------------
 
@@ -108,8 +157,7 @@ export async function batchTranslateToZh(texts) {
         url: EDGE_TRANSLATE_ENDPOINT,
         method: 'POST',
         header: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0'
+          'Content-Type': 'application/json'
         },
         data: JSON.stringify(chunk),
         timeout: 10000
@@ -156,6 +204,114 @@ export async function translateTextToZh(text) {
 
   const map = await batchTranslateToZh([clean]);
   return map.get(clean) || clean;
+}
+
+/**
+ * 翻译长篇富文本模组正文（保留 BBCode 结构、图片与换行段落排版）
+ * @param {string} rawText - 原始带有 BBCode 或 HTML 的正文文本
+ * @returns {Promise<string>} 翻译后的中文正文
+ */
+export async function translateRichDescription(rawText) {
+  if (!rawText || !rawText.trim()) return '';
+
+  if (memoryTranslationCache.has(rawText)) {
+    return memoryTranslationCache.get(rawText);
+  }
+
+  // 按行切分，保留排版骨架
+  const lines = rawText.split('\n');
+  const textLinesToTranslate = [];
+  const lineIndices = [];
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    // 过滤掉纯空行、纯标签（如 [img]...[/img]、纯 BBCode 闭合符）
+    if (
+      !trimmed ||
+      /^\[img\][\s\S]*?\[\/img\]$/i.test(trimmed) ||
+      /^\[\/?(center|left|right|list|\*|b|i|u|size=[0-9]+)\]$/i.test(trimmed)
+    ) {
+      return;
+    }
+    // 纯中文跳过
+    if (/^[\u4e00-\u9fa50-9\s，。！？、]+$/.test(trimmed)) {
+      return;
+    }
+    textLinesToTranslate.push(trimmed);
+    lineIndices.push(idx);
+  });
+
+  if (textLinesToTranslate.length === 0) {
+    return rawText;
+  }
+
+  // 批量并发翻译所有段落行
+  const transMap = await batchTranslateToZh(textLinesToTranslate);
+
+  // 逐行替换还原富文本结构
+  const translatedLines = [...lines];
+  lineIndices.forEach((lineIdx, i) => {
+    const original = textLinesToTranslate[i];
+    if (transMap.has(original)) {
+      translatedLines[lineIdx] = transMap.get(original);
+    }
+  });
+
+  const finalResult = translatedLines.join('\n');
+  memoryTranslationCache.set(rawText, finalResult);
+  return finalResult;
+}
+
+/**
+ * 批量为模组列表项目翻译标题、简介摘要与分类
+ * @param {Array} items - 模组对象数组
+ * @returns {Promise<{ zhTitleMap: Object, zhSummaryMap: Object, zhCategoryMap: Object }>}
+ */
+export async function batchTranslateModList(items) {
+  const result = {
+    zhTitleMap: {},
+    zhSummaryMap: {},
+    zhCategoryMap: {}
+  };
+  if (!Array.isArray(items) || items.length === 0) return result;
+
+  const textSet = new Set();
+
+  items.forEach((item) => {
+    if (item.title) textSet.add(item.title);
+    if (item.summary) textSet.add(item.summary);
+    if (item.category) {
+      const zhCat = getCategoryZhName(item.category);
+      if (zhCat !== item.category) {
+        result.zhCategoryMap[item.category] = zhCat;
+      } else {
+        textSet.add(item.category);
+      }
+    }
+  });
+
+  if (textSet.size === 0) return result;
+
+  try {
+    const translatedMap = await batchTranslateToZh(Array.from(textSet));
+    items.forEach((item) => {
+      if (item.title && translatedMap.has(item.title)) {
+        result.zhTitleMap[item.id] = translatedMap.get(item.title);
+      }
+      if (item.summary && translatedMap.has(item.summary)) {
+        result.zhSummaryMap[item.id] = translatedMap.get(item.summary);
+      }
+      if (item.category) {
+        if (!result.zhCategoryMap[item.category] && translatedMap.has(item.category)) {
+          result.zhCategoryMap[item.category] = translatedMap.get(item.category);
+        }
+      }
+    });
+  } catch (e) {
+    console.warn('[MayflyTranslate] 批量翻译模组列表异常:', e);
+  }
+
+  return result;
 }
 
 // ----------------------------------------------------------------------------

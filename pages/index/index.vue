@@ -83,8 +83,10 @@
             </view>
           </view>
 
-          <!-- 游戏英文全名 (白字加粗) -->
-          <text class="gameTitleText">{{ game.name }}</text>
+          <!-- 游戏标题 (优先展示友好中文名，白字加粗) -->
+          <text class="gameTitleText">{{ getGameDisplayTitle(game) }}</text>
+          <!-- 英文原名副标 (灰字紧凑小字) -->
+          <text class="gameOriginalNameText" v-if="getGameDisplayTitle(game) !== game.name">{{ game.name }}</text>
 
           <!-- 统计指标行 (对标图 1: ◆ 142k  ▤ 4.8k  ⬇ 13.4b) -->
           <view class="gameStatsRow">
@@ -201,7 +203,7 @@
             :class="{ active: selectedCategory === cat.name }"
             @click="selectCategory(cat.name)"
           >
-            <text class="catPillText">{{ cat.name }} ({{ formatCount(cat.count) }})</text>
+            <text class="catPillText">{{ getCategoryPillLabel(cat) }}</text>
           </view>
         </view>
       </scroll-view>
@@ -275,8 +277,8 @@
               <text class="authorNameText">{{ item.author }}</text>
             </view>
 
-            <!-- 模组类型 (对标图 2 Patches, Audio 等) -->
-            <text class="modCategoryText">{{ item.category }}</text>
+            <!-- 模组类型 (对标图 2 Patches, Audio 等，中文友好映射) -->
+            <text class="modCategoryText">{{ getCategoryDisplayName(item.category) }}</text>
 
             <!-- 更新与创建时间 (对标图 2: ⟳ 2 minutes ago / ⬆ 16 Oct 2026) -->
             <view class="modTimeRow">
@@ -290,8 +292,8 @@
               </view>
             </view>
 
-            <!-- 简介摘要预览 (灰色两行) -->
-            <text class="modSummaryText">{{ item.summary }}</text>
+            <!-- 简介摘要预览 (灰色两行，自动中文翻译呈现) -->
+            <text class="modSummaryText">{{ getModDisplaySummary(item) }}</text>
 
             <!-- 底部统计与推送 (对标图 2: 👍 0  📥 0  + Mayfly 独有推送到电脑) -->
             <view class="modFooterRow">
@@ -521,7 +523,11 @@ import {
   saveDesktopConfig,
   testDesktopConnection
 } from '../../services/nexus.js';
-import { batchTranslateToZh } from '../../services/translate.js';
+import {
+  batchTranslateToZh,
+  getCategoryZhName,
+  batchTranslateModList
+} from '../../services/translate.js';
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
 import { getFavorites, toggleFavorite } from '../../services/favorites.js';
 import { parseShareClipboard, formatFavoritesShareText } from '../../services/poster.js';
@@ -556,9 +562,12 @@ export default {
       timeFilterIndex: 0,
       timeFilterOptions: ['All time', 'Last 24 hours', 'Last 7 days', 'Last 14 days', 'Last 30 days', '1 year'],
 
-      // 智能翻译与双语图鉴
-      enableAutoTranslate: false,
+      // 智能翻译与全自动双语图鉴 (默认开启，自动将游戏名、模组标题、简介与分类翻译为地道中文)
+      enableAutoTranslate: true,
       zhTitleMap: {},
+      zhSummaryMap: {},
+      zhCategoryMap: {},
+      zhGameNameMap: {},
 
       // 心愿单收藏
       favoritesList: [],
@@ -768,6 +777,9 @@ export default {
           sort: 'downloads'
         });
         this.gamesList = res.games || [];
+        if (this.enableAutoTranslate) {
+          this.autoTranslateGameNames(this.gamesList);
+        }
       } catch (e) {
         console.warn('[MayflyIndex] 动态加载游戏列表异常:', e);
       } finally {
@@ -790,6 +802,9 @@ export default {
         });
         if (res.games && res.games.length > 0) {
           this.gamesList = [...this.gamesList, ...res.games];
+          if (this.enableAutoTranslate) {
+            this.autoTranslateGameNames(res.games);
+          }
         }
       } catch (e) {
         console.warn('[MayflyIndex] 加载更多游戏异常:', e);
@@ -825,7 +840,7 @@ export default {
         }
 
         if (this.enableAutoTranslate) {
-          this.translateCurrentTitles(result.items);
+          this.autoTranslateItems(result.items);
         }
       } catch (err) {
         uni.showToast({
@@ -860,7 +875,7 @@ export default {
         this.hasMore = result.hasMore;
 
         if (this.enableAutoTranslate) {
-          this.translateCurrentTitles(result.items);
+          this.autoTranslateItems(result.items);
         }
       } catch (err) {
         uni.showToast({
@@ -1044,9 +1059,62 @@ export default {
     },
 
     // ------------------------------------------------------------------------
-    // 智能双语图鉴
+    // 智能双语图鉴 (全自动无缝中文本地化)
     // ------------------------------------------------------------------------
 
+    /**
+     * 获取游戏专区展示标题 (优先友好中文名，降级为翻译名，兜底英文全名)
+     */
+    getGameDisplayTitle(game) {
+      if (!game) return '';
+      if (game.zhName && game.zhName !== game.name) return game.zhName;
+      if (this.zhGameNameMap[game.id]) return this.zhGameNameMap[game.id];
+      if (game.shortZhName && game.shortZhName !== game.name) return game.shortZhName;
+      return game.name;
+    },
+
+    /**
+     * 获取分类的友好中文显示名称
+     */
+    getCategoryDisplayName(category) {
+      if (!category) return '';
+      if (this.enableAutoTranslate) {
+        if (this.zhCategoryMap[category]) return this.zhCategoryMap[category];
+        const mapped = getCategoryZhName(category);
+        if (mapped && mapped !== category) return mapped;
+      }
+      return category;
+    },
+
+    /**
+     * 动态分类胶囊显示的中文与统计标签
+     */
+    getCategoryPillLabel(cat) {
+      if (!cat || !cat.name) return '';
+      const countStr = this.formatCount(cat.count);
+      if (this.enableAutoTranslate) {
+        const zh = getCategoryZhName(cat.name);
+        if (zh && zh !== cat.name) {
+          return `${zh} (${countStr})`;
+        }
+      }
+      return `${cat.name} (${countStr})`;
+    },
+
+    /**
+     * 模组卡片简介摘要展示文本 (优先中文翻译，兜底原版英文)
+     */
+    getModDisplaySummary(item) {
+      if (!item) return '';
+      if (this.enableAutoTranslate && this.zhSummaryMap[item.id]) {
+        return this.zhSummaryMap[item.id];
+      }
+      return item.summary || '暂无简介说明';
+    },
+
+    /**
+     * 开关智能中文图鉴
+     */
     async toggleAutoTranslate() {
       this.enableAutoTranslate = !this.enableAutoTranslate;
       if (this.enableAutoTranslate) {
@@ -1054,7 +1122,8 @@ export default {
           title: '已开启智能中文图鉴',
           icon: 'none'
         });
-        await this.translateCurrentTitles(this.modList);
+        await this.autoTranslateItems(this.modList);
+        await this.autoTranslateGameNames(this.gamesList);
       } else {
         uni.showToast({
           title: '已切换为英文原版',
@@ -1063,21 +1132,51 @@ export default {
       }
     },
 
-    async translateCurrentTitles(items) {
-      if (!Array.isArray(items) || items.length === 0) return;
-      const titles = items.map((m) => m.title).filter(Boolean);
+    /**
+     * 后台静默为新发现的游戏动态翻译中文名称
+     */
+    async autoTranslateGameNames(games) {
+      if (!Array.isArray(games) || games.length === 0) return;
+      const unmapped = games.filter(
+        (g) => (!g.zhName || g.zhName === g.name) && !this.zhGameNameMap[g.id]
+      );
+      if (unmapped.length === 0) return;
+
       try {
-        const resMap = await batchTranslateToZh(titles);
-        const nextZhMap = { ...this.zhTitleMap };
-        items.forEach((m) => {
-          if (resMap.has(m.title)) {
-            nextZhMap[m.id] = resMap.get(m.title);
+        const names = unmapped.map((g) => g.name);
+        const map = await batchTranslateToZh(names);
+        const nextMap = { ...this.zhGameNameMap };
+        unmapped.forEach((g) => {
+          if (map.has(g.name)) {
+            nextMap[g.id] = map.get(g.name);
           }
         });
-        this.zhTitleMap = nextZhMap;
+        this.zhGameNameMap = nextMap;
       } catch (e) {
-        console.warn('[MayflyIndex] 标题翻译异常:', e);
+        console.warn('[MayflyIndex] 游戏名动态翻译异常:', e);
       }
+    },
+
+    /**
+     * 批量自动并发翻译当前模组列表的标题、摘要与分类
+     */
+    async autoTranslateItems(items) {
+      if (!Array.isArray(items) || items.length === 0) return;
+      try {
+        const { zhTitleMap, zhSummaryMap, zhCategoryMap } = await batchTranslateModList(items);
+        this.zhTitleMap = { ...this.zhTitleMap, ...zhTitleMap };
+        this.zhSummaryMap = { ...this.zhSummaryMap, ...zhSummaryMap };
+        this.zhCategoryMap = { ...this.zhCategoryMap, ...zhCategoryMap };
+      } catch (e) {
+        console.warn('[MayflyIndex] 模组自动翻译异常:', e);
+      }
+    },
+
+    /**
+     * 仅翻译标题 (兼容旧调用)
+     */
+    async translateCurrentTitles(items) {
+      await this.autoTranslateItems(items);
     },
 
     // ------------------------------------------------------------------------
@@ -1612,6 +1711,16 @@ export default {
   color: #ffffff;
   margin-top: 14rpx;
   line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gameOriginalNameText {
+  font-size: 20rpx;
+  color: #8c8c8c;
+  margin-top: 4rpx;
+  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

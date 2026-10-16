@@ -208,6 +208,12 @@
 
       <!-- 图 4 原汁原味富文本渲染区域 -->
       <view class="nexusArticleBody" v-else>
+        <!-- 正文正在翻译提示 (极轻量微标，不打扰阅读) -->
+        <view class="translatingNoticeBar" v-if="isChineseMode && isTranslatingDescription && !modZhDescription">
+          <text class="translatingNoticeIcon">⚡</text>
+          <text class="translatingNoticeText">正在为您无缝转译中文图鉴...</text>
+        </view>
+
         <!-- 一句话总结 / 中文简述 (如有) -->
         <view class="articleSummaryBox" v-if="modInfo.summary">
           <text class="articleSummaryText">
@@ -411,7 +417,10 @@ import {
   formatNexusFullDate,
   parseNexusBbCode
 } from '../../services/nexus.js';
-import { translateTextToZh } from '../../services/translate.js';
+import {
+  translateTextToZh,
+  translateRichDescription
+} from '../../services/translate.js';
 import { isFavorited, toggleFavorite } from '../../services/favorites.js';
 import { formatModShareText } from '../../services/poster.js';
 
@@ -470,10 +479,12 @@ export default {
       requirements: [],
       loadingRequirements: false,
 
-      // 翻译模式与缓存
-      isChineseMode: false,
+      // 翻译模式与缓存 (默认开启智能全中文图鉴)
+      isChineseMode: true,
       modZhTitle: '',
       modZhSummary: '',
+      modZhDescription: '',
+      isTranslatingDescription: false,
 
       // 投递状态
       isPushing: false,
@@ -510,10 +521,13 @@ export default {
     },
 
     /**
-     * 将原始描述或富文本转为图 4 标准 HTML 节点
+     * 将原始描述或富文本转为图 4 标准 HTML 节点 (优先中文渲染)
      */
     formattedRichDescription() {
-      const raw = this.modInfo.description || this.modInfo.summary || '暂无详细描述。';
+      let raw = this.modInfo.description || this.modInfo.summary || '暂无详细描述。';
+      if (this.isChineseMode && this.modZhDescription) {
+        raw = this.modZhDescription;
+      }
       return parseNexusBbCode(raw);
     }
   },
@@ -617,6 +631,11 @@ export default {
         // 动态加载前置依赖体检
         this.loadRequirements(modId, gameId);
       }
+
+      // 默认开启中文模式时，快速预翻译标题与摘要
+      if (this.isChineseMode) {
+        this.autoTranslateBasicInfo();
+      }
     },
 
     /**
@@ -633,6 +652,11 @@ export default {
 
         if (detail.coverImageUrl && !this.imageGallery.includes(detail.coverImageUrl)) {
           this.imageGallery = [detail.coverImageUrl];
+        }
+
+        // 详情就绪后，全自动触发正文深度中文翻译
+        if (this.isChineseMode) {
+          this.autoTranslateAllDetail();
         }
       } catch (err) {
         console.warn('[MayflyDetail] 模组全量详情异步拉取提示:', err);
@@ -687,24 +711,73 @@ export default {
     },
 
     /**
+     * 极速预翻译标题与一句话摘要
+     */
+    async autoTranslateBasicInfo() {
+      const tasks = [];
+      if (this.modInfo.title && !this.modZhTitle) {
+        tasks.push(
+          translateTextToZh(this.modInfo.title).then((res) => {
+            if (res) this.modZhTitle = res;
+          })
+        );
+      }
+      if (this.modInfo.summary && !this.modZhSummary) {
+        tasks.push(
+          translateTextToZh(this.modInfo.summary).then((res) => {
+            if (res) this.modZhSummary = res;
+          })
+        );
+      }
+      try {
+        await Promise.all(tasks);
+      } catch (e) {
+        console.warn('[MayflyDetail] 基础标题摘要翻译提示:', e);
+      }
+    },
+
+    /**
+     * 全自动异步深度翻译标题、摘要与正文详细描述
+     */
+    async autoTranslateAllDetail() {
+      await this.autoTranslateBasicInfo();
+
+      const rawDesc = this.modInfo.description;
+      if (rawDesc && !this.modZhDescription && !this.isTranslatingDescription) {
+        this.isTranslatingDescription = true;
+        try {
+          const zhDesc = await translateRichDescription(rawDesc);
+          if (zhDesc) {
+            this.modZhDescription = zhDesc;
+          }
+        } catch (e) {
+          console.warn('[MayflyDetail] 正文深度翻译异常:', e);
+        } finally {
+          this.isTranslatingDescription = false;
+        }
+      }
+    },
+
+    /**
      * 切换中文/原语言模式
      */
     async toggleTranslate() {
       this.isChineseMode = !this.isChineseMode;
-      if (this.isChineseMode && !this.modZhTitle) {
-        try {
-          uni.showLoading({ title: '翻译中...' });
-          const [zhTitle, zhSum] = await Promise.all([
-            translateTextToZh(this.modInfo.title),
-            translateTextToZh(this.modInfo.summary)
-          ]);
-          this.modZhTitle = zhTitle;
-          this.modZhSummary = zhSum;
-        } catch (e) {
-          // 降级为原版
-        } finally {
-          uni.hideLoading();
+      if (this.isChineseMode) {
+        uni.showToast({
+          title: '已开启中文图鉴模式',
+          icon: 'none'
+        });
+        if (!this.modZhDescription && this.modInfo.description) {
+          this.autoTranslateAllDetail();
+        } else if (!this.modZhTitle) {
+          this.autoTranslateBasicInfo();
         }
+      } else {
+        uni.showToast({
+          title: '已切换为英文原版',
+          icon: 'none'
+        });
       }
     },
 
@@ -1355,6 +1428,28 @@ export default {
   font-size: 26rpx;
   color: #cbd5e1;
   line-height: 1.5;
+}
+
+.translatingNoticeBar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background-color: rgba(218, 107, 23, 0.12);
+  border: 1rpx solid rgba(218, 107, 23, 0.35);
+  border-radius: 6rpx;
+  padding: 12rpx 18rpx;
+  margin-bottom: 20rpx;
+}
+
+.translatingNoticeIcon {
+  font-size: 24rpx;
+  color: #da6b17;
+}
+
+.translatingNoticeText {
+  font-size: 22rpx;
+  color: #f3a863;
+  line-height: 1.3;
 }
 
 .nexusArticleBody {

@@ -27,37 +27,79 @@ export const DEFAULT_DESKTOP_CONFIG = {
 // ----------------------------------------------------------------------------
 export const GAME_ZH_MAP = {
   skyrim: '上古卷轴5',
-  skyrimspecialedition: '上古卷轴5',
-  skyrimse: '上古卷轴5',
+  skyrimspecialedition: '上古卷轴5重制版',
+  skyrimse: '上古卷轴5重制版',
   skyrimvr: '上古卷轴5 VR',
+  oblivion: '上古卷轴4:湮灭',
+  morrowind: '上古卷轴3:晨风',
   fallout4: '辐射4',
   fallout4vr: '辐射4 VR',
   falloutnewvegas: '辐射:新维加斯',
   fallout3: '辐射3',
+  fallout76: '辐射76',
+  falloutlondon: '辐射:伦敦',
   blackmythwukong: '黑神话:悟空',
   cyberpunk2077: '赛博朋克 2077',
   eldenring: '艾尔登法环',
   baldursgate3: '博德之门3',
   stardewvalley: '星露谷物语',
-  monsterhunterworld: '怪猎:世界',
-  monsterhunterwilds: '怪猎:荒野',
+  monsterhunterworld: '怪物猎人:世界',
+  monsterhunterwilds: '怪物猎人:荒野',
+  monsterhunterrise: '怪物猎人:崛起',
   witcher3: '巫师3:狂猎',
-  sekiro: '只狼',
+  sekiro: '只狼:影逝二度',
   palworld: '幻兽帕鲁',
   starfield: '星空',
   mountandblade2bannerlord: '骑砍2:霸主',
-  residentevil42023: '生化4重制版',
+  mountandblade: '骑马与砍杀',
+  residentevil42023: '生化危机4重制版',
+  residentevil22019: '生化危机2重制版',
+  residentevil32020: '生化危机3重制版',
+  residentevilvillage: '生化危机:村庄',
   dragonsdogma2: '龙之信条2',
   kingdomcomedeliverance: '天国:拯救',
   hogwartslegacy: '霍格沃茨之遗',
-  gta5: 'GTA 5',
-  grandtheftautov: 'GTA 5',
-  forzahorizon5: '地平线5',
+  gta5: '侠盗猎车手5',
+  grandtheftautov: '侠盗猎车手5',
+  forzahorizon5: '极限竞速:地平线5',
   watchdogs2: '看门狗2',
   titanfall2: '泰坦陨落2',
-  moddingtools: '实用工具',
-  site: '通用工具'
+  valheim: '英灵神殿',
+  terraria: '泰拉瑞亚',
+  rimworld: '边缘世界',
+  factorio: '异星工厂',
+  projectzomboid: '僵尸毁灭工程',
+  readyornot: '严阵以待',
+  darkestdungeon: '暗黑地牢',
+  darkestdungeon2: '暗黑地牢2',
+  nomanssky: '无人深空',
+  masseffectlegendaryedition: '质量效应:传奇版',
+  reddeadredemption2: '荒野大镖客2',
+  dyinglight: '消逝的光芒',
+  dyinglight2: '消逝的光芒2',
+  moddingtools: '实用模组工具',
+  site: '通用工具中心'
 };
+
+/**
+ * 获取官方游戏中文大名（如《上古卷轴5重制版》《赛博朋克 2077》）
+ * @param {string} domainName - N网域名
+ * @param {string} [originalName=""] - 原始英文名称
+ * @returns {string} 友好中文名称
+ */
+export function getGameFullZhName(domainName, originalName = '') {
+  if (!domainName && !originalName) return '热门游戏';
+  const cleanDomain = String(domainName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (GAME_ZH_MAP[cleanDomain]) {
+    return GAME_ZH_MAP[cleanDomain];
+  }
+  for (const [key, val] of Object.entries(GAME_ZH_MAP)) {
+    if (cleanDomain.includes(key) || key.includes(cleanDomain)) {
+      return val;
+    }
+  }
+  return originalName || '热门游戏';
+}
 
 /**
  * 获取紧凑优雅的游戏中文短名（最多8-10个字符，杜绝换行挤压封面）
@@ -69,11 +111,12 @@ export function getGameShortZhName(domainName, originalName = '') {
   if (!domainName && !originalName) return '通用游戏';
   const cleanDomain = String(domainName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   if (GAME_ZH_MAP[cleanDomain]) {
-    return GAME_ZH_MAP[cleanDomain];
+    const name = GAME_ZH_MAP[cleanDomain];
+    return name.length > 8 ? name.slice(0, 8) : name;
   }
   for (const [key, val] of Object.entries(GAME_ZH_MAP)) {
     if (cleanDomain.includes(key) || key.includes(cleanDomain)) {
-      return val;
+      return val.length > 8 ? val.slice(0, 8) : val;
     }
   }
   const cleanOrig = String(originalName || '').trim();
@@ -264,6 +307,7 @@ export async function fetchNexusGames({
         // 动态根据 Nexus 官方 artwork 规范拼接官方原生海报直连图
         tileUrl: `https://images.nexusmods.com/images/games/v2/${node.id}/tile.jpg`,
         heroUrl: `https://images.nexusmods.com/images/games/v2/${node.id}/hero.jpg`,
+        zhName: getGameFullZhName(node.domainName, node.name),
         shortZhName: getGameShortZhName(node.domainName, node.name),
         stats: {
           mods: formatNexusMetric(node.modCount),
