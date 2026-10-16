@@ -485,41 +485,128 @@
 
         <!-- B. 未登录状态授权表单 -->
         <view class="authLoginForm" v-else>
-          <view class="authIntroBanner">
-            <text class="authIntroTitle">🔑 绑定 NexusMods 官方账户</text>
-            <text class="authIntroDesc">
-              绑定后可开启官方 Personal API 授权通道，体验尊享高速下载、心愿单同步与极速推送安装！
-            </text>
-          </view>
-
-          <!-- API Key 输入框 -->
-          <view class="formItem">
-            <view class="formLabelRow">
-              <text class="formLabel">Personal API Key (个人访问密钥)</text>
-              <text class="pasteQuickLink" @click="handlePasteClipboard">📋 粘贴剪贴板</text>
+          <!-- 登录方式切换 Tab -->
+          <view class="authTabRow">
+            <view
+              class="authTabItem"
+              :class="{ active: authTab === 'sso' }"
+              @click="switchAuthTab('sso')"
+            >
+              <text class="authTabIcon">🌐</text>
+              <text class="authTabText">网页免密授权 (推荐)</text>
             </view>
-            <view class="keyInputBox">
-              <input
-                class="keyInput"
-                type="text"
-                password
-                v-model="apiKeyInput"
-                placeholder="粘贴以 nxm_ 或密钥开头的 API Key..."
-              />
-              <text v-if="apiKeyInput" class="clearKeyBtn" @click="apiKeyInput = ''">✕</text>
+            <view
+              class="authTabItem"
+              :class="{ active: authTab === 'apikey' }"
+              @click="switchAuthTab('apikey')"
+            >
+              <text class="authTabIcon">🔑</text>
+              <text class="authTabText">API Key 密钥</text>
             </view>
           </view>
 
-          <!-- 登录按钮 -->
-          <button
-            class="authLoginBtn"
-            :disabled="isVerifyingNexusKey || !apiKeyInput.trim()"
-            @click="handleLoginWithApiKey"
-          >
-            <text class="loginBtnText">{{ isVerifyingNexusKey ? '正在向 NexusMods 验证授权...' : '🚀 验证并登录' }}</text>
-          </button>
+          <!-- 方式一：网页免密授权 (SSO) -->
+          <view class="ssoAuthSection" v-if="authTab === 'sso'">
+            <view class="authIntroBanner">
+              <text class="authIntroTitle">🌐 NexusMods 官方网页免密授权</text>
+              <text class="authIntroDesc">
+                无需手动复制长密钥！点击前往 Nexus 官网登录并授权，本应用将通过安全信道自动接收授权并完成登录。
+              </text>
+            </view>
 
-          <!-- 从电脑端同步快捷入口 -->
+            <!-- SSO 实时信道状态 -->
+            <view class="ssoStatusBox">
+              <view class="ssoStatusRow">
+                <view class="pulseDot" :class="ssoStatusClass"></view>
+                <text class="ssoStatusText">{{ ssoStatusLabel }}</text>
+              </view>
+              <text class="ssoSubTip" v-if="ssoStatus === 'waiting'">
+                请在打开的网页中点击绿色「Authorize」；若开启了 2FA，请在网页完成验证码校验。
+              </text>
+            </view>
+
+            <!-- 网页授权主操作按钮 -->
+            <button class="authLoginBtn ssoLaunchBtn" @click="handleOpenSsoUrl">
+              <text class="loginBtnText">🚀 前往 N 网网页完成授权</text>
+            </button>
+
+            <view class="ssoActionSubRow">
+              <button class="ssoSubActionBtn" @click="handleCopySsoUrl">
+                <text class="ssoSubBtnText">📋 复制授权网址到浏览器</text>
+              </button>
+              <button class="ssoSubActionBtn" @click="handleRestartSso">
+                <text class="ssoSubBtnText">⟳ 刷新信道</text>
+              </button>
+            </view>
+
+            <view class="keyGuideCard">
+              <view class="guideHeader">
+                <text class="guideIcon">💡</text>
+                <text class="guideTitle">网页授权操作指引</text>
+              </view>
+              <view class="guideSteps">
+                <text class="guideStepText">1. 点击上方「前往 N 网网页完成授权」打开官方页面；</text>
+                <text class="guideStepText">2. 登录您的 NexusMods 账号（若有双重验证则输入验证码）；</text>
+                <text class="guideStepText">3. 页面提示请求授权时，点击绿色「Authorize」按钮；</text>
+                <text class="guideStepText">4. 返回本应用，系统将通过官方安全信道自动登入！</text>
+              </view>
+            </view>
+          </view>
+
+          <!-- 方式二：API Key 密钥输入 -->
+          <view class="apiKeyAuthSection" v-else>
+            <view class="authIntroBanner">
+              <text class="authIntroTitle">🔑 粘贴 Personal API Key 登录</text>
+              <text class="authIntroDesc">
+                适合网络受限无法使用 WebSocket 的场景，在 NexusMods 个人设置中获取 Personal API Key 粘贴即可。
+              </text>
+            </view>
+
+            <!-- API Key 输入框 -->
+            <view class="formItem">
+              <view class="formLabelRow">
+                <text class="formLabel">Personal API Key (个人访问密钥)</text>
+                <text class="pasteQuickLink" @click="handlePasteClipboard">📋 粘贴剪贴板</text>
+              </view>
+              <view class="keyInputBox">
+                <input
+                  class="keyInput"
+                  type="text"
+                  password
+                  v-model="apiKeyInput"
+                  placeholder="粘贴以 nxm_ 或密钥开头的 API Key..."
+                />
+                <text v-if="apiKeyInput" class="clearKeyBtn" @click="apiKeyInput = ''">✕</text>
+              </view>
+            </view>
+
+            <!-- 登录按钮 -->
+            <button
+              class="authLoginBtn"
+              :disabled="isVerifyingNexusKey || !apiKeyInput.trim()"
+              @click="handleLoginWithApiKey"
+            >
+              <text class="loginBtnText">{{ isVerifyingNexusKey ? '正在向 NexusMods 验证授权...' : '🚀 验证并登录' }}</text>
+            </button>
+
+            <!-- 贴心获取指引卡片 -->
+            <view class="keyGuideCard">
+              <view class="guideHeader">
+                <text class="guideIcon">💡</text>
+                <text class="guideTitle">如何获取免费官方 API Key？</text>
+              </view>
+              <view class="guideSteps">
+                <text class="guideStepText">1. 登录 NexusMods 官网，进入个人账户安全设置；</text>
+                <text class="guideStepText">2. 滑至底部【Personal API Key】，点击【Request Key】生成；</text>
+                <text class="guideStepText">3. 复制生成的密钥并粘贴到上方输入框即可。</text>
+              </view>
+              <button class="copyUrlBtn" @click="handleCopyKeyUrl">
+                <text class="copyUrlBtnText">📋 复制官方 API Key 获取页面链接</text>
+              </button>
+            </view>
+          </view>
+
+          <!-- 底部常驻：从电脑端同步快捷入口 -->
           <button
             class="syncPcBtn"
             :disabled="isSyncingFromPc"
@@ -527,22 +614,6 @@
           >
             <text class="syncPcBtnText">{{ isSyncingFromPc ? '正在从电脑同步...' : '💻 从电脑端 Mayfly 一键同步登录' }}</text>
           </button>
-
-          <!-- 贴心获取指引卡片 -->
-          <view class="keyGuideCard">
-            <view class="guideHeader">
-              <text class="guideIcon">💡</text>
-              <text class="guideTitle">如何获取免费官方 API Key？</text>
-            </view>
-            <view class="guideSteps">
-              <text class="guideStepText">1. 登录 NexusMods 官网，进入个人账户安全设置；</text>
-              <text class="guideStepText">2. 滑至底部【Personal API Key】，点击【Request Key】生成；</text>
-              <text class="guideStepText">3. 复制生成的密钥并粘贴到上方输入框即可。</text>
-            </view>
-            <button class="copyUrlBtn" @click="handleCopyKeyUrl">
-              <text class="copyUrlBtnText">📋 复制官方 API Key 获取页面链接</text>
-            </button>
-          </view>
         </view>
       </view>
     </view>
@@ -571,7 +642,8 @@ import {
   saveNexusUser,
   logoutNexus,
   validateNexusApiKey,
-  syncNexusFromDesktop
+  syncNexusFromDesktop,
+  startNexusSsoSession
 } from '../../services/nexus.js';
 import {
   translateTextToZh,
@@ -667,6 +739,10 @@ export default {
       nexusUser: null,
       nexusApiKey: '',
       nexusAuthModalVisible: false,
+      authTab: 'sso',
+      ssoSession: null,
+      ssoStatus: 'idle',
+      ssoErrorMsg: '',
       apiKeyInput: '',
       isVerifyingNexusKey: false,
       isSyncingFromPc: false
@@ -674,6 +750,45 @@ export default {
   },
 
   computed: {
+    /**
+     * SSO 状态实时提示语
+     */
+    ssoStatusLabel() {
+      switch (this.ssoStatus) {
+        case 'connecting':
+          return '正在建立安全 SSO 授权信道...';
+        case 'connected':
+          return '信道已就绪，请前往 N 网网页确认授权';
+        case 'waiting':
+          return '已连接官方 SSO，等待您在网页中点击 Authorize...';
+        case 'verifying':
+          return '已接收到授权！正在验证账号身份...';
+        case 'error':
+          return this.ssoErrorMsg || 'SSO 信道连接异常，建议使用 API Key 登录';
+        default:
+          return '点击下方按钮一键前往 N 网授权';
+      }
+    },
+
+    /**
+     * SSO 呼吸点样式状态
+     */
+    ssoStatusClass() {
+      switch (this.ssoStatus) {
+        case 'connecting':
+          return 'yellow';
+        case 'connected':
+        case 'waiting':
+          return 'green pulse';
+        case 'verifying':
+          return 'green fast-pulse';
+        case 'error':
+          return 'red';
+        default:
+          return 'gray';
+      }
+    },
+
     /**
      * 当前板块选项名称 (纯正中文板块规范)
      */
@@ -1226,10 +1341,118 @@ export default {
     openNexusAuthModal() {
       this.refreshNexusUser();
       this.nexusAuthModalVisible = true;
+      if (!this.nexusUser && this.authTab === 'sso') {
+        this.initSsoSession();
+      }
     },
 
     closeNexusAuthModal() {
       this.nexusAuthModalVisible = false;
+      this.destroySsoSession();
+    },
+
+    switchAuthTab(tab) {
+      this.authTab = tab;
+      if (tab === 'sso' && !this.ssoSession) {
+        this.initSsoSession();
+      }
+    },
+
+    initSsoSession() {
+      this.destroySsoSession();
+      this.ssoStatus = 'connecting';
+      this.ssoErrorMsg = '';
+      this.ssoSession = startNexusSsoSession({
+        onStatusChange: (status, meta) => {
+          this.ssoStatus = status;
+          if (status === 'error' && meta?.error) {
+            this.ssoErrorMsg = typeof meta.error === 'string' ? meta.error : '信道连接异常';
+          }
+        },
+        onSuccess: (user, apiKey) => {
+          this.refreshNexusUser();
+          uni.showToast({
+            title: `授权成功！欢迎，${user.name}`,
+            icon: 'success',
+            duration: 2500
+          });
+        },
+        onError: (msg) => {
+          this.ssoStatus = 'error';
+          this.ssoErrorMsg = msg;
+        }
+      });
+    },
+
+    destroySsoSession() {
+      if (this.ssoSession) {
+        try {
+          this.ssoSession.close();
+        } catch (e) {}
+        this.ssoSession = null;
+      }
+      this.ssoStatus = 'idle';
+    },
+
+    handleOpenSsoUrl() {
+      if (!this.ssoSession || !this.ssoSession.ssoUrl) {
+        this.initSsoSession();
+      }
+      const url = this.ssoSession?.ssoUrl;
+      if (!url) return;
+
+      // #ifdef H5
+      window.open(url, '_blank');
+      // #endif
+
+      // #ifdef APP-PLUS
+      plus.runtime.openURL(url);
+      // #endif
+
+      // #ifdef MP
+      uni.setClipboardData({
+        data: url,
+        success: () => {
+          uni.showModal({
+            title: '已复制 N 网授权链接',
+            content: '请打开手机浏览器粘贴访问，登录并点击 Authorize 完成授权，完成后返回本应用即可自动登录。',
+            showCancel: false
+          });
+        }
+      });
+      // #endif
+
+      // #ifndef H5 || APP-PLUS || MP
+      uni.setClipboardData({
+        data: url,
+        success: () => {
+          uni.showToast({ title: '已复制授权链接，请在浏览器中打开', icon: 'none' });
+        }
+      });
+      // #endif
+    },
+
+    handleCopySsoUrl() {
+      if (!this.ssoSession || !this.ssoSession.ssoUrl) {
+        this.initSsoSession();
+      }
+      const url = this.ssoSession?.ssoUrl;
+      if (!url) return;
+      uni.setClipboardData({
+        data: url,
+        success: () => {
+          uni.showToast({
+            title: '授权链接已复制，请在浏览器中打开并授权',
+            icon: 'none',
+            duration: 3000
+          });
+        }
+      });
+    },
+
+    handleRestartSso() {
+      this.initSsoSession();
+      uni.showToast({ title: '已重置并刷新 SSO 授权信道', icon: 'none' });
     },
 
     async handleLoginWithApiKey() {
@@ -1281,6 +1504,7 @@ export default {
             logoutNexus();
             this.refreshNexusUser();
             this.apiKeyInput = '';
+            this.initSsoSession();
             uni.showToast({
               title: '已安全退出 Nexus 账户',
               icon: 'none'

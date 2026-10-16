@@ -1029,4 +1029,155 @@ export async function syncNexusFromDesktop(desktopConfig) {
   }
 }
 
+// ----------------------------------------------------------------------------
+// 区域 8：NexusMods 官方 WebSocket SSO 网页免密授权服务 (跳转N网授权/验证码)
+// ----------------------------------------------------------------------------
+
+/**
+ * 生成标准 RFC4122 v4 UUID
+ * @returns {string}
+ */
+export function generateSsoUuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * 启动 NexusMods 官方 SSO 网页授权会话
+ * 流程：通过 WebSocket 连接 wss://sso.nexusmods.com，引导用户前往浏览器点击 Authorize 授权，
+ * 授权成功后服务端自动通过 WebSocket 推送 api_key，前端收到后直接鉴权登入。
+ * @param {Object} options
+ * @param {Function} options.onStatusChange - 状态回调 (status: 'connecting'|'connected'|'waiting'|'verifying'|'error'|'closed', meta: Object)
+ * @param {Function} options.onSuccess - 成功回调 (user: Object, apiKey: string)
+ * @param {Function} options.onError - 异常回调 (errorMsg: string)
+ * @returns {{ ssoId: string, ssoUrl: string, close: Function }}
+ */
+export function startNexusSsoSession({ onStatusChange, onSuccess, onError }) {
+  const ssoId = generateSsoUuid();
+  // 官方 SSO 授权页面 URL (兼容移动端与桌面端)
+  const ssoUrl = `https://www.nexusmods.com/sso?id=${ssoId}&application=mayfly`;
+
+  let isClosed = false;
+  let socketTask = null;
+
+  try {
+    if (typeof onStatusChange === 'function') {
+      onStatusChange('connecting', { ssoId, ssoUrl });
+    }
+
+    socketTask = uni.connectSocket({
+      url: 'wss://sso.nexusmods.com',
+      complete: () => {}
+    });
+
+    socketTask.onOpen(() => {
+      if (isClosed) return;
+      // 发送 Protocol 2 握手包
+      const payload = {
+        id: ssoId,
+        token: null,
+        protocol: 2
+      };
+      socketTask.send({
+        data: JSON.stringify(payload),
+        success: () => {
+          if (typeof onStatusChange === 'function') {
+            onStatusChange('connected', { ssoId, ssoUrl });
+          }
+        },
+        fail: () => {
+          if (typeof onError === 'function') {
+            onError('SSO 握手信令发送失败');
+          }
+        }
+      });
+    });
+
+    socketTask.onMessage((res) => {
+      if (isClosed) return;
+      try {
+        const raw = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+        if (raw?.data?.connection_token) {
+          if (typeof onStatusChange === 'function') {
+            onStatusChange('waiting', { ssoId, ssoUrl, connectionToken: raw.data.connection_token });
+          }
+        }
+
+        // 当用户在网页端点击 Authorize（或完成 2FA 验证码输入）后，服务端推送 api_key
+        const receivedApiKey = raw?.data?.api_key || raw?.api_key;
+        if (receivedApiKey) {
+          if (typeof onStatusChange === 'function') {
+            onStatusChange('verifying', { ssoId, ssoUrl });
+          }
+          validateNexusApiKey(receivedApiKey).then((validateRes) => {
+            if (validateRes.success && validateRes.user) {
+              if (typeof onSuccess === 'function') {
+                onSuccess(validateRes.user, receivedApiKey);
+              }
+            } else {
+              if (typeof onError === 'function') {
+                onError(validateRes.message || '获取到授权密钥，但在校验用户信息时失败');
+              }
+            }
+          }).catch((err) => {
+            if (typeof onError === 'function') {
+              onError('校验授权用户信息异常: ' + (err.message || '网络超时'));
+            }
+          }).finally(() => {
+            try {
+              socketTask.close();
+            } catch (e) {}
+          });
+        }
+
+        if (raw?.error) {
+          if (typeof onError === 'function') {
+            onError(typeof raw.error === 'string' ? raw.error : 'N网授权服务返回异常');
+          }
+        }
+      } catch (e) {
+        console.warn('[MayflyNexus] 解析 SSO 消息异常:', e);
+      }
+    });
+
+    socketTask.onError((err) => {
+      if (isClosed) return;
+      console.warn('[MayflyNexus] SSO WebSocket 出错:', err);
+      if (typeof onStatusChange === 'function') {
+        onStatusChange('error', { error: err });
+      }
+      if (typeof onError === 'function') {
+        onError('无法连接到 N网 SSO 授权服务器，可能受网络限制，建议使用 API Key 登录');
+      }
+    });
+
+    socketTask.onClose(() => {
+      if (typeof onStatusChange === 'function') {
+        onStatusChange('closed', { ssoId, ssoUrl });
+      }
+    });
+  } catch (err) {
+    if (typeof onError === 'function') {
+      onError('启动 SSO 授权服务失败: ' + (err.message || '未知错误'));
+    }
+  }
+
+  return {
+    ssoId,
+    ssoUrl,
+    close: () => {
+      isClosed = true;
+      try {
+        if (socketTask) {
+          socketTask.close();
+        }
+      } catch (e) {}
+    }
+  };
+}
+
+
 
