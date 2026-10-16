@@ -10,6 +10,13 @@
         <text class="sourceTag">NexusMods</text>
       </view>
       <view class="headerRightActions">
+        <!-- 推送任务清单入口 -->
+        <view class="historyBadge" @click="openHistoryModal">
+          <text class="historyBadgeIcon">📋</text>
+          <view class="historyCountDot" v-if="historyList.length > 0">
+            <text class="historyCountText">{{ historyList.length }}</text>
+          </view>
+        </view>
         <!-- 中文图鉴切换按钮 -->
         <view
           class="zhToggleBadge"
@@ -92,6 +99,10 @@
             />
             <view class="gameTag">
               <text class="gameTagText">{{ item.game.name }}</text>
+            </view>
+            <!-- 已推送到电脑标识 -->
+            <view class="pushedTag" v-if="pushedIdMap[item.id]">
+              <text class="pushedTagText">✓ 已推</text>
             </view>
           </view>
 
@@ -267,6 +278,47 @@
         </view>
       </view>
     </view>
+
+    <!-- ==================================================================== -->
+    <!-- 区域 6：推送任务清单与历史记录抽屉 -->
+    <!-- ==================================================================== -->
+    <view class="modalOverlay" v-if="historyModalVisible" @click="closeHistoryModal">
+      <view class="historyDrawerContent" @click.stop>
+        <view class="drawerHeader">
+          <view class="drawerTitleBox">
+            <text class="drawerTitle">📋 推送任务清单</text>
+            <text class="drawerSub">已推送到电脑 Mayfly 的模组</text>
+          </view>
+          <view class="drawerActions">
+            <text class="clearHistoryText" v-if="historyList.length > 0" @click="handleClearHistory">清空</text>
+            <view class="modalCloseBtn" @click="closeHistoryModal">✕</view>
+          </view>
+        </view>
+
+        <!-- 历史清单滚动列表 -->
+        <scroll-view scroll-y class="historyScrollList">
+          <view class="historyEmpty" v-if="historyList.length === 0">
+            <text class="emptyTipIcon">📦</text>
+            <text class="emptyTipText">暂无推送记录，去挑选心仪的 Mod 吧！</text>
+          </view>
+
+          <view class="historyItem" v-for="item in historyList" :key="item.id">
+            <image class="historyThumb" :src="item.coverImageUrl || '/static/logo.png'" mode="aspectFill" />
+            <view class="historyBody">
+              <text class="historyTitle">{{ item.title }}</text>
+              <view class="historyMeta">
+                <text class="historyGame">{{ item.gameName }}</text>
+                <text class="historyChannelTag">{{ item.channel === 'LAN_HTTP' ? '局域网' : '云通道' }}</text>
+                <text class="historyTime">{{ formatHistoryTime(item.timestamp) }}</text>
+              </view>
+            </view>
+            <button class="rePushBtn" @click="rePushItem(item)">
+              <text class="rePushText">重推</text>
+            </button>
+          </view>
+        </scroll-view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -282,6 +334,7 @@ import {
   testDesktopConnection
 } from '../../services/nexus.js';
 import { batchTranslateToZh } from '../../services/translate.js';
+import { getPushHistory, clearPushHistory } from '../../services/history.js';
 
 export default {
   data() {
@@ -308,6 +361,11 @@ export default {
       selectedMod: null,
       pushingModId: null,
 
+      // 推送历史与任务清单
+      historyModalVisible: false,
+      historyList: [],
+      pushedIdMap: {},
+
       // 设备配对设置
       deviceModalVisible: false,
       desktopConfig: {
@@ -327,7 +385,12 @@ export default {
 
   onLoad() {
     this.initDesktopConfig();
+    this.refreshHistory();
     this.loadMods();
+  },
+
+  onShow() {
+    this.refreshHistory();
   },
 
   onPullDownRefresh() {
@@ -620,6 +683,7 @@ export default {
         uni.hideLoading();
 
         if (result.success) {
+          this.refreshHistory();
           uni.showModal({
             title: '推送成功 🚀',
             content: result.message,
@@ -646,6 +710,86 @@ export default {
       } finally {
         this.pushingModId = null;
       }
+    },
+
+    // ------------------------------------------------------------------------
+    // 推送任务清单与历史记录
+    // ------------------------------------------------------------------------
+
+    /**
+     * 刷新本地推送历史与标记索引
+     */
+    refreshHistory() {
+      const list = getPushHistory();
+      this.historyList = list;
+      const map = {};
+      list.forEach((item) => {
+        map[item.id] = true;
+        if (item.modId) map[item.modId] = true;
+      });
+      this.pushedIdMap = map;
+    },
+
+    /**
+     * 打开推送任务清单抽屉
+     */
+    openHistoryModal() {
+      this.refreshHistory();
+      this.historyModalVisible = true;
+    },
+
+    /**
+     * 关闭推送任务清单抽屉
+     */
+    closeHistoryModal() {
+      this.historyModalVisible = false;
+    },
+
+    /**
+     * 清空历史记录
+     */
+    handleClearHistory() {
+      uni.showModal({
+        title: '确认清空',
+        content: '确定要清空全部推送历史清单吗？',
+        success: (res) => {
+          if (res.confirm) {
+            clearPushHistory();
+            this.refreshHistory();
+            uni.showToast({
+              title: '历史已清空',
+              icon: 'success'
+            });
+          }
+        }
+      });
+    },
+
+    /**
+     * 重新推送历史中的模组
+     */
+    async rePushItem(item) {
+      await this.quickPushToDesktop({
+        id: item.id,
+        modId: item.modId,
+        title: item.title,
+        coverImageUrl: item.coverImageUrl,
+        game: {
+          name: item.gameName,
+          domainName: item.gameDomain
+        }
+      });
+    },
+
+    /**
+     * 格式化历史时间显示
+     */
+    formatHistoryTime(ts) {
+      if (!ts) return '';
+      const date = new Date(ts);
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
     },
 
     /**
@@ -1376,6 +1520,208 @@ export default {
 
 .saveBtnText {
   font-size: 26rpx;
+  font-weight: 700;
+}
+
+/* 区域 6：推送任务清单与角标样式 */
+.historyBadge {
+  position: relative;
+  background-color: #1e293b;
+  border: 1rpx solid #334155;
+  padding: 8rpx 14rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.historyBadgeIcon {
+  font-size: 24rpx;
+}
+
+.historyCountDot {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  background-color: #ef4444;
+  min-width: 28rpx;
+  height: 28rpx;
+  border-radius: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4rpx;
+  box-sizing: border-box;
+}
+
+.historyCountText {
+  font-size: 18rpx;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.pushedTag {
+  position: absolute;
+  top: 12rpx;
+  right: 12rpx;
+  background: rgba(16, 185, 129, 0.9);
+  padding: 4rpx 14rpx;
+  border-radius: 10rpx;
+  backdrop-filter: blur(4px);
+}
+
+.pushedTagText {
+  font-size: 18rpx;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.historyDrawerContent {
+  width: 100%;
+  max-height: 80vh;
+  background-color: #131b2a;
+  border-top-left-radius: 36rpx;
+  border-top-right-radius: 36rpx;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -10rpx 40rpx rgba(0, 0, 0, 0.6);
+  padding-bottom: 30rpx;
+}
+
+.drawerHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 28rpx 16rpx;
+  border-bottom: 1rpx solid #243048;
+}
+
+.drawerTitleBox {
+  display: flex;
+  flex-direction: column;
+}
+
+.drawerTitle {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+
+.drawerSub {
+  font-size: 20rpx;
+  color: #64748b;
+  margin-top: 4rpx;
+}
+
+.drawerActions {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.clearHistoryText {
+  font-size: 22rpx;
+  color: #94a3b8;
+}
+
+.historyScrollList {
+  max-height: 56vh;
+  padding: 20rpx 28rpx;
+  box-sizing: border-box;
+}
+
+.historyEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 0;
+}
+
+.emptyTipIcon {
+  font-size: 60rpx;
+  margin-bottom: 14rpx;
+}
+
+.emptyTipText {
+  font-size: 24rpx;
+  color: #64748b;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background-color: #1a2334;
+  border-radius: 18rpx;
+  padding: 14rpx;
+  margin-bottom: 16rpx;
+  border: 1rpx solid #28354c;
+}
+
+.historyThumb {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 12rpx;
+  flex-shrink: 0;
+}
+
+.historyBody {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.historyTitle {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 8rpx;
+}
+
+.historyMeta {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  font-size: 20rpx;
+}
+
+.historyGame {
+  color: #38bdf8;
+  max-width: 40%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.historyChannelTag {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+}
+
+.historyTime {
+  color: #64748b;
+}
+
+.rePushBtn {
+  background-color: #243048;
+  border: 1rpx solid #38bdf8;
+  border-radius: 12rpx;
+  padding: 8rpx 20rpx;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.rePushText {
+  font-size: 20rpx;
+  color: #38bdf8;
   font-weight: 700;
 }
 </style>

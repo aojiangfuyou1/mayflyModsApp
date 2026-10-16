@@ -19,7 +19,9 @@ const requiredFiles = [
   'pages/index/index.vue',
   'pages/detail/detail.vue',
   'services/nexus.js',
-  'services/translate.js'
+  'services/translate.js',
+  'services/remote-channel.js',
+  'services/history.js'
 ];
 
 let hasError = false;

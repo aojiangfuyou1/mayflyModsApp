@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "MayflyMods 手机端 (掌上 Mod 聚合发现与远程安装伴侣)",
   "scripts": {
-    "build": "node scripts/build.cjs"
+    "build": "node scripts/build.cjs",
+    "receiver": "node scripts/mock-desktop-receiver.cjs"
   },
   "keywords": [
     "mayfly",

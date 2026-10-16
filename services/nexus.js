@@ -226,70 +226,19 @@ export async function fetchNexusMods({
 }
 
 // ----------------------------------------------------------------------------
-// 区域 4：推送到电脑端 Mayfly 安装信令服务
+// 区域 4：推送到电脑端 Mayfly 安装信令服务 (接入双通道自适应调度)
 // ----------------------------------------------------------------------------
 
+import { pushModAdaptive } from './remote-channel.js';
+
 /**
- * 远程推送信令到电脑端 Mayfly 自动下载并原生安装
+ * 远程推送信令到电脑端 Mayfly 自动下载并原生安装 (支持局域网 WiFi + 外网公共云通道自适应)
  * @param {Object} modItem - 要推送安装的模组信息
  * @param {Object} [overrideConfig] - 临时覆盖的电脑端网络配置
- * @returns {Promise<{ success: boolean, message: string }>}
+ * @returns {Promise<{ success: boolean, message: string, channel?: string }>}
  */
 export async function pushModToDesktop(modItem, overrideConfig = null) {
-  const config = overrideConfig || getDesktopConfig();
-  if (!config.host) {
-    return {
-      success: false,
-      message: '请先在顶部设置电脑端的局域网 IP 地址！'
-    };
-  }
-
-  const targetUrl = `http://${config.host.replace(/^http:\/\//, '')}:${config.port || 9876}/api/remote-install`;
-
-  // 严格遵循 Mayfly 信令格式规范
-  const payload = {
-    action: 'remote_install',
-    deviceToken: config.deviceToken || 'MF-PC-8891',
-    gameId: modItem.game?.domainName || '',
-    gameName: modItem.game?.name || '',
-    sourceType: 'nexus',
-    sourceModId: String(modItem.modId || modItem.id),
-    title: modItem.title || '未知模组',
-    version: modItem.version || '',
-    downloadUrl: '',
-    coverImageUrl: modItem.coverImageUrl || '',
-    timestamp: Date.now()
-  };
-
-  try {
-    const res = await uni.request({
-      url: targetUrl,
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json'
-      },
-      data: payload,
-      timeout: 5000
-    });
-
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return {
-        success: true,
-        message: `《${modItem.title}》已成功推送到电脑端！电脑正在自动拉取安装...`
-      };
-    } else {
-      return {
-        success: false,
-        message: `电脑端响应失败 (HTTP ${res.statusCode})`
-      };
-    }
-  } catch (err) {
-    // 局域网未启动服务或网络超时时的友好兜底说明
-    return {
-      success: false,
-      message: `无法连接到电脑 (${config.host}:${config.port})。请确认电脑端 Mayfly 已开启且处于同一 WiFi。`
-    };
-  }
+  return pushModAdaptive(modItem, overrideConfig);
 }
 
 /**
