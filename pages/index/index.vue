@@ -88,6 +88,23 @@
     <!-- 区域 3：双列大图瀑布流卡片列表 (N网有啥显示啥) -->
     <!-- ==================================================================== -->
     <view class="modsWaterfallSection">
+      <!-- 心愿单模式下的批量操作工具条 -->
+      <view class="favBatchBar" v-if="currentSort === 'favorites' && favoritesList.length > 0">
+        <view class="favSummaryText">
+          <text class="favCountNum">❤️ 已收藏 {{ favoritesList.length }} 个模组</text>
+          <text class="favTipText">点此一键将所有心仪 Mod 推送到电脑</text>
+        </view>
+        <button
+          class="favBatchPushBtn"
+          :disabled="isBatchPushing"
+          @click="batchPushFavorites"
+        >
+          <text class="favBatchBtnText">
+            {{ isBatchPushing ? '批量投递中...' : `🚀 全部推送到电脑 (${favoritesList.length})` }}
+          </text>
+        </button>
+      </view>
+
       <!-- 列表内容区 -->
       <view class="waterfallGrid" v-if="displayModList.length > 0">
         <view
@@ -382,6 +399,10 @@ export default {
       historyList: [],
       pushedIdMap: {},
 
+      // 批量推送与剪贴板接力状态
+      isBatchPushing: false,
+      lastHandledClipboard: '',
+
       // 设备配对设置
       deviceModalVisible: false,
       desktopConfig: {
@@ -428,6 +449,7 @@ export default {
   onShow() {
     this.refreshHistory();
     this.refreshFavorites();
+    this.checkClipboardModShare();
   },
 
   onPullDownRefresh() {
@@ -570,6 +592,104 @@ export default {
       uni.showToast({
         title: nextStatus ? '已加入心愿单 ❤️' : '已移出心愿单',
         icon: 'none'
+      });
+    },
+
+    /**
+     * 一键将心愿单里的全部模组批量推送到电脑端 Mayfly
+     */
+    async batchPushFavorites() {
+      if (this.isBatchPushing || this.favoritesList.length === 0) return;
+
+      uni.showModal({
+        title: '确认批量推送 🚀',
+        content: `确定要将心愿单中的全部 ${this.favoritesList.length} 个模组投递到电脑端 Mayfly 自动下载并安装吗？`,
+        confirmText: '开始推送',
+        success: async (res) => {
+          if (!res.confirm) return;
+
+          this.isBatchPushing = true;
+          const total = this.favoritesList.length;
+          let successCount = 0;
+
+          uni.showLoading({
+            title: `正在推送 (1/${total})...`
+          });
+
+          for (let i = 0; i < total; i++) {
+            const item = this.favoritesList[i];
+            uni.showLoading({
+              title: `正在推送 (${i + 1}/${total})...`
+            });
+
+            try {
+              const pushRes = await pushModToDesktop(item, this.desktopConfig);
+              if (pushRes && pushRes.success) {
+                successCount++;
+              }
+            } catch (e) {
+              console.warn('[MayflyBatch] 单项推送异常:', e);
+            }
+
+            // 错开 120ms 避免网络瞬间并发拥堵
+            if (i < total - 1) {
+              await new Promise((r) => setTimeout(r, 120));
+            }
+          }
+
+          uni.hideLoading();
+          this.isBatchPushing = false;
+          this.refreshHistory();
+
+          uni.showModal({
+            title: '批量推送完毕 🎉',
+            content: `已成功将 ${successCount}/${total} 个模组投递给电脑端 Mayfly！家里的电脑已在后台启动下载并原生安装。`,
+            showCancel: false
+          });
+        }
+      });
+    },
+
+    /**
+     * 自动探测剪贴板中的 N网 链接或好友分享口令
+     */
+    checkClipboardModShare() {
+      uni.getClipboardData({
+        success: (res) => {
+          const text = String(res.data || '').trim();
+          if (!text || text === this.lastHandledClipboard) return;
+
+          // 匹配 NexusMods 模组链接：https://www.nexusmods.com/{domain}/mods/{id}
+          const nexusMatch = text.match(/nexusmods\.com\/([a-zA-Z0-9_\-]+)\/mods\/(\d+)/i);
+          if (nexusMatch) {
+            this.lastHandledClipboard = text;
+            const domainName = nexusMatch[1];
+            const modId = nexusMatch[2];
+
+            uni.showModal({
+              title: '发现分享模组 🎁',
+              content: `检测到剪贴板中的 N网 模组链接 (ID: ${modId})，是否立即查看中文图鉴与远程安装？`,
+              confirmText: '立即查看',
+              cancelText: '忽略',
+              success: (modalRes) => {
+                if (modalRes.confirm) {
+                  this.openDetail({
+                    id: modId,
+                    modId,
+                    title: `Nexus 模组 #${modId}`,
+                    summary: '正在拉取详情中...',
+                    coverImageUrl: '',
+                    game: {
+                      name: domainName,
+                      domainName
+                    },
+                    website: `https://www.nexusmods.com/${domainName}/mods/${modId}`
+                  });
+                }
+              }
+            });
+          }
+        }
       });
     },
 
@@ -1164,6 +1284,50 @@ export default {
 /* 区域 3：双列大图瀑布流 */
 .modsWaterfallSection {
   width: 100%;
+}
+
+/* 心愿单批量推送工具条 */
+.favBatchBar {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.15), rgba(99, 102, 241, 0.2));
+  border: 1rpx solid rgba(56, 189, 248, 0.4);
+  border-radius: 20rpx;
+  padding: 18rpx 20rpx;
+  margin-bottom: 22rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.favSummaryText {
+  display: flex;
+  flex-direction: column;
+}
+
+.favCountNum {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.favTipText {
+  font-size: 20rpx;
+  color: #94a3b8;
+  margin-top: 4rpx;
+}
+
+.favBatchPushBtn {
+  background: linear-gradient(135deg, #0284c7, #6366f1);
+  color: #ffffff;
+  border-radius: 16rpx;
+  border: none;
+  padding: 12rpx 24rpx;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.favBatchBtnText {
+  font-size: 22rpx;
+  font-weight: 700;
 }
 
 .waterfallGrid {
