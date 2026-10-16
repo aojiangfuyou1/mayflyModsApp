@@ -12,6 +12,36 @@
 			}
 		},
 		{
+			"path": "pages/games/games",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "热门游戏专区",
+				"navigationBarBackgroundColor": "#121212",
+				"navigationBarTextStyle": "white",
+				"backgroundColor": "#121212"
+			}
+		},
+		{
+			"path": "pages/favorites/favorites",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "装机心愿单",
+				"navigationBarBackgroundColor": "#121212",
+				"navigationBarTextStyle": "white",
+				"backgroundColor": "#121212"
+			}
+		},
+		{
+			"path": "pages/history/history",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "推送任务清单",
+				"navigationBarBackgroundColor": "#121212",
+				"navigationBarTextStyle": "white",
+				"backgroundColor": "#121212"
+			}
+		},
+		{
 			"path": "pages/detail/detail",
 			"style": {
 				"navigationStyle": "custom",

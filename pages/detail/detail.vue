@@ -1,35 +1,21 @@
 <template>
   <view class="nexusDetailPage">
     <!-- ==================================================================== -->
-    <!-- 区域 1：Nexus 官方移动端标准顶栏 (☰ 抽屉/返回 + ❖ 橙标 + 🔍 搜索 + 👤 电脑配对) -->
+    <!-- 区域 1：全局沉浸式顶栏 (已组件化)                                   -->
     <!-- ==================================================================== -->
-    <view class="nexusHeader">
-      <view class="headerBtn" @click="handleNavBack">
-        <text class="headerIcon">←</text>
-      </view>
-
-      <view class="headerLogoArea" @click="handleNavBack">
-        <view class="nexusLogoBox">
-          <text class="nexusLogoGlyph">❖</text>
-        </view>
-      </view>
-
-      <view class="headerRightArea">
-        <view class="headerBtn" @click="handleShareMod">
-          <text class="headerIcon">📤</text>
-        </view>
-        <view class="headerBtn pcBtn" @click="openDeviceModal">
-          <text class="headerIcon">💻</text>
-          <view class="onlineDot" :class="{ connected: desktopConfig.connected }"></view>
-        </view>
-        <view class="headerBtn userBtn" @click="openNexusAuthModal">
-          <image v-if="nexusUser && nexusUser.avatar" class="headerAvatarImg" :src="nexusUser.avatar" mode="aspectFill" />
-          <text v-else class="headerIcon">👤</text>
-          <view v-if="nexusUser && nexusUser.isPremium" class="headerPremiumBadge">👑</view>
-          <view v-else-if="!nexusUser" class="authNoticeDot"></view>
-        </view>
-      </view>
-    </view>
+    <NexusHeader
+      title="模组详情"
+      :show-back="true"
+      :show-search="false"
+      :show-share="true"
+      :desktop-config="desktopConfig"
+      :nexus-user="nexusUser"
+      @back-click="handleNavBack"
+      @share-click="handleShareMod"
+      @pc-click="openDeviceModal"
+      @user-click="openNexusAuthModal"
+      @logo-click="handleNavBack"
+    />
 
     <!-- ==================================================================== -->
     <!-- 区域 2：Hero 头部大图画幅与核心指标 (100% 对标用户参考图 3) -->
@@ -401,11 +387,13 @@ import {
 } from '../../services/translate.js';
 import { isFavorited, toggleFavorite } from '../../services/favorites.js';
 import { formatModShareText } from '../../services/poster.js';
+import NexusHeader from '../../components/NexusHeader.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 
 export default {
   components: {
+    NexusHeader,
     DevicePairModal,
     NexusAuthModal
   },

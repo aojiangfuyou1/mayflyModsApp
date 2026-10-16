@@ -1,35 +1,19 @@
 <template>
   <view class="nexusPage">
     <!-- ==================================================================== -->
-    <!-- 区域 1：Nexus 官方移动端标准顶栏 (☰ 抽屉 + ❖ 橙标 + 🔍 搜索 + 👤 电脑配对) -->
+    <!-- 区域 1：全局沉浸式标准顶栏 (已组件化)                               -->
     <!-- ==================================================================== -->
-    <view class="nexusHeader">
-      <view class="headerBtn" @click="toggleDrawer">
-        <text class="headerIcon">☰</text>
-      </view>
-
-      <view class="headerLogoArea" @click="switchView(currentView === 'mods' ? 'games' : 'mods')">
-        <view class="nexusLogoBox">
-          <text class="nexusLogoGlyph">❖</text>
-        </view>
-      </view>
-
-      <view class="headerRightArea">
-        <view class="headerBtn" @click="toggleSearchExpand">
-          <text class="headerIcon">🔍</text>
-        </view>
-        <view class="headerBtn pcBtn" @click="openDeviceModal">
-          <text class="headerIcon">💻</text>
-          <view class="onlineDot" :class="{ connected: desktopConfig.connected }"></view>
-        </view>
-        <view class="headerBtn userBtn" @click="openNexusAuthModal">
-          <image v-if="nexusUser && nexusUser.avatar" class="headerAvatarImg" :src="nexusUser.avatar" mode="aspectFill" />
-          <text v-else class="headerIcon">👤</text>
-          <view v-if="nexusUser && nexusUser.isPremium" class="headerPremiumBadge">👑</view>
-          <view v-else-if="!nexusUser" class="authNoticeDot"></view>
-        </view>
-      </view>
-    </view>
+    <NexusHeader
+      :show-back="false"
+      :show-search="true"
+      :desktop-config="desktopConfig"
+      :nexus-user="nexusUser"
+      @drawer-click="toggleDrawer"
+      @search-click="toggleSearchExpand"
+      @pc-click="openDeviceModal"
+      @user-click="openNexusAuthModal"
+      @logo-click="clearGameFilterAndBack"
+    />
 
     <!-- ==================================================================== -->
     <!-- 区域 1.5：平滑展开的搜索输入栏 -->
@@ -323,172 +307,26 @@
     <!-- ==================================================================== -->
     <!-- 区域 4：侧边滑出抽屉导航 (100% 对标用户参考图 2 Nexus 官方结构) -->
     <!-- ==================================================================== -->
-    <view class="drawerMask" v-if="drawerVisible" @click="closeDrawer">
-      <view class="drawerBody" @click.stop>
-        <!-- 抽屉顶部标准顶栏 (❖ 橙标 + ✕ 关闭) -->
-        <view class="drawerHeaderRow">
-          <view class="drawerBrandBox">
-            <text class="drawerLogo">❖</text>
-            <text class="drawerBrandTitle">Mayfly Nexus</text>
-          </view>
-          <view class="drawerCloseBtn" @click="closeDrawer">✕</view>
-        </view>
-
-        <!-- NexusMods 官方账户中心置顶卡片 -->
-        <view class="drawerNexusCard guest" v-if="!nexusUser" @click="openNexusAuthModal">
-          <view class="nexusAvatarBox guest">
-            <text class="nexusAvatarIcon">👤</text>
-          </view>
-          <view class="nexusCardInfo">
-            <view class="nexusCardTitleRow">
-              <text class="nexusCardTitle">登录 NexusMods 账户</text>
-              <text class="nexusLoginPill">点击授权 ›</text>
-            </view>
-            <text class="nexusCardSub">支持 API Key 直连与账号特权绑定</text>
-          </view>
-        </view>
-        <view class="drawerNexusCard logged" v-else @click="openNexusAuthModal">
-          <view class="nexusAvatarBox">
-            <image v-if="nexusUser.avatar" class="nexusAvatarImg" :src="nexusUser.avatar" mode="aspectFill" />
-            <text v-else class="nexusAvatarGlyph">👤</text>
-            <text v-if="nexusUser.isPremium" class="premiumCrownBadge">👑</text>
-          </view>
-          <view class="nexusCardInfo">
-            <view class="nexusCardTitleRow">
-              <text class="nexusCardTitle">{{ nexusUser.name }}</text>
-              <text v-if="nexusUser.isPremium" class="userPremiumTag">PREMIUM</text>
-              <text v-else-if="nexusUser.isSupporter" class="userSupporterTag">SUPPORTER</text>
-              <text v-else class="userMemberTag">MEMBER</text>
-            </view>
-            <text class="nexusCardSub">UID: {{ nexusUser.userId }} · 已授权绑定</text>
-          </view>
-          <text class="drawerNavArrow">›</text>
-        </view>
-
-        <!-- 100% 对标图 2：当前选中的游戏卡片 (Active Game Badge Card) -->
-        <view class="drawerActiveGameCard" v-if="selectedGameDomain">
-          <image
-            class="activeGameThumb"
-            :src="activeGameTileUrl || '/static/logo.png'"
-            mode="aspectFill"
-          />
-          <view class="activeGameMetaBox" @click="switchView('mods'); closeDrawer()">
-            <text class="activeGameNameText">{{ activeGameOriginalName || activeGameDisplayName }}</text>
-            <text class="activeGameZhSubText" v-if="activeGameDisplayName && activeGameDisplayName !== activeGameOriginalName">
-              {{ activeGameDisplayName }}
-            </text>
-          </view>
-          <view class="clearActiveGameBtn" @click.stop="clearGameFilterAndBack">
-            <text class="clearActiveGameIcon">✕</text>
-          </view>
-        </view>
-
-        <!-- 未选择游戏时的全网状态卡片 -->
-        <view class="drawerNoGameCard" v-else @click="switchView('games'); closeDrawer()">
-          <view class="noGameIconBox">
-            <text class="noGameGlyph">🌐</text>
-          </view>
-          <view class="noGameMetaBox">
-            <text class="noGameMainText">全网模组模式</text>
-            <text class="noGameSubText">点击进入热门游戏专区选择</text>
-          </view>
-          <text class="drawerNavArrow">›</text>
-        </view>
-
-        <!-- 100% 对标图 2：极简导航功能列表 (带右侧优雅 › 箭头) -->
-        <view class="drawerNavList">
-          <view class="drawerNavItem" @click="switchView('games'); closeDrawer()">
-            <view class="navItemLeft">
-              <text class="itemIcon">🎮</text>
-              <text class="itemText">热门游戏专区 (Games)</text>
-            </view>
-            <text class="drawerNavArrow">›</text>
-          </view>
-
-          <view class="drawerNavItem" @click="switchView('mods'); closeDrawer()">
-            <view class="navItemLeft">
-              <text class="itemIcon">◆</text>
-              <text class="itemText">精选模组库 (Mods)</text>
-            </view>
-            <view class="navItemRight">
-              <text class="currentTag" v-if="selectedGameDomain">{{ activeGameDisplayName }}</text>
-              <text class="drawerNavArrow">›</text>
-            </view>
-          </view>
-
-          <view class="drawerNavItem" @click="changeSort('favorites'); switchView('mods'); closeDrawer()">
-            <view class="navItemLeft">
-              <text class="itemIcon">❤️</text>
-              <text class="itemText">装机心愿单 (Wishlist)</text>
-            </view>
-            <view class="navItemRight">
-              <text class="itemBadge" v-if="favoritesCount > 0">{{ favoritesCount }}</text>
-              <text class="drawerNavArrow">›</text>
-            </view>
-          </view>
-
-          <view class="drawerNavItem" @click="openHistoryModal">
-            <view class="navItemLeft">
-              <text class="itemIcon">📋</text>
-              <text class="itemText">推送任务清单 (History)</text>
-            </view>
-            <view class="navItemRight">
-              <text class="itemBadge" v-if="historyList.length > 0">{{ historyList.length }}</text>
-              <text class="drawerNavArrow">›</text>
-            </view>
-          </view>
-
-          <view class="drawerNavItem" @click="openNexusAuthModal">
-            <view class="navItemLeft">
-              <text class="itemIcon">👤</text>
-              <text class="itemText">NexusMods 账户与授权</text>
-            </view>
-            <view class="navItemRight">
-              <text class="nexusNavTag" :class="{ authed: !!nexusUser }">
-                {{ nexusUser ? (nexusUser.isPremium ? '👑 Premium' : '已登录') : '去登录' }}
-              </text>
-              <text class="drawerNavArrow">›</text>
-            </view>
-          </view>
-
-          <view class="drawerNavItem" @click="toggleAutoTranslate">
-            <view class="navItemLeft">
-              <text class="itemIcon">🌐</text>
-              <text class="itemText">AI 智能双语图鉴</text>
-            </view>
-            <view class="navItemRight">
-              <text class="itemSwitchTag" :class="{ on: enableAutoTranslate }">
-                {{ enableAutoTranslate ? '已开启' : '原英文' }}
-              </text>
-            </view>
-          </view>
-        </view>
-
-        <!-- 电脑端连接卡片 (保留配对与测试) -->
-        <view class="drawerPcCard">
-          <view class="pcCardTop">
-            <text class="pcCardTitle">💻 电脑端连接状态</text>
-            <view class="pcStatusBadge" :class="{ online: desktopConfig.connected }">
-              <text class="pcStatusText">{{ desktopConfig.connected ? '已连接' : '未连接' }}</text>
-            </view>
-          </view>
-          <text class="pcIpText">目标主机: {{ desktopConfig.host }}:{{ desktopConfig.port }}</text>
-          <view class="pcActionsRow">
-            <button class="pcActionBtn primary" @click="openDeviceModal">
-              <text class="btnText">⚙️ 配对设置</text>
-            </button>
-            <button class="pcActionBtn" @click="runQuickTest">
-              <text class="btnText">📶 测试连接</text>
-            </button>
-          </view>
-        </view>
-
-        <view class="drawerFooter">
-          <text class="footerVersion">NexusMods 官方公开 GraphQL 直连</text>
-          <text class="footerSub">Mayfly Mod Manager Companion</text>
-        </view>
-      </view>
-    </view>
+    <!-- ==================================================================== -->
+    <!-- 区域 4：全局沉浸式侧边抽屉菜单 (已组件化)                           -->
+    <!-- ==================================================================== -->
+    <NexusDrawer
+      :visible="drawerVisible"
+      :nexus-user="nexusUser"
+      :selected-game-domain="selectedGameDomain"
+      :active-game-tile-url="activeGameTileUrl"
+      :active-game-display-name="activeGameDisplayName"
+      :active-game-original-name="activeGameOriginalName"
+      :desktop-config="desktopConfig"
+      :enable-auto-translate="enableAutoTranslate"
+      :favorites-count="favoritesList.length"
+      :history-count="historyList.length"
+      @close="closeDrawer"
+      @nav="handleDrawerNav"
+      @clear-game="clearGameFilterAndBack"
+      @toggle-translate="toggleAutoTranslate"
+      @quick-test="runQuickTest"
+    />
 
     <!-- ==================================================================== -->
     <!-- 区域 5：电脑端连接与配对设置弹窗 (已组件化)                         -->
