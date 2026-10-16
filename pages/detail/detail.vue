@@ -2747,6 +2747,155 @@ export default {
   font-weight: 600;
 }
 
+/* 登录方式切换 Tab */
+.authTabRow {
+  display: flex;
+  background: #121418;
+  border-radius: 14rpx;
+  padding: 6rpx;
+  gap: 8rpx;
+  border: 1rpx solid #282c36;
+}
+
+.authTabItem {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  padding: 16rpx 0;
+  border-radius: 10rpx;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.authTabItem.active {
+  background: #252a35;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.4);
+}
+
+.authTabIcon {
+  font-size: 26rpx;
+}
+
+.authTabText {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #9ca3af;
+}
+
+.authTabItem.active .authTabText {
+  color: #ffffff;
+}
+
+/* SSO 区域 */
+.ssoAuthSection,
+.apiKeyAuthSection {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.ssoStatusBox {
+  background: #14161a;
+  border: 1rpx solid #2a2e38;
+  border-radius: 14rpx;
+  padding: 18rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.ssoStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.pulseDot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pulseDot.gray {
+  background: #64748b;
+}
+
+.pulseDot.yellow {
+  background: #f59e0b;
+}
+
+.pulseDot.red {
+  background: #ef4444;
+}
+
+.pulseDot.green {
+  background: #10b981;
+}
+
+.pulseDot.pulse {
+  animation: ssoPulse 1.8s infinite;
+}
+
+.pulseDot.fast-pulse {
+  animation: ssoPulse 0.8s infinite;
+}
+
+@keyframes ssoPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 12rpx rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.ssoStatusText {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.ssoSubTip {
+  font-size: 19rpx;
+  color: #9ca3af;
+  line-height: 1.4;
+  margin-left: 30rpx;
+}
+
+.ssoLaunchBtn {
+  margin-top: 6rpx;
+}
+
+.ssoActionSubRow {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.ssoSubActionBtn {
+  flex: 1;
+  background: #20242e;
+  border: 1rpx solid #333946;
+  border-radius: 10rpx;
+  padding: 14rpx 0;
+  margin: 0;
+}
+
+.ssoSubBtnText {
+  font-size: 22rpx;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
 /* 未登录授权表单 */
 .authLoginForm {
   display: flex;
