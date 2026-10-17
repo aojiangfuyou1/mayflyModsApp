@@ -291,24 +291,31 @@ export default {
   align-items: center;
   margin-bottom: 20rpx;
   padding-bottom: 16rpx;
-  border-bottom: 1rpx solid #232731;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.08);
 }
 
 .drawerTitleBox {
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 6rpx;
+}
+
+.drawerTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
 }
 
 .drawerTitle {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 700;
   color: #ffffff;
+  letter-spacing: 0.5rpx;
 }
 
 .drawerSub {
   font-size: 20rpx;
-  color: #9ca3af;
+  color: #94a3b8;
 }
 
 .drawerActions {
@@ -317,18 +324,41 @@ export default {
   gap: 16rpx;
 }
 
-.clearHistoryText {
-  font-size: 22rpx;
-  color: #ef4444;
+/* 顶部清空微胶囊 */
+.modalClearChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1rpx solid rgba(239, 68, 68, 0.25);
+  border-radius: 20rpx;
+  padding: 8rpx 18rpx;
   cursor: pointer;
-  padding: 6rpx 10rpx;
+  transition: all 0.2s ease;
+}
+
+.modalClearChip:active {
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(0.95);
+}
+
+.modalClearText {
+  font-size: 20rpx;
+  color: #f87171;
+  font-weight: 600;
 }
 
 .modalCloseBtn {
   font-size: 32rpx;
-  color: #9ca3af;
-  padding: 8rpx;
+  color: #94a3b8;
+  padding: 6rpx 10rpx;
   cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.modalCloseBtn:active {
+  color: #ffffff;
 }
 
 .historyScrollList {
@@ -341,43 +371,75 @@ export default {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60rpx 20rpx;
+  padding: 80rpx 20rpx;
   gap: 16rpx;
-}
-
-.emptyTipIcon {
-  font-size: 64rpx;
 }
 
 .emptyTipText {
   font-size: 22rpx;
-  color: #6b7280;
+  color: #64748b;
   text-align: center;
+  line-height: 1.4;
 }
 
+/* ============================================================================ */
+/* 任务项卡片与微光渐变                                                         */
+/* ============================================================================ */
 .historyItem {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: 18rpx;
   padding: 16rpx;
-  background: #1f232b;
-  border: 1rpx solid #2c3340;
-  border-radius: 14rpx;
+  background: linear-gradient(145deg, #1f232b 0%, #171a20 100%);
+  border: 1rpx solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.25);
+  border-radius: 16rpx;
   margin-bottom: 14rpx;
+  transition: all 0.2s ease;
+}
+
+.historyItem:active {
+  transform: scale(0.99);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* 黄金比例封面缩略图 */
+.thumbWrap {
+  position: relative;
+  width: 120rpx;
+  height: 84rpx;
+  border-radius: 10rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #0f1115;
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
 }
 
 .historyThumb {
-  width: 90rpx;
-  height: 90rpx;
-  border-radius: 10rpx;
-  flex-shrink: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.channelBadge {
+  position: absolute;
+  bottom: 2rpx;
+  right: 2rpx;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(4px);
+  color: #94a3b8;
+  font-size: 14rpx;
+  font-weight: 600;
+  padding: 1rpx 4rpx;
+  border-radius: 4rpx;
+  line-height: 1.2;
 }
 
 .historyBody {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6rpx;
+  gap: 4rpx;
   overflow: hidden;
 }
 
@@ -388,123 +450,130 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.3;
 }
 
 .historyOriginalTitle {
   font-size: 18rpx;
-  color: #828a99;
+  color: #64748b;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .historyMeta {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 10rpx;
+  gap: 8rpx;
+  font-size: 18rpx;
+  color: #64748b;
+  line-height: 1.2;
 }
 
 .historyGame {
-  font-size: 18rpx;
-  color: #d4a373;
-}
-
-.historyChannelTag {
-  font-size: 16rpx;
-  background: #2a313d;
-  color: #9ca3af;
-  padding: 2rpx 8rpx;
-  border-radius: 6rpx;
-}
-
-.statusBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6rpx;
-  padding: 2rpx 8rpx;
-  border-radius: 6rpx;
-  font-size: 16rpx;
+  color: #f59e0b;
   font-weight: 600;
+  max-width: 180rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.statusBadge.completed {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1rpx solid rgba(16, 185, 129, 0.3);
-}
-
-.statusBadge.downloading {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38bdf8;
-  border: 1rpx solid rgba(56, 189, 248, 0.3);
-}
-
-.statusBadge.failed {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  border: 1rpx solid rgba(239, 68, 68, 0.3);
-}
-
-.statusBadge.pushed {
-  background: rgba(218, 107, 23, 0.15);
-  color: #da6b17;
-  border: 1rpx solid rgba(218, 107, 23, 0.3);
-}
-
-.statusDot {
-  font-size: 12rpx;
-}
-
-.statusText {
-  font-size: 16rpx;
+.metaDivider {
+  color: #475569;
 }
 
 .historyTime {
+  color: #64748b;
   font-size: 18rpx;
-  color: #6b7280;
 }
 
-.rePushBtn {
-  background: rgba(218, 107, 23, 0.15);
-  border: 1rpx solid rgba(218, 107, 23, 0.4);
-  color: #da6b17;
-  border-radius: 10rpx;
-  padding: 10rpx 18rpx;
-  margin: 0;
-  transition: all 0.2s ease;
+.statusMessageRow {
+  margin-top: 2rpx;
 }
 
-.rePushBtn.completedBtn {
-  background: rgba(16, 185, 129, 0.15);
-  border: 1rpx solid rgba(16, 185, 129, 0.4);
+.statusMessageText {
+  font-size: 18rpx;
+  color: #94a3b8;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
-.rePushBtn.completedBtn .rePushText {
-  color: #10b981;
+/* ============================================================================ */
+/* 右侧精致微胶囊状态与操作 (告别粗笨大方块按钮)                                   */
+/* ============================================================================ */
+.historyActionCol {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
-.rePushBtn.downloadingBtn {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1rpx solid rgba(56, 189, 248, 0.4);
-}
-
-.rePushBtn.downloadingBtn .rePushText {
-  color: #38bdf8;
-}
-
-.rePushBtn.failedBtn {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1rpx solid rgba(239, 68, 68, 0.4);
-}
-
-.rePushBtn.failedBtn .rePushText {
-  color: #ef4444;
-}
-
-.rePushText {
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  height: 44rpx;
+  padding: 0 16rpx;
+  border-radius: 22rpx;
+  box-sizing: border-box;
   font-size: 20rpx;
-  font-weight: 700;
-  color: #da6b17;
+  font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.statusPill:active {
+  transform: scale(0.94);
+}
+
+.statusPill.isCompleted {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1rpx solid rgba(16, 185, 129, 0.28);
+}
+
+.statusPill.isDownloading {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1rpx solid rgba(56, 189, 248, 0.28);
+}
+
+.downloadPulse {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8rpx #38bdf8;
+  animation: download-dot-glow 1.4s infinite ease-in-out;
+}
+
+@keyframes download-dot-glow {
+  0%, 100% { opacity: 0.4; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.25); box-shadow: 0 0 12rpx #38bdf8; }
+}
+
+.statusPill.isFailed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1rpx solid rgba(239, 68, 68, 0.3);
+}
+
+.statusPill.isPushed {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1rpx solid rgba(245, 158, 11, 0.28);
+}
+
+.statusPillText {
+  font-size: 20rpx;
+  font-weight: 600;
+  line-height: 1;
 }
 </style>
