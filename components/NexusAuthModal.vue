@@ -35,41 +35,6 @@
           </view>
         </view>
 
-        <!-- 账号特权清单 -->
-        <view class="privilegesBox">
-          <text class="privilegeTitle">💎 已激活特权服务</text>
-          <view class="privilegeGrid">
-            <view class="privilegeItem">
-              <text class="privItemIcon">⚡</text>
-              <view class="privItemTextCol">
-                <text class="privMain">高速直连通道</text>
-                <text class="privSub">{{ nexusUser.isPremium ? '尊享无限制最高速' : '标准官方 CDN 加速' }}</text>
-              </view>
-            </view>
-            <view class="privilegeItem">
-              <text class="privItemIcon">🚀</text>
-              <view class="privItemTextCol">
-                <text class="privMain">电脑端一键装机</text>
-                <text class="privSub">局域网 + 云信令无感落盘</text>
-              </view>
-            </view>
-            <view class="privilegeItem">
-              <text class="privItemIcon">🔖</text>
-              <view class="privItemTextCol">
-                <text class="privMain">个人心愿单漫游</text>
-                <text class="privSub">随时保存、分享与推送到电脑</text>
-              </view>
-            </view>
-            <view class="privilegeItem">
-              <text class="privItemIcon">🛡️</text>
-              <view class="privItemTextCol">
-                <text class="privMain">官方 Personal Key</text>
-                <text class="privSub">安全凭证本地加密存储</text>
-              </view>
-            </view>
-          </view>
-        </view>
-
         <!-- 底部登出与重新授权操作 -->
         <view class="authActionsRow">
           <button class="authSubBtn" @click="handleSwitchApiKey">
@@ -687,63 +652,11 @@ export default {
   color: #9ca3af;
 }
 
-/* 特权清单 */
-.privilegesBox {
-  background: #14161a;
-  border: 1rpx solid #282c36;
-  border-radius: 16rpx;
-  padding: 20rpx;
-}
-
-.privilegeTitle {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #da6b17;
-  margin-bottom: 16rpx;
-  display: block;
-}
-
-.privilegeGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14rpx;
-}
-
-.privilegeItem {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  background: #1c1f26;
-  border: 1rpx solid #2a303d;
-  border-radius: 10rpx;
-  padding: 12rpx 14rpx;
-}
-
-.privItemIcon {
-  font-size: 28rpx;
-}
-
-.privItemTextCol {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.privMain {
-  font-size: 20rpx;
-  font-weight: 700;
-  color: #e5e7eb;
-}
-
-.privSub {
-  font-size: 18rpx;
-  color: #9ca3af;
-}
-
 .authActionsRow {
   display: flex;
   align-items: center;
   gap: 16rpx;
+  margin-top: 8rpx;
 }
 
 .authSubBtn {
@@ -755,6 +668,18 @@ export default {
   padding: 16rpx 0;
   font-size: 24rpx;
   font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.authSubBtn:active {
+  background: #323948;
+  transform: scale(0.98);
+}
+
+.authSubBtn::after {
+  border: none;
 }
 
 .authLogoutBtn {
@@ -766,6 +691,18 @@ export default {
   padding: 16rpx 0;
   font-size: 24rpx;
   font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.authLogoutBtn:active {
+  background: rgba(239, 68, 68, 0.25);
+  transform: scale(0.98);
+}
+
+.authLogoutBtn::after {
+  border: none;
 }
 
 /* 未登录授权表单 */
