@@ -1005,13 +1005,19 @@ export async function syncNexusFromDesktop(desktopConfig) {
   const targetUrl = `http://${cleanHost}:${port}/api/nexus/status`;
 
   try {
-    const res = await uni.request({
+    // 强制 2.5 秒快速熔断，防止局域网不可达时无响应卡死
+    const requestPromise = uni.request({
       url: targetUrl,
       method: 'GET',
-      timeout: 4000
+      timeout: 2500
+    });
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('未检测到电脑端，请确保在同一局域网且电脑端已运行')), 2500);
     });
 
-    if (res.statusCode === 200 && res.data) {
+    const res = await Promise.race([requestPromise, timeoutPromise]);
+
+    if (res && res.statusCode === 200 && res.data) {
       const data = res.data.data || res.data;
       if (data.apiKey) {
         return await validateNexusApiKey(data.apiKey);
@@ -1022,10 +1028,10 @@ export async function syncNexusFromDesktop(desktopConfig) {
         return { success: false, message: '电脑端 Mayfly 暂未登录 Nexus 账号，请先在电脑端登录或手动输入 API Key' };
       }
     } else {
-      return { success: false, message: `电脑端未响应 Nexus 状态 (HTTP ${res.statusCode || '未知'})` };
+      return { success: false, message: `电脑端未响应 Nexus 状态 (HTTP ${res?.statusCode || '未知'})` };
     }
   } catch (err) {
-    return { success: false, message: '无法连接到电脑端 Mayfly，请确保局域网连接通畅' };
+    return { success: false, message: err?.message || '无法连接到电脑端 Mayfly，请确保局域网连接通畅' };
   }
 }
 

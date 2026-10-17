@@ -3,7 +3,7 @@
   <!-- NexusMods 官方账户中心与 API 授权统一弹窗组件 (多页面复用)             -->
   <!-- ======================================================================== -->
   <view class="modalOverlay" v-if="visible" @click="close">
-    <view class="nexusAuthModalContent" @click.stop>
+    <view class="nexusAuthModalContent" @click.stop="handleContentClick">
       <!-- 弹窗顶栏 -->
       <view class="authModalHeader">
         <view class="authModalTitleRow">
@@ -102,18 +102,17 @@
             <input
               class="keyInput"
               type="text"
-              password
               v-model="apiKeyInput"
-              placeholder="粘贴以 nxm_ 或密钥开头的 API Key..."
+              placeholder="在此粘贴以 nxm_ 开头的 API Key..."
             />
             <text v-if="apiKeyInput" class="clearKeyBtn" @click="apiKeyInput = ''">✕</text>
           </view>
         </view>
 
-        <!-- 登录按钮 -->
+        <!-- 登录按钮 (未填入时点击会有轻提示，不出现死灰无响应现象) -->
         <button
           class="authLoginBtn"
-          :disabled="isVerifyingNexusKey || !apiKeyInput.trim()"
+          :disabled="isVerifyingNexusKey"
           @click="handleLoginWithApiKey"
         >
           <text class="loginBtnText">{{ isVerifyingNexusKey ? '正在向 NexusMods 验证授权...' : '🚀 验证并登录' }}</text>
@@ -131,9 +130,21 @@
             <text class="guideStepText">3. 点击【Request Key】生成密钥，复制后粘贴到上方即可。</text>
           </view>
           <view class="keyActionRow">
+            <!-- #ifdef H5 -->
+            <a
+              class="copyUrlBtn actionBtn webLinkBtn"
+              href="https://www.nexusmods.com/users/myaccount?tab=api"
+              target="_blank"
+              rel="noopener"
+            >
+              <text class="copyUrlBtnText">🌐 浏览器打开官网</text>
+            </a>
+            <!-- #endif -->
+            <!-- #ifndef H5 -->
             <button class="copyUrlBtn actionBtn" @click="handleOpenKeyUrl">
               <text class="copyUrlBtnText">🌐 前往官网生成页面</text>
             </button>
+            <!-- #endif -->
             <button class="copyUrlBtn actionBtn subBtn" @click="handleCopyKeyUrl">
               <text class="copyUrlBtnText">📋 复制链接</text>
             </button>
@@ -146,7 +157,7 @@
           :disabled="isSyncingFromPc"
           @click="handleSyncFromDesktop"
         >
-          <text class="syncPcBtnText">{{ isSyncingFromPc ? '正在从电脑同步...' : '💻 从电脑端 Mayfly 一键同步登录' }}</text>
+          <text class="syncPcBtnText">{{ isSyncingFromPc ? '正在探测电脑端 Mayfly...' : '💻 从电脑端 Mayfly 一键同步登录' }}</text>
         </button>
       </view>
     </view>
@@ -191,36 +202,73 @@ export default {
     };
   },
 
+  watch: {
+    visible(val) {
+      if (val) {
+        // 每次打开弹窗重置临时加载锁，防止被卡死
+        this.isSyncingFromPc = false;
+        this.isVerifyingNexusKey = false;
+      }
+    }
+  },
+
   methods: {
+    /**
+     * 空实现阻止子元素点击穿透到遮罩
+     */
+    handleContentClick() {},
+
     /**
      * 关闭弹窗
      */
     close() {
+      this.isSyncingFromPc = false;
+      this.isVerifyingNexusKey = false;
       this.$emit('close');
     },
 
     /**
-     * 快速粘贴剪贴板到 API Key 输入框
+     * 快速粘贴剪贴板到 API Key 输入框 (多端兼容，优先使用现代异步剪贴板)
      */
-    handlePasteClipboard() {
+    async handlePasteClipboard() {
+      // 1. 尝试现代浏览器 / H5 异步 Clipboard API
+      // #ifdef H5
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text && text.trim()) {
+            this.apiKeyInput = text.trim();
+            uni.showToast({
+              title: '已自动填入密钥',
+              icon: 'success'
+            });
+            return;
+          }
+        } catch (e) {
+          console.warn('[Clipboard] 现代剪贴板读取被浏览器安全策略限制:', e);
+        }
+      }
+      // #endif
+
+      // 2. 原生 App / 小程序端剪贴板接口
       uni.getClipboardData({
         success: (res) => {
           if (res.data) {
             this.apiKeyInput = String(res.data).trim();
             uni.showToast({
               title: '已填入剪贴板内容',
-              icon: 'none'
+              icon: 'success'
             });
           } else {
             uni.showToast({
-              title: '剪贴板为空',
+              title: '请点击输入框按 Ctrl+V 粘贴',
               icon: 'none'
             });
           }
         },
         fail: () => {
           uni.showToast({
-            title: '无法读取剪贴板',
+            title: '请直接点击输入框按 Ctrl+V 粘贴',
             icon: 'none'
           });
         }
@@ -233,7 +281,16 @@ export default {
     handleOpenKeyUrl() {
       const url = 'https://www.nexusmods.com/users/myaccount?tab=api';
       // #ifdef H5
-      window.open(url, '_blank');
+      try {
+        const win = window.open(url, '_blank');
+        if (!win || win.closed || typeof win.closed === 'undefined') {
+          this.handleCopyKeyUrl('已复制官网链接，请在系统浏览器打开');
+          return;
+        }
+      } catch (e) {
+        this.handleCopyKeyUrl('已复制官网链接，请在系统浏览器打开');
+        return;
+      }
       // #endif
       // #ifndef H5
       this.handleCopyKeyUrl();
@@ -243,12 +300,12 @@ export default {
     /**
      * 复制官方 API Key 获取链接到剪贴板
      */
-    handleCopyKeyUrl() {
+    handleCopyKeyUrl(customNotice = '') {
       uni.setClipboardData({
         data: 'https://www.nexusmods.com/users/myaccount?tab=api',
         success: () => {
           uni.showToast({
-            title: '官网链接已复制',
+            title: customNotice || '官网链接已复制到剪贴板',
             icon: 'success'
           });
         }
@@ -262,7 +319,7 @@ export default {
       const key = (this.apiKeyInput || '').trim();
       if (!key) {
         uni.showToast({
-          title: '请先输入 API Key',
+          title: '请先粘贴或输入 API Key',
           icon: 'none'
         });
         return;
@@ -328,9 +385,10 @@ export default {
     },
 
     /**
-     * 从电脑端 Mayfly 一键同步凭据
+     * 从电脑端 Mayfly 一键同步凭据 (带快速熔断与明确报错)
      */
     async handleSyncFromDesktop() {
+      if (this.isSyncingFromPc) return;
       this.isSyncingFromPc = true;
       try {
         const syncResult = await syncNexusFromDesktop(this.desktopConfig);
@@ -343,15 +401,15 @@ export default {
           this.close();
         } else {
           uni.showModal({
-            title: '同步失败',
-            content: '电脑端 Mayfly 尚未登录 Nexus 账户，或当前未与电脑端成功配对连接。',
+            title: '未同步到有效账号',
+            content: (syncResult && syncResult.message) || '电脑端 Mayfly 暂未登录 Nexus 账户，或当前未连接电脑端。',
             showCancel: false
           });
         }
       } catch (err) {
         uni.showModal({
           title: '同步请求异常',
-          content: err.message || '请确保电脑端 Mayfly 保持开启且局域网互通',
+          content: err.message || '请确保电脑端 Mayfly 处于运行状态且在同一局域网',
           showCancel: false
         });
       } finally {
@@ -433,10 +491,19 @@ export default {
 }
 
 .modalCloseBtn {
-  font-size: 32rpx;
+  font-size: 34rpx;
   color: #9ca3af;
-  padding: 8rpx;
+  padding: 12rpx 16rpx;
+  margin: -12rpx -16rpx -12rpx 0;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.modalCloseBtn:hover {
+  color: #ffffff;
 }
 
 /* 已登录视图 */
@@ -814,6 +881,7 @@ export default {
   margin: 0;
   box-sizing: border-box;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .copyUrlBtn.actionBtn::after {
