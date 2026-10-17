@@ -133,29 +133,13 @@
             <text class="guideTitle">如何获取免费官方 API Key？</text>
           </view>
           <view class="guideSteps">
-            <text class="guideStepText">1. 在已登录 N 网的浏览器中打开下方官方页面；</text>
-            <text class="guideStepText">2. 滑动至页面最底部【Personal API Key】；</text>
-            <text class="guideStepText">3. 点击【Request Key】生成密钥，复制后粘贴到上方即可。</text>
+            <text class="guideStepText">1. 点击下方按钮，一键复制官方申请页面链接；</text>
+            <text class="guideStepText">2. 切换至手机/电脑浏览器中粘贴并打开；</text>
+            <text class="guideStepText">3. 滑动至页面最底部点击【Request Key】生成，复制后返回粘贴即可。</text>
           </view>
           <view class="keyActionRow">
-            <!-- #ifdef H5 -->
-            <a
-              class="copyUrlBtn actionBtn webLinkBtn"
-              href="https://www.nexusmods.com/users/myaccount?tab=api"
-              target="_blank"
-              rel="noopener"
-              @click="onWebLinkClick"
-            >
-              <text class="copyUrlBtnText">🌐 浏览器打开官网</text>
-            </a>
-            <!-- #endif -->
-            <!-- #ifndef H5 -->
-            <button class="copyUrlBtn actionBtn" @click="handleOpenKeyUrl">
-              <text class="copyUrlBtnText">🌐 前往官网生成页面</text>
-            </button>
-            <!-- #endif -->
-            <button class="copyUrlBtn actionBtn subBtn" @click="handleCopyKeyUrl">
-              <text class="copyUrlBtnText">📋 复制链接</text>
+            <button class="copyUrlBtn actionBtn primaryCopyBtn" @click="handleCopyAndOpenBrowser">
+              <text class="copyUrlBtnText">📋 复制官网链接到浏览器打开</text>
             </button>
           </view>
         </view>
@@ -335,52 +319,59 @@ export default {
     },
 
     /**
-     * 浏览器直接打开获取官方 API Key 的安全设置页面
+     * 一键复制官方 API Key 申请链接，并在原生 App 环境下唤醒系统外部默认浏览器
+     * (绝不在应用内跳转网页，保证用户操作状态不丢失)
      */
-    handleOpenKeyUrl() {
-      const url = 'https://www.nexusmods.com/users/myaccount?tab=api';
-      // #ifdef H5
-      try {
-        const win = window.open(url, '_blank');
-        if (!win || win.closed || typeof win.closed === 'undefined') {
-          this.handleCopyKeyUrl('已复制官网链接，请在系统浏览器打开');
-          return;
-        } else {
-          this.setNotice('🌐 已在浏览器新标签页打开官网申请页面', 'success', 3500);
-        }
-      } catch (e) {
-        this.handleCopyKeyUrl('已复制官网链接，请在系统浏览器打开');
-        return;
-      }
-      // #endif
-      // #ifndef H5
-      this.handleCopyKeyUrl();
-      // #endif
-    },
-
-    /**
-     * 复制官方 API Key 获取链接到剪贴板
-     */
-    handleCopyKeyUrl(customNotice = '') {
+    handleCopyAndOpenBrowser() {
       const targetUrl = 'https://www.nexusmods.com/users/myaccount?tab=api';
+
+      // 1. 现代浏览器 / H5 异步 Clipboard API
       // #ifdef H5
       if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
         navigator.clipboard.writeText(targetUrl).catch(() => {});
       }
       // #endif
+
+      // 2. 原生 App 环境支持：唤起手机系统外部默认浏览器 (Safari / Chrome 等，保持当前 App 状态)
+      // #ifdef APP-PLUS
+      try {
+        if (typeof plus !== 'undefined' && plus.runtime && typeof plus.runtime.openURL === 'function') {
+          plus.runtime.openURL(targetUrl);
+        }
+      } catch (e) {
+        console.warn('[BrowserWakeup] 唤醒外部浏览器异常:', e);
+      }
+      // #endif
+
+      // 3. 通用剪贴板写入并给出明晰操作引导
       uni.setClipboardData({
         data: targetUrl,
         success: () => {
-          this.setNotice(customNotice || '✓ 官网链接已复制到剪贴板，请在浏览器中打开申请', 'success', 3500);
+          this.setNotice('✓ 申请链接已复制！请切换至浏览器粘贴打开', 'success', 4500);
           uni.showToast({
-            title: customNotice || '官网链接已复制到剪贴板',
-            icon: 'success'
+            title: '链接已复制，请在浏览器粘贴打开',
+            icon: 'none',
+            duration: 3000
           });
         },
         fail: () => {
-          this.setNotice('官网链接: ' + targetUrl, 'info', 6000);
+          this.setNotice('官网申请地址: ' + targetUrl, 'info', 6000);
         }
       });
+    },
+
+    /**
+     * 兼容别名：复制官方 API Key 获取链接
+     */
+    handleCopyKeyUrl(customNotice = '') {
+      this.handleCopyAndOpenBrowser();
+    },
+
+    /**
+     * 兼容别名：打开官方页面
+     */
+    handleOpenKeyUrl() {
+      this.handleCopyAndOpenBrowser();
     },
 
     /**
@@ -1067,15 +1058,16 @@ export default {
 
 .copyUrlBtn.actionBtn {
   flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(218, 107, 23, 0.15);
-  border: 1rpx solid rgba(218, 107, 23, 0.4);
+  border: 1rpx solid rgba(218, 107, 23, 0.45);
   color: #da6b17;
-  border-radius: 10rpx;
-  padding: 12rpx 0;
-  font-size: 21rpx;
+  border-radius: 12rpx;
+  padding: 16rpx 0;
+  font-size: 24rpx;
   font-weight: 700;
   margin: 0;
   box-sizing: border-box;
@@ -1085,27 +1077,13 @@ export default {
 }
 
 .copyUrlBtn.actionBtn:active {
-  transform: scale(0.97);
-  opacity: 0.8;
+  transform: scale(0.98);
+  background: rgba(218, 107, 23, 0.25);
+  opacity: 0.9;
 }
 
 .copyUrlBtn.actionBtn::after {
   border: none;
-}
-
-.copyUrlBtn.actionBtn.subBtn {
-  flex: 0.8;
-  background: #252a35;
-  border: 1rpx solid #3a4254;
-  color: #cbd5e1;
-}
-
-.copyUrlBtn.actionBtn.subBtn:active {
-  background: #323948;
-}
-
-.copyUrlBtn.actionBtn.subBtn .copyUrlBtnText {
-  color: #cbd5e1;
 }
 
 .copyUrlBtnText {
