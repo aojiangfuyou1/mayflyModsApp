@@ -93,7 +93,7 @@
         <view class="drawerNavItem" @click="handleNav('games')">
           <view class="navItemLeft">
             <NexusIcon name="gamepad" size="34rpx" color="#cbd5e1" />
-            <text class="itemText">热门游戏专区 (Games)</text>
+            <text class="itemText">我的游戏 (My Games)</text>
           </view>
           <text class="drawerNavArrow">›</text>
         </view>
