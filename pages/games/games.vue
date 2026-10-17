@@ -178,7 +178,7 @@ export default {
       nexusAuthModalVisible: false,
       enableAutoTranslate: true,
       zhGameNameMap: {},
-      desktopConfig: { host: '192.168.1.100', port: 9876, connected: false },
+      desktopConfig: { host: '10.204.160.22', port: 28888, connected: false },
       nexusUser: null,
       nexusApiKey: '',
       favoritesCount: 0,

@@ -70,7 +70,7 @@
           </view>
 
           <view class="pcMetaBox">
-            <text class="pcIpText">目标主机: {{ desktopConfig ? desktopConfig.host : '192.168.1.100' }}:{{ desktopConfig ? desktopConfig.port : '9876' }}</text>
+            <text class="pcIpText">目标主机: {{ desktopConfig ? desktopConfig.host : '10.204.160.22' }}:{{ desktopConfig ? desktopConfig.port : '28888' }}</text>
             <text class="pcNoticeText">{{ desktopConfig && desktopConfig.connected ? '局域网与云端信令通畅，可在手机一键推送模组到电脑' : '请确保电脑端 Mayfly 处于运行状态，并完成设备配对' }}</text>
           </view>
 
@@ -258,9 +258,9 @@ export default {
     return {
       // 电脑端连接配置
       desktopConfig: {
-        host: '192.168.1.100',
-        port: 9876,
-        deviceToken: 'MF-PC-8891',
+        host: '10.204.160.22',
+        port: 28888,
+        deviceToken: '',
         connected: false
       },
       isTestingConnection: false,

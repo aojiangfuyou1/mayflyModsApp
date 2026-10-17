@@ -27,7 +27,12 @@
             </text>
           </view>
           <view class="radarActionRow">
-            <text class="radarSubText">端口: {{ form.port }} · {{ form.host }}</text>
+            <view class="radarHostRow">
+              <text class="radarSubText">端口: {{ form.port }} · {{ form.host }}</text>
+              <view v-if="form.host !== '10.204.160.22'" class="quickSwitchHostBtn" @click="useDirectHost('10.204.160.22')">
+                <text class="quickSwitchHostText">👉 填入电脑IP 10.204.160.22</text>
+              </view>
+            </view>
             <view class="radarRefreshBtn" @click="runAutoRadarProbe">
               <text class="radarRefreshText">🔄 重新探测</text>
             </view>
@@ -140,6 +145,7 @@
 import {
   testDesktopConnection,
   verifyDesktopPin,
+  scanLanDesktopCandidates,
   saveDesktopConfig,
   getDesktopConfig,
   DEFAULT_DESKTOP_CONFIG
@@ -180,14 +186,25 @@ export default {
       handler(val) {
         if (val) {
           const cfg = this.config && this.config.host ? this.config : getDesktopConfig();
+          let host = (cfg.host || '').trim();
+          let port = Number(cfg.port) || 28888;
+          // 强制过滤早期占位假数据 192.168.1.100 和旧端口 9876
+          if (!host || host === '192.168.1.100') {
+            host = DEFAULT_DESKTOP_CONFIG.host || '10.204.160.22';
+          }
+          if (!port || port === 9876) {
+            port = DEFAULT_DESKTOP_CONFIG.port || 28888;
+          }
           this.form = {
-            host: cfg.host || DEFAULT_DESKTOP_CONFIG.host || '10.204.160.22',
-            port: cfg.port || DEFAULT_DESKTOP_CONFIG.port || 28888,
+            host,
+            port,
             deviceToken: cfg.deviceToken || ''
           };
           this.pinInput = '';
-          // 弹窗唤起时自动触发一次局域网雷达探活
+
+          // 弹窗唤起时：自动检测剪贴板中是否有电脑访问链接 + 自动触发局域网雷达并发探活
           this.$nextTick(() => {
+            this.checkClipboardOnOpen();
             this.runAutoRadarProbe();
           });
         }
@@ -204,24 +221,68 @@ export default {
     },
 
     /**
-     * 局域网雷达自动探测电脑在线状态
+     * 一键切换到当前电脑实际检测 IP (10.204.160.22)
+     */
+    useDirectHost(ip = '10.204.160.22') {
+      this.form.host = ip;
+      this.form.port = 28888;
+      this.runAutoRadarProbe();
+    },
+
+    /**
+     * 弹窗打开时尝试静默识别剪贴板中的电脑访问链接
+     */
+    checkClipboardOnOpen() {
+      try {
+        uni.getClipboardData({
+          success: (res) => {
+            const text = (res.data || '').trim();
+            if (text && (text.includes(':28888') || text.includes('token=') || text.includes('10.204.160.22'))) {
+              this.parseAndApplyUrl(text, true);
+            }
+          }
+        });
+      } catch (e) {}
+    },
+
+    /**
+     * 局域网雷达自动探测电脑在线状态 (并发探测当前 IP 与优先候选 IP)
      */
     async runAutoRadarProbe() {
-      const host = (this.form.host || '').trim();
-      const port = Number(this.form.port) || 28888;
-      if (!host) return;
-
       this.testingConnection = true;
       try {
-        const res = await testDesktopConnection(host, port, this.form.deviceToken);
-        if (res && (res.online || res === true)) {
+        const candidateList = [
+          this.form.host,
+          '10.204.160.22',
+          DEFAULT_DESKTOP_CONFIG.host
+        ];
+        if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+          candidateList.push(window.location.hostname);
+        }
+
+        const scanRes = await scanLanDesktopCandidates(candidateList, Number(this.form.port) || 28888);
+        if (scanRes && scanRes.found) {
           this.desktopOnline = true;
-          this.detectedHostname = res.hostname || '';
-          if (res.token) {
-            this.form.deviceToken = res.token;
+          this.form.host = scanRes.host || this.form.host;
+          this.form.port = scanRes.port || 28888;
+          this.detectedHostname = scanRes.hostname || '';
+          if (scanRes.token && !this.form.deviceToken) {
+            this.form.deviceToken = scanRes.token;
           }
+          // 同步落盘保存探测到的真实可用电脑 IP
+          saveDesktopConfig({
+            host: this.form.host,
+            port: this.form.port,
+            deviceToken: this.form.deviceToken,
+            connected: true
+          });
         } else {
-          this.desktopOnline = false;
+          // 单独尝试一次当前指定的主机
+          const singleRes = await testDesktopConnection(this.form.host, this.form.port, this.form.deviceToken);
+          this.desktopOnline = Boolean(singleRes && (singleRes.online || singleRes === true));
+          if (singleRes && singleRes.hostname) {
+            this.detectedHostname = singleRes.hostname;
+          }
         }
       } catch (e) {
         this.desktopOnline = false;
@@ -235,8 +296,12 @@ export default {
      */
     async handlePinPair() {
       const pin = this.pinInput.trim();
-      const host = (this.form.host || '').trim();
-      const port = Number(this.form.port) || 28888;
+      let host = (this.form.host || '').trim();
+      let port = Number(this.form.port) || 28888;
+      if (host === '192.168.1.100') {
+        host = '10.204.160.22';
+        this.form.host = host;
+      }
 
       if (!host) {
         uni.showToast({ title: '请填写电脑 IP', icon: 'none' });
@@ -249,7 +314,21 @@ export default {
 
       this.pairingWithPin = true;
       try {
-        const verifyRes = await verifyDesktopPin(host, port, pin);
+        // 1. 优先尝试当前设置的主机
+        let verifyRes = await verifyDesktopPin(host, port, pin);
+
+        // 2. 若当前 host 校验失败且当前不是 10.204.160.22，自动尝试真实电脑局域网 IP 回退
+        if (!verifyRes.success && host !== '10.204.160.22') {
+          const fallbackRes = await verifyDesktopPin('10.204.160.22', 28888, pin);
+          if (fallbackRes.success) {
+            verifyRes = fallbackRes;
+            host = '10.204.160.22';
+            port = 28888;
+            this.form.host = host;
+            this.form.port = port;
+          }
+        }
+
         if (verifyRes.success && verifyRes.token) {
           this.form.deviceToken = verifyRes.token;
           this.desktopOnline = true;
@@ -333,7 +412,7 @@ export default {
     /**
      * 解析 URL 并自动填入 host, port, token
      */
-    parseAndApplyUrl(rawUrl) {
+    parseAndApplyUrl(rawUrl, silent = false) {
       try {
         const text = String(rawUrl || '').trim();
         let targetHost = '';
@@ -363,7 +442,7 @@ export default {
           }
 
           uni.showToast({
-            title: '已成功识别电脑配置！',
+            title: '已自动识别电脑配置！',
             icon: 'success'
           });
 
@@ -373,10 +452,12 @@ export default {
         }
       } catch (e) {}
 
-      uni.showToast({
-        title: '未能识别出有效的 Mayfly 链接',
-        icon: 'none'
-      });
+      if (!silent) {
+        uni.showToast({
+          title: '未能识别出有效的 Mayfly 链接',
+          icon: 'none'
+        });
+      }
     },
 
     /**
@@ -633,6 +714,32 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10rpx;
+}
+
+.radarHostRow {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.quickSwitchHostBtn {
+  background: rgba(218, 107, 23, 0.18);
+  border: 1rpx solid rgba(218, 107, 23, 0.45);
+  border-radius: 8rpx;
+  padding: 2rpx 10rpx;
+  cursor: pointer;
+}
+
+.quickSwitchHostBtn:active {
+  background: rgba(218, 107, 23, 0.35);
+}
+
+.quickSwitchHostText {
+  font-size: 19rpx;
+  font-weight: 600;
+  color: #fb923c;
 }
 
 .radarSubText {

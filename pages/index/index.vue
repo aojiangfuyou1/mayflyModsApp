@@ -481,9 +481,9 @@ export default {
       // 设备配对设置 (弹窗已组件化)
       deviceModalVisible: false,
       desktopConfig: {
-        host: '192.168.1.100',
-        port: 9876,
-        deviceToken: 'MF-PC-8891',
+        host: '10.204.160.22',
+        port: 28888,
+        deviceToken: '',
         connected: false
       },
 

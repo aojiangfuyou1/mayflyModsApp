@@ -347,12 +347,90 @@ export function getDesktopConfig() {
   try {
     const data = uni.getStorageSync(STORAGE_KEY_DESKTOP_CONFIG);
     if (data && typeof data === 'object') {
-      return { ...DEFAULT_DESKTOP_CONFIG, ...data };
+      // 强制过滤与清洗早期遗留的假数据 192.168.1.100 和旧端口 9876
+      const cleanHost = (!data.host || data.host === '192.168.1.100') ? DEFAULT_DESKTOP_CONFIG.host : data.host;
+      const cleanPort = (!data.port || Number(data.port) === 9876) ? DEFAULT_DESKTOP_CONFIG.port : Number(data.port);
+      return {
+        ...DEFAULT_DESKTOP_CONFIG,
+        ...data,
+        host: cleanHost,
+        port: cleanPort
+      };
     }
   } catch (e) {
     console.warn('[MayflyNexus] 读取电脑配置失败:', e);
   }
   return { ...DEFAULT_DESKTOP_CONFIG };
+}
+
+/**
+ * 并发探测候选局域网电脑 IP，自动寻址在线的电脑端 Mayfly
+ * @param {Array<string>} [additionalHosts=[]] - 候选 IP 列表
+ * @param {number} [port=28888] - 通信端口
+ * @returns {Promise<{ found: boolean, host?: string, port?: number, hostname?: string, token?: string, pin?: string, statusData?: Object }>}
+ */
+export async function scanLanDesktopCandidates(additionalHosts = [], port = 28888) {
+  const candidateSet = new Set();
+
+  // 1. 本机真实局域网优先候选 IP
+  candidateSet.add('10.204.160.22');
+
+  // 2. 外部传入的候选 IP
+  if (Array.isArray(additionalHosts)) {
+    for (const h of additionalHosts) {
+      if (h && typeof h === 'string') {
+        const clean = h.trim().replace(/^https?:\/\//, '').replace(/:\d+.*$/, '');
+        if (clean && clean !== '192.168.1.100') {
+          candidateSet.add(clean);
+        }
+      }
+    }
+  }
+
+  // 3. 浏览器/H5 运行环境下的当前页面主机名
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const pageHost = window.location.hostname.trim();
+    if (pageHost && pageHost !== '192.168.1.100') {
+      candidateSet.add(pageHost);
+    }
+  }
+
+  // 4. 本地回环地址兜底
+  candidateSet.add('127.0.0.1');
+  candidateSet.add('localhost');
+
+  const candidates = Array.from(candidateSet);
+
+  // 对每个候选 IP 发起并发 1500ms 快速探测
+  const probePromises = candidates.map(async (host) => {
+    try {
+      const res = await uni.request({
+        url: `http://${host}:${port}/api/status`,
+        method: 'GET',
+        timeout: 1500
+      });
+      if (res.statusCode === 200 && res.data && (res.data.isRunning || res.data.ip)) {
+        return {
+          found: true,
+          host: res.data.ip || host,
+          port,
+          hostname: res.data.hostname || '',
+          token: res.data.token || '',
+          pin: res.data.pin || '',
+          statusData: res.data
+        };
+      }
+    } catch (e) {}
+    return null;
+  });
+
+  const results = await Promise.all(probePromises);
+  const found = results.find((r) => r && r.found);
+  if (found) {
+    return found;
+  }
+
+  return { found: false };
 }
 
 /**
