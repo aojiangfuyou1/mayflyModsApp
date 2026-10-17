@@ -24,7 +24,7 @@
         <view class="sectionCard userCard">
           <view class="userCardContent" v-if="!nexusUser" @click="openNexusAuth">
             <view class="userAvatarBox guest">
-              <text class="userAvatarGlyph">👤</text>
+              <NexusIcon name="user" size="48rpx" color="#da6b17" />
             </view>
             <view class="userMetaCol">
               <view class="userTitleRow">
@@ -38,7 +38,7 @@
           <view class="userCardContent logged" v-else @click="openNexusAuth">
             <view class="userAvatarBox">
               <image v-if="nexusUser.avatar" class="userAvatarImg" :src="nexusUser.avatar" mode="aspectFill" />
-              <text v-else class="userAvatarGlyph">👤</text>
+              <NexusIcon v-else name="user" size="48rpx" color="#da6b17" />
               <text v-if="nexusUser.isPremium" class="crownBadge">👑</text>
             </view>
             <view class="userMetaCol">
@@ -60,7 +60,7 @@
         <view class="sectionCard pcConnectCard">
           <view class="cardHeaderRow">
             <view class="cardHeaderLeft">
-              <text class="headerIcon">💻</text>
+              <NexusIcon name="desktop" size="32rpx" color="#38bdf8" />
               <text class="cardHeaderText">电脑端连接状态</text>
             </view>
             <view class="pcStatusBadge" :class="{ online: desktopConfig && desktopConfig.connected }">
@@ -76,10 +76,12 @@
 
           <view class="pcActionsRow">
             <button class="actionBtn primary" @click="deviceModalVisible = true">
-              <text class="btnText">⚙️ 配对设置</text>
+              <NexusIcon name="gear" size="28rpx" color="#ffffff" style="margin-right: 8rpx;" />
+              <text class="btnText">配对设置</text>
             </button>
             <button class="actionBtn outline" :loading="isTestingConnection" @click="runQuickTest">
-              <text class="btnText">📶 测试连接</text>
+              <NexusIcon name="wifi" size="28rpx" color="#cbd5e1" style="margin-right: 8rpx;" />
+              <text class="btnText">测试连接</text>
             </button>
           </view>
         </view>
@@ -90,7 +92,7 @@
         <view class="sectionCard activeGameSection">
           <view class="cardHeaderRow">
             <view class="cardHeaderLeft">
-              <text class="headerIcon">🎮</text>
+              <NexusIcon name="gamepad" size="32rpx" color="#da6b17" />
               <text class="cardHeaderText">当前偏好游戏</text>
             </view>
             <text class="changeGameBtn" @click="goToGamesPage">切换专区 ›</text>
@@ -109,7 +111,9 @@
           </view>
 
           <view class="noGameCard" v-else @click="goToGamesPage">
-            <view class="noGameIcon">🌐</view>
+            <view class="noGameIconBox">
+              <NexusIcon name="globe" size="44rpx" color="#818cf8" />
+            </view>
             <view class="noGameMeta">
               <text class="noGameTitle">全网模组模式</text>
               <text class="noGameSub">未锁定单一游戏，点击选择热门游戏专区</text>
@@ -124,17 +128,22 @@
         <view class="sectionCard preferencesCard">
           <view class="cardHeaderRow">
             <view class="cardHeaderLeft">
-              <text class="headerIcon">⚙️</text>
+              <NexusIcon name="gear" size="32rpx" color="#a78bfa" />
               <text class="cardHeaderText">通用偏好与功能</text>
             </view>
           </view>
 
-          <!-- AI 双语图鉴开关 -->
+          <!-- AI 双语图鉴开关 (采用优雅灵动的 Sparkles 星芒图标) -->
           <view class="prefItemRow" @click="toggleTranslate">
             <view class="prefItemLeft">
-              <text class="prefIcon">🌐</text>
+              <view class="aiIconHighlightBox">
+                <NexusIcon name="ai" size="36rpx" color="#f59e0b" />
+              </view>
               <view class="prefTextCol">
-                <text class="prefTitle">AI 智能双语图鉴</text>
+                <view class="prefTitleRow">
+                  <text class="prefTitle">AI 智能双语图鉴</text>
+                  <text class="aiFeatureTag">AI 增强</text>
+                </view>
                 <text class="prefSub">自动将游戏名、模组标题与标签译为中文</text>
               </view>
             </view>
@@ -146,7 +155,7 @@
           <!-- 心愿单快速入口 -->
           <view class="prefItemRow" @click="goToFavorites">
             <view class="prefItemLeft">
-              <text class="prefIcon">❤️</text>
+              <NexusIcon name="heart-fill" size="34rpx" color="#f43f5e" />
               <view class="prefTextCol">
                 <text class="prefTitle">装机心愿单</text>
                 <text class="prefSub">本地离线收藏的模组集合</text>
@@ -161,7 +170,7 @@
           <!-- 任务清单快速入口 -->
           <view class="prefItemRow" @click="goToHistory">
             <view class="prefItemLeft">
-              <text class="prefIcon">📋</text>
+              <NexusIcon name="task" size="34rpx" color="#38bdf8" />
               <view class="prefTextCol">
                 <text class="prefTitle">推送任务清单</text>
                 <text class="prefSub">推送到电脑端 Mayfly 的任务记录</text>
@@ -222,6 +231,7 @@
 // ============================================================================
 import NexusHeader from '../../components/NexusHeader.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
+import NexusIcon from '../../components/NexusIcon.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import {
@@ -239,6 +249,7 @@ export default {
   components: {
     NexusHeader,
     NexusTabBar,
+    NexusIcon,
     DevicePairModal,
     NexusAuthModal
   },
@@ -821,6 +832,35 @@ export default {
   align-items: center;
   gap: 18rpx;
   flex: 1;
+}
+
+.aiIconHighlightBox {
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(218, 107, 23, 0.22) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 0 14rpx rgba(245, 158, 11, 0.2);
+}
+
+.prefTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.aiFeatureTag {
+  font-size: 18rpx;
+  font-weight: 700;
+  color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.15);
+  border: 1rpx solid rgba(245, 158, 11, 0.35);
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  line-height: 1.2;
 }
 
 .prefIcon {

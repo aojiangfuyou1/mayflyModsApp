@@ -21,7 +21,7 @@
     <!-- 搜索展开栏 -->
     <view class="searchExpandSection" v-if="searchExpanded || searchText">
       <view class="searchBarBox">
-        <text class="searchIcon">🔍</text>
+        <NexusIcon name="search" size="30rpx" color="#94a3b8" style="margin-right: 12rpx;" />
         <input
           class="searchInput"
           v-model="searchText"
@@ -36,7 +36,7 @@
     <view class="gamesContainer">
       <view class="gamesHeaderRow">
         <view class="gamesHeaderLeft">
-          <text class="gamesIcon">🎮</text>
+          <NexusIcon name="gamepad" size="34rpx" color="#da6b17" style="margin-right: 8rpx;" />
           <text class="gamesTitle">{{ enableAutoTranslate ? '热门游戏专区' : 'Games' }}</text>
         </view>
         <text class="gamesViewAllLink" @click="goToModsStream">{{ enableAutoTranslate ? '全网模组库 ›' : 'View all mods' }}</text>
@@ -155,6 +155,7 @@ import NexusDrawer from '../../components/NexusDrawer.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
+import NexusIcon from '../../components/NexusIcon.vue';
 
 export default {
   components: {
@@ -162,7 +163,8 @@ export default {
     NexusDrawer,
     DevicePairModal,
     NexusAuthModal,
-    NexusTabBar
+    NexusTabBar,
+    NexusIcon
   },
 
   data() {

@@ -20,7 +20,7 @@
     <!-- ==================================================================== -->
     <view class="searchExpandSection" v-if="searchExpanded || searchText">
       <view class="searchBarBox">
-        <text class="searchIcon">🔍</text>
+        <NexusIcon name="search" size="30rpx" color="#94a3b8" style="margin-right: 12rpx;" />
         <input
           class="searchInput"
           v-model="searchText"
@@ -37,10 +37,10 @@
     <!-- 区域 2A：Games 视角 (100% 对标用户截图 1 的双列竖版海报风格，动态拉取) -->
     <!-- ==================================================================== -->
     <view class="gamesContainer" v-if="currentView === 'games'">
-      <!-- 游戏区块标题行 (对标图 1 与图 2 统一规范: 🎮 Games   View all mods) -->
+      <!-- 游戏区块标题行 -->
       <view class="gamesHeaderRow">
         <view class="gamesHeaderLeft">
-          <text class="gamesIcon">🎮</text>
+          <NexusIcon name="gamepad" size="34rpx" color="#da6b17" style="margin-right: 8rpx;" />
           <text class="gamesTitle">{{ enableAutoTranslate ? '热门游戏专区' : 'Games' }}</text>
         </view>
         <text class="gamesViewAllLink" @click="switchView('mods')">{{ enableAutoTranslate ? '全网模组库 ›' : 'View all mods' }}</text>
@@ -123,7 +123,7 @@
       </view>
       <view class="activeGameNavRow globalRow" v-else>
         <view class="activeGameLeftBox">
-          <text class="globalModeIcon">🌐</text>
+          <NexusIcon name="globe" size="34rpx" color="#818cf8" style="margin-right: 10rpx;" />
           <text class="activeGameTitleText">全网热门模组流</text>
         </view>
         <view class="pickGamePillBtn" @click="switchView('games')">
@@ -134,62 +134,58 @@
       <!-- 模组区块标题行 (100% 对标图 2: ◆ Mods   View all) -->
       <view class="modsHeaderRow">
         <view class="modsHeaderLeft">
-          <text class="modsIcon">◆</text>
+          <NexusIcon name="mods" size="30rpx" color="#da6b17" style="margin-right: 8rpx;" />
           <text class="modsTitle">{{ enableAutoTranslate ? '精选模组' : 'Mods' }}</text>
         </view>
         <text class="modsViewAllLink" @click="clearGameFilterAndBack">{{ enableAutoTranslate ? '全部游戏专区 ›' : 'View all games' }}</text>
       </view>
 
-      <!-- 排序选项卡 (100% 对标图 2: ☀ New | ⟳ Updated | 📈 Trending | ★ Popular | ❤️ Favorites) -->
+      <!-- 排序选项卡 (100% 对标图 2: New | Updated | Trending | Popular | Favorites) -->
       <scroll-view class="filterPillsScroll" scroll-x show-scrollbar="false">
         <view class="filterPillsList">
-          <!-- ☀ New (活跃态为白底黑字胶囊) -->
+          <!-- New (活跃态为白底黑字胶囊) -->
           <view
             class="filterPill"
             :class="{ active: currentSort === 'createdAt' }"
             @click="changeSort('createdAt')"
           >
-            <text class="pillIcon">☀</text>
             <text class="pillLabel">{{ enableAutoTranslate ? '最新发布' : 'New' }}</text>
           </view>
 
-          <!-- ⟳ Updated -->
+          <!-- Updated -->
           <view
             class="filterPill"
             :class="{ active: currentSort === 'updatedAt' }"
             @click="changeSort('updatedAt')"
           >
-            <text class="pillIcon">⟳</text>
             <text class="pillLabel">{{ enableAutoTranslate ? '最近更新' : 'Updated' }}</text>
           </view>
 
-          <!-- ↗ Trending -->
+          <!-- Trending -->
           <view
             class="filterPill"
             :class="{ active: currentSort === 'trending' }"
             @click="changeSort('trending')"
           >
-            <text class="pillIcon">↗</text>
             <text class="pillLabel">{{ enableAutoTranslate ? '飙升排行' : 'Trending' }}</text>
           </view>
 
-          <!-- ★ Popular -->
+          <!-- Popular -->
           <view
             class="filterPill"
             :class="{ active: currentSort === 'downloads' }"
             @click="changeSort('downloads')"
           >
-            <text class="pillIcon">★</text>
             <text class="pillLabel">{{ enableAutoTranslate ? '热门下载' : 'Popular' }}</text>
           </view>
 
-          <!-- ❤️ Favorites (装机心愿单) -->
+          <!-- Favorites (装机心愿单) -->
           <view
             class="filterPill"
             :class="{ active: currentSort === 'favorites' }"
             @click="changeSort('favorites')"
           >
-            <text class="pillIcon">❤️</text>
+            <NexusIcon name="heart-fill" size="24rpx" :color="currentSort === 'favorites' ? '#ef4444' : '#94a3b8'" style="margin-right: 6rpx;" />
             <text class="pillLabel">{{ enableAutoTranslate ? '心愿单' : 'Favorites' }}{{ favoritesCount > 0 ? ` (${favoritesCount})` : '' }}</text>
           </view>
         </view>
@@ -237,24 +233,30 @@
             :class="{ active: favoritesScope === 'current' }"
             @click="favoritesScope = 'current'"
           >
-            <text class="favScopeText">🎮 {{ activeGameDisplayName }} ({{ currentGameFavoritesList.length }})</text>
+            <NexusIcon name="gamepad" size="24rpx" color="#da6b17" style="margin-right: 6rpx;" />
+            <text class="favScopeText">{{ activeGameDisplayName }} ({{ currentGameFavoritesList.length }})</text>
           </view>
           <view
             class="favScopePill"
             :class="{ active: favoritesScope === 'all' }"
             @click="favoritesScope = 'all'"
           >
-            <text class="favScopeText">🌐 全部游戏 ({{ favoritesList.length }})</text>
+            <NexusIcon name="globe" size="24rpx" color="#818cf8" style="margin-right: 6rpx;" />
+            <text class="favScopeText">全部游戏 ({{ favoritesList.length }})</text>
           </view>
         </view>
 
         <view class="favSummaryText">
-          <text class="favCountNum">❤️ 已收藏 {{ filteredFavoritesList.length }} 个模组</text>
+          <view style="display: flex; align-items: center; gap: 6rpx;">
+            <NexusIcon name="heart-fill" size="26rpx" color="#ef4444" />
+            <text class="favCountNum">已收藏 {{ filteredFavoritesList.length }} 个模组</text>
+          </view>
           <text class="favTipText">{{ selectedGameDomain && favoritesScope === 'current' ? `当前仅展示 ${activeGameDisplayName} 模组` : '展示全游戏综合心愿单' }}</text>
         </view>
         <view class="favBatchActions" v-if="filteredFavoritesList.length > 0">
           <button class="favExportBtn" @click="exportFavoritesList">
-            <text class="favExportBtnText">📋 导出</text>
+            <NexusIcon name="share" size="22rpx" color="#cbd5e1" style="margin-right: 6rpx;" />
+            <text class="favExportBtnText">导出</text>
           </button>
           <button
             class="favBatchPushBtn"
@@ -262,7 +264,7 @@
             @click="batchPushFavorites"
           >
             <text class="favBatchBtnText">
-              {{ isBatchPushing ? '投递中...' : `🚀 批量推送 (${filteredFavoritesList.length})` }}
+              {{ isBatchPushing ? '投递中...' : `批量推送 (${filteredFavoritesList.length})` }}
             </text>
           </button>
         </view>
@@ -401,6 +403,7 @@ import DevicePairModal from '../../components/DevicePairModal.vue';
 import PushHistoryModal from '../../components/PushHistoryModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
+import NexusIcon from '../../components/NexusIcon.vue';
 
 export default {
   components: {
@@ -410,7 +413,8 @@ export default {
     DevicePairModal,
     PushHistoryModal,
     NexusAuthModal,
-    NexusTabBar
+    NexusTabBar,
+    NexusIcon
   },
 
   data() {

@@ -15,7 +15,11 @@
         <text class="modGameBadgeText">{{ item.game.shortZhName || item.game.name }}</text>
       </view>
       <view class="modActionBtn" @click.stop="$emit('favorite', item)">
-        <text class="actionDotText">{{ isFavorited ? '❤️' : '···' }}</text>
+        <NexusIcon
+          :name="isFavorited ? 'heart-fill' : 'heart'"
+          size="28rpx"
+          :color="isFavorited ? '#ef4444' : '#94a3b8'"
+        />
       </view>
     </view>
 
@@ -50,11 +54,17 @@
       <!-- 简介摘要预览 (灰色两行，自动中文翻译呈现) -->
       <text class="modSummaryText">{{ displaySummary }}</text>
 
-      <!-- 底部统计与推送 (对标图 2: 👍 0  📥 0  + Mayfly 独有推送到电脑) -->
+      <!-- 底部统计与推送 (高保真矢量点赞与下载) -->
       <view class="modFooterRow">
         <view class="modStatsLeft">
-          <text class="footerMetric">👍 {{ item.likes || 0 }}</text>
-          <text class="footerMetric">📥 {{ formattedDownloads }}</text>
+          <view class="metricItem">
+            <NexusIcon name="like" size="24rpx" color="#94a3b8" />
+            <text class="metricNumText">{{ item.likes || 0 }}</text>
+          </view>
+          <view class="metricItem">
+            <NexusIcon name="download" size="24rpx" color="#94a3b8" />
+            <text class="metricNumText">{{ formattedDownloads }}</text>
+          </view>
         </view>
         <button
           class="nexusPushBtn"
@@ -73,9 +83,13 @@
 // ModCard 组件逻辑：模组双列海报卡片与统计指标渲染
 // ============================================================================
 import { getCategoryZhName } from '../services/translate.js';
+import NexusIcon from './NexusIcon.vue';
 
 export default {
   name: 'ModCard',
+  components: {
+    NexusIcon
+  },
   props: {
     item: {
       type: Object,
@@ -305,12 +319,20 @@ export default {
 .modStatsLeft {
   display: flex;
   align-items: center;
-  gap: 14rpx;
+  gap: 16rpx;
 }
 
-.footerMetric {
+.metricItem {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.metricNumText {
   font-size: 20rpx;
-  color: #9ca3af;
+  color: #94a3b8;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .nexusPushBtn {

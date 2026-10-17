@@ -19,13 +19,13 @@
     <!-- 右侧功能区：搜索/分享 + 电脑端指示灯 + 官方用户头像 -->
     <view class="headerRightArea">
       <view class="headerBtn" v-if="showSearch" @click="$emit('search-click')">
-        <text class="headerIcon">🔍</text>
+        <NexusIcon name="search" size="36rpx" color="#cbd5e1" />
       </view>
       <view class="headerBtn" v-if="showShare" @click="$emit('share-click')">
-        <text class="headerIcon">📤</text>
+        <NexusIcon name="share" size="36rpx" color="#cbd5e1" />
       </view>
       <view class="headerBtn pcBtn" @click="$emit('pc-click')">
-        <text class="headerIcon">💻</text>
+        <NexusIcon name="desktop" size="36rpx" :color="desktopConfig && desktopConfig.connected ? '#10b981' : '#94a3b8'" />
         <view class="onlineDot" :class="{ connected: desktopConfig && desktopConfig.connected }"></view>
       </view>
       <view class="headerBtn userBtn" @click="$emit('user-click')">
@@ -35,7 +35,7 @@
           :src="nexusUser.avatar"
           mode="aspectFill"
         />
-        <text v-else class="headerIcon">👤</text>
+        <NexusIcon v-else name="user" size="36rpx" color="#cbd5e1" />
         <view v-if="nexusUser && nexusUser.isPremium" class="headerPremiumBadge">👑</view>
         <view v-else-if="!nexusUser" class="authNoticeDot"></view>
       </view>
@@ -47,8 +47,13 @@
 // ============================================================================
 // NexusHeader 组件逻辑：沉浸式全局统一顶栏
 // ============================================================================
+import NexusIcon from './NexusIcon.vue';
+
 export default {
   name: 'NexusHeader',
+  components: {
+    NexusIcon
+  },
   props: {
     title: {
       type: String,

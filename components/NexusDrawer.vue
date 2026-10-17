@@ -21,7 +21,7 @@
       <!-- 1. 登录用户状态卡片 -->
       <view class="drawerNexusCard guest" v-if="!nexusUser" @click="handleNav('auth')">
         <view class="nexusAvatarBox">
-          <text class="nexusAvatarGlyph">👤</text>
+          <NexusIcon name="user" size="44rpx" color="#da6b17" />
         </view>
         <view class="nexusCardInfo">
           <view class="nexusCardTitleRow">
@@ -34,7 +34,7 @@
       <view class="drawerNexusCard logged" v-else @click="handleNav('auth')">
         <view class="nexusAvatarBox">
           <image v-if="nexusUser.avatar" class="nexusAvatarImg" :src="nexusUser.avatar" mode="aspectFill" />
-          <text v-else class="nexusAvatarGlyph">👤</text>
+          <NexusIcon v-else name="user" size="44rpx" color="#da6b17" />
           <text v-if="nexusUser.isPremium" class="premiumCrownBadge">👑</text>
         </view>
         <view class="nexusCardInfo">
@@ -68,7 +68,7 @@
       </view>
       <view class="drawerNoGameCard" v-else @click="handleNav('games')">
         <view class="noGameIconBox">
-          <text class="noGameGlyph">🌐</text>
+          <NexusIcon name="globe" size="40rpx" color="#818cf8" />
         </view>
         <view class="noGameMetaBox">
           <text class="noGameMainText">全网模组模式</text>
@@ -81,7 +81,7 @@
       <view class="drawerNavList">
         <view class="drawerNavItem" @click="handleNav('home')">
           <view class="navItemLeft">
-            <text class="itemIcon">◆</text>
+            <NexusIcon name="home" size="34rpx" color="#cbd5e1" />
             <text class="itemText">精选模组库 (Mods)</text>
           </view>
           <view class="navItemRight">
@@ -92,7 +92,7 @@
 
         <view class="drawerNavItem" @click="handleNav('games')">
           <view class="navItemLeft">
-            <text class="itemIcon">🎮</text>
+            <NexusIcon name="gamepad" size="34rpx" color="#cbd5e1" />
             <text class="itemText">热门游戏专区 (Games)</text>
           </view>
           <text class="drawerNavArrow">›</text>
@@ -100,7 +100,7 @@
 
         <view class="drawerNavItem" @click="handleNav('favorites')">
           <view class="navItemLeft">
-            <text class="itemIcon">❤️</text>
+            <NexusIcon name="heart-fill" size="34rpx" color="#f43f5e" />
             <text class="itemText">装机心愿单 (Wishlist)</text>
           </view>
           <view class="navItemRight">
@@ -111,7 +111,7 @@
 
         <view class="drawerNavItem" @click="handleNav('history')">
           <view class="navItemLeft">
-            <text class="itemIcon">📋</text>
+            <NexusIcon name="task" size="34rpx" color="#38bdf8" />
             <text class="itemText">推送任务清单 (History)</text>
           </view>
           <view class="navItemRight">
@@ -122,7 +122,7 @@
 
         <view class="drawerNavItem" @click="handleNav('auth')">
           <view class="navItemLeft">
-            <text class="itemIcon">👤</text>
+            <NexusIcon name="user" size="34rpx" color="#cbd5e1" />
             <text class="itemText">NexusMods 账户与授权</text>
           </view>
           <view class="navItemRight">
@@ -135,15 +135,16 @@
 
         <view class="drawerNavItem" @click="handleNav('profile')">
           <view class="navItemLeft">
-            <text class="itemIcon">⚙️</text>
+            <NexusIcon name="gear" size="34rpx" color="#a78bfa" />
             <text class="itemText">个人中心与设置 (Profile)</text>
           </view>
           <text class="drawerNavArrow">›</text>
         </view>
 
+        <!-- AI 智能双语图鉴 (优雅灵动星芒) -->
         <view class="drawerNavItem" @click="$emit('toggle-translate')">
           <view class="navItemLeft">
-            <text class="itemIcon">🌐</text>
+            <NexusIcon name="ai" size="34rpx" color="#f59e0b" />
             <text class="itemText">AI 智能双语图鉴</text>
           </view>
           <view class="navItemRight">
@@ -157,7 +158,10 @@
       <!-- 4. 电脑端连接卡片 -->
       <view class="drawerPcCard">
         <view class="pcCardTop">
-          <text class="pcCardTitle">💻 电脑端连接状态</text>
+          <view style="display: flex; align-items: center; gap: 8rpx;">
+            <NexusIcon name="desktop" size="30rpx" color="#38bdf8" />
+            <text class="pcCardTitle">电脑端连接状态</text>
+          </view>
           <view class="pcStatusBadge" :class="{ online: desktopConfig && desktopConfig.connected }">
             <text class="pcStatusText">{{ desktopConfig && desktopConfig.connected ? '已连接' : '未连接' }}</text>
           </view>
@@ -165,10 +169,12 @@
         <text class="pcIpText">目标主机: {{ desktopConfig ? desktopConfig.host : '' }}:{{ desktopConfig ? desktopConfig.port : '' }}</text>
         <view class="pcActionsRow">
           <button class="pcActionBtn primary" @click="handleNav('device')">
-            <text class="btnText">⚙️ 配对设置</text>
+            <NexusIcon name="gear" size="24rpx" color="#ffffff" style="margin-right: 6rpx;" />
+            <text class="btnText">配对设置</text>
           </button>
           <button class="pcActionBtn" @click="$emit('quick-test')">
-            <text class="btnText">📶 测试连接</text>
+            <NexusIcon name="wifi" size="24rpx" color="#cbd5e1" style="margin-right: 6rpx;" />
+            <text class="btnText">测试连接</text>
           </button>
         </view>
       </view>
@@ -185,8 +191,13 @@
 // ============================================================================
 // NexusDrawer 组件逻辑：侧边沉浸式全站导航抽屉
 // ============================================================================
+import NexusIcon from './NexusIcon.vue';
+
 export default {
   name: 'NexusDrawer',
+  components: {
+    NexusIcon
+  },
   props: {
     visible: {
       type: Boolean,

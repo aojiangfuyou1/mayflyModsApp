@@ -25,25 +25,31 @@
             :class="{ active: favoritesScope === 'current' }"
             @click="favoritesScope = 'current'"
           >
-            <text class="favScopeText">🎮 {{ activeGameDisplayName || '当前游戏' }} ({{ currentGameFavCount }})</text>
+            <NexusIcon name="gamepad" size="24rpx" color="#da6b17" style="margin-right: 6rpx;" />
+            <text class="favScopeText">{{ activeGameDisplayName || '当前游戏' }} ({{ currentGameFavCount }})</text>
           </view>
           <view
             class="favScopeTab"
             :class="{ active: favoritesScope === 'all' }"
             @click="favoritesScope = 'all'"
           >
-            <text class="favScopeText">🌐 全部游戏 ({{ favoritesList.length }})</text>
+            <NexusIcon name="globe" size="24rpx" color="#818cf8" style="margin-right: 6rpx;" />
+            <text class="favScopeText">全部游戏 ({{ favoritesList.length }})</text>
           </view>
         </view>
 
         <view class="favSummaryText">
-          <text class="favCountNum">❤️ 已收藏 {{ filteredFavoritesList.length }} 个模组</text>
+          <view style="display: flex; align-items: center; gap: 6rpx;">
+            <NexusIcon name="heart-fill" size="26rpx" color="#ef4444" />
+            <text class="favCountNum">已收藏 {{ filteredFavoritesList.length }} 个模组</text>
+          </view>
           <text class="favTipText">{{ selectedGameDomain && favoritesScope === 'current' ? `当前仅展示 ${activeGameDisplayName} 模组` : '展示全游戏综合心愿单' }}</text>
         </view>
 
         <view class="favBatchActions" v-if="filteredFavoritesList.length > 0">
           <button class="favExportBtn" @click="exportFavoritesList">
-            <text class="favExportBtnText">📋 导出分享</text>
+            <NexusIcon name="share" size="24rpx" color="#cbd5e1" style="margin-right: 6rpx;" />
+            <text class="favExportBtnText">导出分享</text>
           </button>
           <button
             class="favBatchPushBtn"
@@ -51,7 +57,7 @@
             @click="batchPushFavorites"
           >
             <text class="favBatchBtnText">
-              {{ isBatchPushing ? '投递中...' : `🚀 批量推送 (${filteredFavoritesList.length})` }}
+              {{ isBatchPushing ? '投递中...' : `批量推送 (${filteredFavoritesList.length})` }}
             </text>
           </button>
         </view>
@@ -73,9 +79,9 @@
         />
       </view>
 
-      <!-- 空状态提示 -->
+      <!-- 空状态提示 (优雅大尺寸空心爱心) -->
       <view class="emptyFavBox" v-else>
-        <text class="emptyFavIcon">❤️</text>
+        <NexusIcon name="heart" size="84rpx" color="#475569" style="margin-bottom: 16rpx;" />
         <text class="emptyFavTitle">心愿单空空如也</text>
         <text class="emptyFavSub">在模组流中点击卡片右上角的心形图标即可加入心愿单</text>
         <button class="goExploreBtn" @click="handleNavBack">
@@ -152,6 +158,7 @@ import ModCard from '../../components/ModCard.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
+import NexusIcon from '../../components/NexusIcon.vue';
 
 export default {
   components: {
@@ -160,7 +167,8 @@ export default {
     ModCard,
     DevicePairModal,
     NexusAuthModal,
-    NexusTabBar
+    NexusTabBar,
+    NexusIcon
   },
 
   data() {

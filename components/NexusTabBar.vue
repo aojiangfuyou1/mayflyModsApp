@@ -13,7 +13,7 @@
         @click="switchTab('home')"
       >
         <view class="tabIconBox">
-          <text class="tabGlyph">❖</text>
+          <NexusIcon name="home" size="40rpx" />
         </view>
         <text class="tabLabelText">首页</text>
         <view class="tabActiveBar" v-if="activeTab === 'home'"></view>
@@ -28,7 +28,7 @@
         @click="switchTab('games')"
       >
         <view class="tabIconBox">
-          <text class="tabGlyph">🎮</text>
+          <NexusIcon name="gamepad" size="40rpx" />
         </view>
         <text class="tabLabelText">游戏</text>
         <view class="tabActiveBar" v-if="activeTab === 'games'"></view>
@@ -43,7 +43,7 @@
         @click="switchTab('favorites')"
       >
         <view class="tabIconBox">
-          <text class="tabGlyph">❤️</text>
+          <NexusIcon :name="activeTab === 'favorites' ? 'heart-fill' : 'heart'" size="38rpx" />
           <!-- 心愿单数量角标 Badge -->
           <view class="tabBadge" v-if="favoritesCount > 0">
             <text class="tabBadgeText">{{ favoritesCount > 99 ? '99+' : favoritesCount }}</text>
@@ -62,7 +62,7 @@
         @click="switchTab('history')"
       >
         <view class="tabIconBox">
-          <text class="tabGlyph">📋</text>
+          <NexusIcon name="task" size="38rpx" />
           <!-- 任务历史数量角标 -->
           <view class="tabBadge grayBadge" v-if="historyCount > 0">
             <text class="tabBadgeText">{{ historyCount > 99 ? '99+' : historyCount }}</text>
@@ -81,14 +81,14 @@
         @click="switchTab('profile')"
       >
         <view class="tabIconBox">
-          <!-- 若已登录且有头像显示微型头像，否则显示用户图标 -->
+          <!-- 若已登录且有头像显示微型头像，否则显示极简用户轮廓矢量 -->
           <image
             v-if="nexusUser && nexusUser.avatar"
             class="tabAvatarImg"
             :src="nexusUser.avatar"
             mode="aspectFill"
           />
-          <text v-else class="tabGlyph">👤</text>
+          <NexusIcon v-else name="user" size="38rpx" />
           <!-- 会员皇冠微标 -->
           <text v-if="nexusUser && nexusUser.isPremium" class="tabCrownBadge">👑</text>
           <!-- 电脑端在线绿色指示灯微点 -->
@@ -109,8 +109,13 @@
 // ============================================================================
 // NexusTabBar 组件脚本：手机 App 专用全局底部导航 Tab 栏
 // ============================================================================
+import NexusIcon from './NexusIcon.vue';
+
 export default {
   name: 'NexusTabBar',
+  components: {
+    NexusIcon
+  },
   props: {
     // 当前处于激活态的 Tab 标识: 'home' | 'games' | 'favorites' | 'history' | 'profile'
     activeTab: {
@@ -224,6 +229,8 @@ export default {
   align-items: center;
   justify-content: center;
   margin-bottom: 2rpx;
+  color: #7d8495;
+  transition: all 0.2s ease;
 }
 
 .tabGlyph {
@@ -259,6 +266,12 @@ export default {
 }
 
 /* 激活态高亮样式 */
+.tabItem.active .tabIconBox {
+  color: #da6b17;
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 10rpx rgba(218, 107, 23, 0.45));
+}
+
 .tabItem.active .tabGlyph {
   color: #da6b17;
   transform: scale(1.1);

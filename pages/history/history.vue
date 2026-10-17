@@ -21,7 +21,10 @@
       <view class="historyHeaderCard">
         <view class="historyHeaderTop">
           <view class="historyTitleCol">
-            <text class="historyCountText">📋 共 {{ historyList.length }} 个推送任务</text>
+            <view style="display: flex; align-items: center; gap: 8rpx;">
+              <NexusIcon name="task" size="30rpx" color="#38bdf8" />
+              <text class="historyCountText">共 {{ historyList.length }} 个推送任务</text>
+            </view>
             <text class="historySubTip">已通过局域网或云端信令投递到电脑端 Mayfly</text>
           </view>
           <text class="clearAllBtn" v-if="historyList.length > 0" @click="handleClearHistory">清空记录</text>
@@ -46,9 +49,9 @@
         </view>
       </view>
 
-      <!-- 空记录提示 -->
+      <!-- 空记录提示 (优雅大尺寸清单矢量图标) -->
       <view class="emptyHistoryBox" v-else>
-        <text class="emptyIcon">📦</text>
+        <NexusIcon name="task" size="84rpx" color="#475569" style="margin-bottom: 16rpx;" />
         <text class="emptyTitle">暂无推送任务记录</text>
         <text class="emptySub">在模组流中挑选心仪的 Mod，点击「推送到电脑」即可体验无感落盘安装！</text>
         <button class="goExploreBtn" @click="handleNavBack">
@@ -116,6 +119,7 @@ import NexusDrawer from '../../components/NexusDrawer.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
+import NexusIcon from '../../components/NexusIcon.vue';
 
 export default {
   components: {
@@ -123,7 +127,8 @@ export default {
     NexusDrawer,
     DevicePairModal,
     NexusAuthModal,
-    NexusTabBar
+    NexusTabBar,
+    NexusIcon
   },
 
   data() {
