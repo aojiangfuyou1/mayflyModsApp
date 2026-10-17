@@ -929,8 +929,10 @@ export default {
       uni.showLoading({ title: '正在投递信令...' });
 
       try {
+        const zhTitle = this.modZhTitle || this.modInfo.zhTitle || '';
         const payload = {
           ...this.modInfo,
+          zhTitle,
           selectedFile: this.selectedFile
         };
 
@@ -940,7 +942,7 @@ export default {
         if (res.success) {
           uni.showModal({
             title: '推送成功 🚀',
-            content: `已成功投递到电脑端 Mayfly！\n模组【${this.modInfo.title}】正在后台下载并安装。`,
+            content: `已成功投递到电脑端 Mayfly！\n模组【${zhTitle || this.modInfo.title}】正在电脑端后台高速下载并安装。`,
             showCancel: false
           });
         } else {

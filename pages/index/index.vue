@@ -346,6 +346,7 @@
       @close="closeHistoryModal"
       @repush="rePushItem"
       @clear="handleClearHistory"
+      @refresh="refreshHistory"
     />
 
     <!-- ==================================================================== -->
@@ -1041,7 +1042,11 @@ export default {
       let okCount = 0;
       for (const mod of targetList) {
         try {
-          const res = await pushModToDesktop(mod, this.desktopConfig);
+          const pushItem = {
+            ...mod,
+            zhTitle: this.zhTitleMap[mod.id] || mod.zhTitle || ''
+          };
+          const res = await pushModToDesktop(pushItem, this.desktopConfig);
           if (res.success) {
             okCount++;
             this.pushedIdMap[mod.id] = true;
@@ -1082,7 +1087,7 @@ export default {
     },
 
     /**
-     * 快捷一键推送到电脑端 Mayfly 安装
+     * 快捷一键推送到电脑端 Mayfly 安装 (附带中文翻译标题)
      */
     async quickPushToDesktop(item) {
       if (!item || !item.id) return;
@@ -1093,7 +1098,11 @@ export default {
       });
 
       try {
-        const res = await pushModToDesktop(item, this.desktopConfig);
+        const pushItem = {
+          ...item,
+          zhTitle: this.zhTitleMap[item.id] || item.zhTitle || ''
+        };
+        const res = await pushModToDesktop(pushItem, this.desktopConfig);
         uni.hideLoading();
 
         if (res.success) {
@@ -1376,9 +1385,11 @@ export default {
       uni.showLoading({ title: '重新推送中...' });
       const res = await pushModToDesktop(
         {
-          id: item.modId,
-          modId: item.modId,
+          id: item.modId || item.id,
+          modId: item.modId || item.id,
           title: item.title,
+          zhTitle: item.zhTitle || '',
+          coverImageUrl: item.coverImageUrl || '',
           game: { domainName: item.gameDomain, name: item.gameName }
         },
         this.desktopConfig

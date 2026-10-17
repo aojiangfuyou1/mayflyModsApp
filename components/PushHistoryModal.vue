@@ -26,15 +26,43 @@
         <view class="historyItem" v-for="item in historyList" :key="item.id">
           <image class="historyThumb" :src="item.coverImageUrl || '/static/logo.png'" mode="aspectFill" />
           <view class="historyBody">
-            <text class="historyTitle">{{ item.title }}</text>
+            <text class="historyTitle">{{ item.zhTitle || item.title }}</text>
+            <text class="historyOriginalTitle" v-if="item.zhTitle && item.zhTitle !== item.title">{{ item.title }}</text>
             <view class="historyMeta">
               <text class="historyGame">{{ item.gameName }}</text>
               <text class="historyChannelTag">{{ item.channel === 'LAN_HTTP' ? '局域网' : '云通道' }}</text>
+              <view class="statusBadge completed" v-if="item.status === 'completed'">
+                <text class="statusDot">●</text>
+                <text class="statusText">已完成下载</text>
+              </view>
+              <view class="statusBadge downloading" v-else-if="item.status === 'downloading'">
+                <text class="statusDot">●</text>
+                <text class="statusText">下载中</text>
+              </view>
+              <view class="statusBadge failed" v-else-if="item.status === 'failed'">
+                <text class="statusDot">●</text>
+                <text class="statusText">失败</text>
+              </view>
+              <view class="statusBadge pushed" v-else>
+                <text class="statusDot">●</text>
+                <text class="statusText">已推送</text>
+              </view>
               <text class="historyTime">{{ formatHistoryTime(item.timestamp) }}</text>
             </view>
           </view>
-          <button class="rePushBtn" @click="rePushItem(item)">
-            <text class="rePushText">重推</text>
+          <button
+            class="rePushBtn"
+            :class="{
+              completedBtn: item.status === 'completed',
+              downloadingBtn: item.status === 'downloading',
+              failedBtn: item.status === 'failed'
+            }"
+            @click="rePushItem(item)"
+          >
+            <text class="rePushText" v-if="item.status === 'completed'">✅ 已完成</text>
+            <text class="rePushText" v-else-if="item.status === 'downloading'">下载中</text>
+            <text class="rePushText" v-else-if="item.status === 'failed'">重试</text>
+            <text class="rePushText" v-else>重推</text>
           </button>
         </view>
       </scroll-view>
@@ -46,6 +74,12 @@
 // ============================================================================
 // PushHistoryModal 组件逻辑：展示与管理推送到电脑端的任务记录
 // ============================================================================
+import {
+  syncHistoryWithDesktop,
+  autoTranslateHistoryList
+} from '../services/history.js';
+import { getDesktopConfig } from '../services/nexus.js';
+
 export default {
   name: 'PushHistoryModal',
   props: {
@@ -59,12 +93,75 @@ export default {
     }
   },
 
+  data() {
+    return {
+      statusTimer: null
+    };
+  },
+
+  watch: {
+    visible(newVal) {
+      if (newVal) {
+        this.syncAndTranslate();
+        this.startPollingStatus();
+      } else {
+        this.stopPollingStatus();
+      }
+    }
+  },
+
+  beforeDestroy() {
+    this.stopPollingStatus();
+  },
+
   methods: {
     /**
      * 关闭弹窗
      */
     close() {
+      this.stopPollingStatus();
       this.$emit('close');
+    },
+
+    /**
+     * 同步电脑端真实下载/安装状态，并对未翻译标题进行自动汉化
+     */
+    async syncAndTranslate() {
+      const desktopConfig = getDesktopConfig();
+      if (desktopConfig && desktopConfig.host) {
+        await syncHistoryWithDesktop(desktopConfig);
+        this.$emit('refresh');
+      }
+      await autoTranslateHistoryList(this.historyList);
+      this.$emit('refresh');
+    },
+
+    /**
+     * 开启轻量轮询
+     */
+    startPollingStatus() {
+      this.stopPollingStatus();
+      this.statusTimer = setInterval(async () => {
+        const desktopConfig = getDesktopConfig();
+        if (!desktopConfig || !desktopConfig.host) return;
+        const hasDownloading = this.historyList.some(
+          (i) => i.status === 'downloading' || !i.status
+        );
+        if (hasDownloading) {
+          await syncHistoryWithDesktop(desktopConfig);
+          this.$emit('refresh');
+        }
+      }, 3000);
+    },
+
+    /**
+     * 停止轮询
+     */
+    stopPollingStatus() {
+      if (this.statusTimer) {
+        clearInterval(this.statusTimer);
+        this.statusTimer = null;
+      }
     },
 
     /**
@@ -257,9 +354,18 @@ export default {
   white-space: nowrap;
 }
 
+.historyOriginalTitle {
+  font-size: 18rpx;
+  color: #828a99;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .historyMeta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10rpx;
 }
 
@@ -276,6 +382,48 @@ export default {
   border-radius: 6rpx;
 }
 
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  font-size: 16rpx;
+  font-weight: 600;
+}
+
+.statusBadge.completed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1rpx solid rgba(16, 185, 129, 0.3);
+}
+
+.statusBadge.downloading {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1rpx solid rgba(56, 189, 248, 0.3);
+}
+
+.statusBadge.failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1rpx solid rgba(239, 68, 68, 0.3);
+}
+
+.statusBadge.pushed {
+  background: rgba(218, 107, 23, 0.15);
+  color: #da6b17;
+  border: 1rpx solid rgba(218, 107, 23, 0.3);
+}
+
+.statusDot {
+  font-size: 12rpx;
+}
+
+.statusText {
+  font-size: 16rpx;
+}
+
 .historyTime {
   font-size: 18rpx;
   color: #6b7280;
@@ -288,6 +436,34 @@ export default {
   border-radius: 10rpx;
   padding: 10rpx 18rpx;
   margin: 0;
+  transition: all 0.2s ease;
+}
+
+.rePushBtn.completedBtn {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1rpx solid rgba(16, 185, 129, 0.4);
+}
+
+.rePushBtn.completedBtn .rePushText {
+  color: #10b981;
+}
+
+.rePushBtn.downloadingBtn {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1rpx solid rgba(56, 189, 248, 0.4);
+}
+
+.rePushBtn.downloadingBtn .rePushText {
+  color: #38bdf8;
+}
+
+.rePushBtn.failedBtn {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1rpx solid rgba(239, 68, 68, 0.4);
+}
+
+.rePushBtn.failedBtn .rePushText {
+  color: #ef4444;
 }
 
 .rePushText {

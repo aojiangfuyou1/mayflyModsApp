@@ -24,6 +24,7 @@ export const PUBLIC_MQTT_HTTP_BRIDGE = 'https://broker.emqx.io:8084/mqtt';
  * @returns {Object} 标准控制信令 JSON
  */
 export function buildRemoteInstallPayload(modItem, deviceToken = 'MF-PC-8891') {
+  const displayTitle = modItem.zhTitle || modItem.title || '未知模组';
   return {
     action: 'remote_install',
     deviceToken,
@@ -31,7 +32,9 @@ export function buildRemoteInstallPayload(modItem, deviceToken = 'MF-PC-8891') {
     gameName: modItem.game?.name || modItem.gameName || '',
     sourceType: modItem.sourceType || 'nexus',
     sourceModId: String(modItem.modId || modItem.id),
-    title: modItem.title || '未知模组',
+    title: displayTitle,
+    originalTitle: modItem.title || '',
+    zhTitle: modItem.zhTitle || '',
     version: modItem.fileVersion || modItem.version || '1.0',
     coverImageUrl: modItem.coverImageUrl || '',
     downloadUrl: modItem.downloadUrl || '',
@@ -268,7 +271,7 @@ export async function pushModAdaptive(modItem, customConfig = null) {
 
   // 1. 优先尝试局域网直连
   if (config.host) {
-    result = await pushViaLanHttp(payload, config.host, config.port || 9876);
+    result = await pushViaLanHttp(payload, config.host, config.port || 28888);
   }
 
   // 2. 如果局域网失败，无缝转为外网 MQTT 公共管道推送
@@ -281,18 +284,20 @@ export async function pushModAdaptive(modItem, customConfig = null) {
     }
   }
 
-  // 3. 记录推送历史
+  // 3. 记录推送历史 (包含中文译名与初始下载状态)
   if (result && result.success) {
     recordPushHistory({
       id: String(modItem.modId || modItem.id),
       modId: String(modItem.modId || modItem.id),
-      title: modItem.title,
+      title: modItem.title || '未知模组',
+      zhTitle: modItem.zhTitle || '',
       fileName: modItem.fileName || '',
       fileVersion: modItem.fileVersion || modItem.version || '',
       coverImageUrl: modItem.coverImageUrl,
       gameName: modItem.game?.name || '',
       gameDomain: modItem.game?.domainName || '',
       channel: result.channel,
+      status: 'downloading',
       timestamp: Date.now()
     });
   }

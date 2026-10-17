@@ -247,9 +247,14 @@ export default {
     async quickPushToDesktop(item) {
       this.pushingModId = item.id;
       try {
-        const res = await pushModToDesktop(item, this.desktopConfig);
+        const pushItem = {
+          ...item,
+          zhTitle: item.zhTitle || ''
+        };
+        const res = await pushModToDesktop(pushItem, this.desktopConfig);
         if (res.success) {
           uni.showToast({ title: '已推送到电脑端安装', icon: 'success' });
+          this.historyCount = getPushHistory().length;
         } else {
           uni.showModal({ title: '推送失败', content: res.message, showCancel: false });
         }
@@ -278,11 +283,16 @@ export default {
       let successCount = 0;
       for (const item of list) {
         try {
-          const res = await pushModToDesktop(item, this.desktopConfig);
+          const pushItem = {
+            ...item,
+            zhTitle: item.zhTitle || ''
+          };
+          const res = await pushModToDesktop(pushItem, this.desktopConfig);
           if (res.success) successCount++;
         } catch (e) {}
       }
       this.isBatchPushing = false;
+      this.historyCount = getPushHistory().length;
       uni.showModal({
         title: '批量推送完成',
         content: `成功投递 ${successCount}/${list.length} 个模组到电脑端 Mayfly。`,

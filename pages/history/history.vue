@@ -36,15 +36,43 @@
         <view class="historyItem" v-for="item in historyList" :key="item.id">
           <image class="historyThumb" :src="item.coverImageUrl || '/static/logo.png'" mode="aspectFill" />
           <view class="historyBody">
-            <text class="historyTitle">{{ item.title }}</text>
+            <text class="historyTitle">{{ item.zhTitle || item.title }}</text>
+            <text class="historyOriginalTitle" v-if="item.zhTitle && item.zhTitle !== item.title">{{ item.title }}</text>
             <view class="historyMeta">
               <text class="historyGame">{{ item.gameName }}</text>
               <text class="historyChannelTag">{{ item.channel === 'LAN_HTTP' ? '局域网' : '云通道' }}</text>
+              <view class="statusBadge completed" v-if="item.status === 'completed'">
+                <text class="statusDot">●</text>
+                <text class="statusText">已完成下载</text>
+              </view>
+              <view class="statusBadge downloading" v-else-if="item.status === 'downloading'">
+                <text class="statusDot">●</text>
+                <text class="statusText">电脑下载中</text>
+              </view>
+              <view class="statusBadge failed" v-else-if="item.status === 'failed'">
+                <text class="statusDot">●</text>
+                <text class="statusText">下载失败</text>
+              </view>
+              <view class="statusBadge pushed" v-else>
+                <text class="statusDot">●</text>
+                <text class="statusText">已推送</text>
+              </view>
               <text class="historyTime">{{ formatHistoryTime(item.timestamp) }}</text>
             </view>
           </view>
-          <button class="rePushBtn" @click="rePushItem(item)">
-            <text class="rePushText">重推</text>
+          <button
+            class="rePushBtn"
+            :class="{
+              completedBtn: item.status === 'completed',
+              downloadingBtn: item.status === 'downloading',
+              failedBtn: item.status === 'failed'
+            }"
+            @click="rePushItem(item)"
+          >
+            <text class="rePushText" v-if="item.status === 'completed'">✅ 已完成</text>
+            <text class="rePushText" v-else-if="item.status === 'downloading'">下载中</text>
+            <text class="rePushText" v-else-if="item.status === 'failed'">重试</text>
+            <text class="rePushText" v-else>重推</text>
           </button>
         </view>
       </view>
@@ -104,7 +132,12 @@
 // ============================================================================
 // 页面脚本：推送任务历史记录查询与重投
 // ============================================================================
-import { getPushHistory, clearPushHistory } from '../../services/history.js';
+import {
+  getPushHistory,
+  clearPushHistory,
+  syncHistoryWithDesktop,
+  autoTranslateHistoryList
+} from '../../services/history.js';
 import { getFavorites } from '../../services/favorites.js';
 import {
   pushModToDesktop,
@@ -140,7 +173,8 @@ export default {
       desktopConfig: { host: '10.204.160.22', port: 28888, connected: false },
       nexusUser: null,
       nexusApiKey: '',
-      favoritesCount: 0
+      favoritesCount: 0,
+      statusTimer: null
     };
   },
 
@@ -151,6 +185,18 @@ export default {
     this.desktopConfig = getDesktopConfig();
     this.nexusUser = getNexusUser();
     this.nexusApiKey = getNexusApiKey();
+
+    // 页面呈现时立即执行双向状态对齐与标题汉化，并开启轻量轮询
+    this.syncAndTranslateHistory();
+    this.startPollingStatus();
+  },
+
+  onHide() {
+    this.stopPollingStatus();
+  },
+
+  beforeDestroy() {
+    this.stopPollingStatus();
   },
 
   methods: {
@@ -158,14 +204,60 @@ export default {
       this.historyList = getPushHistory();
     },
 
+    /**
+     * 与电脑端拉取最新任务状态，并对未翻译标题进行自动汉化
+     */
+    async syncAndTranslateHistory() {
+      // 1. 同步电脑端真实下载状态
+      if (this.desktopConfig && this.desktopConfig.host) {
+        const synced = await syncHistoryWithDesktop(this.desktopConfig);
+        this.historyList = synced;
+      }
+      // 2. 自动补充历史记录中缺失的中文标题
+      const translated = await autoTranslateHistoryList(this.historyList);
+      this.historyList = translated;
+    },
+
+    /**
+     * 开启定时轻量轮询任务状态 (若有下载中的任务则每 3 秒刷新)
+     */
+    startPollingStatus() {
+      this.stopPollingStatus();
+      this.statusTimer = setInterval(async () => {
+        if (!this.desktopConfig || !this.desktopConfig.host) return;
+        const hasDownloading = this.historyList.some(
+          (i) => i.status === 'downloading' || !i.status
+        );
+        if (hasDownloading) {
+          const list = await syncHistoryWithDesktop(this.desktopConfig);
+          this.historyList = list;
+        }
+      }, 3000);
+    },
+
+    /**
+     * 停止轮询定时器
+     */
+    stopPollingStatus() {
+      if (this.statusTimer) {
+        clearInterval(this.statusTimer);
+        this.statusTimer = null;
+      }
+    },
+
     async rePushItem(item) {
       uni.showLoading({ title: '正在重新投递...' });
       try {
-        const res = await pushModToDesktop(item, this.desktopConfig);
+        const pushItem = {
+          ...item,
+          zhTitle: item.zhTitle || ''
+        };
+        const res = await pushModToDesktop(pushItem, this.desktopConfig);
         uni.hideLoading();
         if (res.success) {
           uni.showToast({ title: '重推成功！', icon: 'success' });
           this.refreshHistory();
+          this.syncAndTranslateHistory();
         } else {
           uni.showModal({ title: '重推未成功', content: res.message, showCancel: false });
         }
@@ -357,9 +449,18 @@ export default {
   white-space: nowrap;
 }
 
+.historyOriginalTitle {
+  font-size: 20rpx;
+  color: #828a99;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .historyMeta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12rpx;
 }
 
@@ -381,6 +482,48 @@ export default {
   color: #64748b;
 }
 
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  font-size: 18rpx;
+  font-weight: 600;
+}
+
+.statusBadge.completed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1rpx solid rgba(16, 185, 129, 0.3);
+}
+
+.statusBadge.downloading {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1rpx solid rgba(56, 189, 248, 0.3);
+}
+
+.statusBadge.failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1rpx solid rgba(239, 68, 68, 0.3);
+}
+
+.statusBadge.pushed {
+  background: rgba(218, 107, 23, 0.15);
+  color: #da6b17;
+  border: 1rpx solid rgba(218, 107, 23, 0.3);
+}
+
+.statusDot {
+  font-size: 14rpx;
+}
+
+.statusText {
+  font-size: 18rpx;
+}
+
 .rePushBtn {
   background: rgba(218, 107, 23, 0.15);
   border: 1rpx solid rgba(218, 107, 23, 0.4);
@@ -388,6 +531,34 @@ export default {
   border-radius: 10rpx;
   padding: 12rpx 24rpx;
   margin: 0;
+  transition: all 0.2s ease;
+}
+
+.rePushBtn.completedBtn {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1rpx solid rgba(16, 185, 129, 0.4);
+}
+
+.rePushBtn.completedBtn .rePushText {
+  color: #10b981;
+}
+
+.rePushBtn.downloadingBtn {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1rpx solid rgba(56, 189, 248, 0.4);
+}
+
+.rePushBtn.downloadingBtn .rePushText {
+  color: #38bdf8;
+}
+
+.rePushBtn.failedBtn {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1rpx solid rgba(239, 68, 68, 0.4);
+}
+
+.rePushBtn.failedBtn .rePushText {
+  color: #ef4444;
 }
 
 .rePushText {
