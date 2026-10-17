@@ -161,6 +161,7 @@
               <text class="guideStepText">2. 登录您的 NexusMods 账号（若有双重验证则输入验证码）；</text>
               <text class="guideStepText">3. 页面提示请求授权时，点击绿色「Authorize」按钮；</text>
               <text class="guideStepText">4. 返回本应用，系统将通过官方安全信道自动登入！</text>
+              <text class="guideStepText warnTip">⚠️ 注意：若在电脑 F12「手机设备模拟器」中打开，Cloudflare 会因伪装特征直接拦截报错；请在正常电脑标签页中打开或直接切换至上方【API Key 登录】。</text>
             </view>
           </view>
         </view>
@@ -1216,6 +1217,12 @@ export default {
   font-size: 20rpx;
   color: #9ca3af;
   line-height: 1.4;
+}
+
+.guideStepText.warnTip {
+  color: #f59e0b;
+  margin-top: 6rpx;
+  line-height: 1.5;
 }
 
 .copyUrlBtn {
