@@ -42,4 +42,17 @@ scroll-view::-webkit-scrollbar {
   color: transparent !important;
   background: transparent !important;
 }
+
+/* ============================================================================ */
+/* 全局系统级轻提示与模态弹窗最高层级保障 (确保 Toast 与 Modal 绝不被任何浮层遮挡) */
+/* ============================================================================ */
+uni-toast,
+.uni-sample-toast,
+.uni-toast,
+uni-modal,
+.uni-modal,
+uni-actionsheet,
+.uni-actionsheet {
+  z-index: 999999 !important;
+}
 </style>

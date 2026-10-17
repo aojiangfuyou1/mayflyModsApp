@@ -2,8 +2,8 @@
   <!-- ======================================================================== -->
   <!-- NexusMods 官方账户中心与 API 授权统一弹窗组件 (多页面复用)             -->
   <!-- ======================================================================== -->
-  <view class="modalOverlay" v-if="visible" @click="close">
-    <view class="nexusAuthModalContent" @click.stop="handleContentClick">
+  <view class="modalOverlay" v-if="visible" @click.self="close">
+    <view class="nexusAuthModalContent" @click.stop>
       <!-- 弹窗顶栏 -->
       <view class="authModalHeader">
         <view class="authModalTitleRow">
@@ -92,6 +92,12 @@
           </text>
         </view>
 
+        <!-- 实时操作状态与提示横幅 (确保点击操作均有直观显眼的文字与色彩动效反馈) -->
+        <view class="inlineStatusBanner" v-if="inlineNotice.text" :class="inlineNotice.type">
+          <text class="statusBannerIcon">{{ inlineNotice.type === 'success' ? '✓' : inlineNotice.type === 'error' ? '⚠️' : 'ℹ️' }}</text>
+          <text class="statusBannerText">{{ inlineNotice.text }}</text>
+        </view>
+
         <!-- API Key 输入框 -->
         <view class="formItem">
           <view class="formLabelRow">
@@ -104,12 +110,14 @@
               type="text"
               v-model="apiKeyInput"
               placeholder="在此粘贴以 nxm_ 开头的 API Key..."
+              confirm-type="done"
+              @confirm="handleLoginWithApiKey"
             />
-            <text v-if="apiKeyInput" class="clearKeyBtn" @click="apiKeyInput = ''">✕</text>
+            <text v-if="apiKeyInput" class="clearKeyBtn" @click="handleClearKey">✕</text>
           </view>
         </view>
 
-        <!-- 登录按钮 (未填入时点击会有轻提示，不出现死灰无响应现象) -->
+        <!-- 登录按钮 (未填入时点击会有明确提示，不出现死灰无响应现象) -->
         <button
           class="authLoginBtn"
           :disabled="isVerifyingNexusKey"
@@ -136,6 +144,7 @@
               href="https://www.nexusmods.com/users/myaccount?tab=api"
               target="_blank"
               rel="noopener"
+              @click="onWebLinkClick"
             >
               <text class="copyUrlBtnText">🌐 浏览器打开官网</text>
             </a>
@@ -198,7 +207,13 @@ export default {
     return {
       apiKeyInput: '',
       isVerifyingNexusKey: false,
-      isSyncingFromPc: false
+      isSyncingFromPc: false,
+      // 弹窗内嵌实时状态提示 (成功/警告/信息)，确保即便系统 Toast 延迟用户也能立刻看清响应
+      inlineNotice: {
+        text: '',
+        type: 'info'
+      },
+      noticeTimer: null
     };
   },
 
@@ -208,15 +223,43 @@ export default {
         // 每次打开弹窗重置临时加载锁，防止被卡死
         this.isSyncingFromPc = false;
         this.isVerifyingNexusKey = false;
+        this.inlineNotice = { text: '', type: 'info' };
+        if (this.noticeTimer) {
+          clearTimeout(this.noticeTimer);
+          this.noticeTimer = null;
+        }
       }
     }
   },
 
   methods: {
     /**
-     * 空实现阻止子元素点击穿透到遮罩
+     * 设置弹窗内嵌高亮提示文本 (自动定时重置)
+     * @param {string} text 提示内容
+     * @param {'info' | 'error' | 'success'} type 类型
+     * @param {number} duration 毫秒数 (默认 3500)
      */
-    handleContentClick() {},
+    setNotice(text, type = 'info', duration = 3500) {
+      if (this.noticeTimer) {
+        clearTimeout(this.noticeTimer);
+        this.noticeTimer = null;
+      }
+      this.inlineNotice = { text, type };
+      if (duration > 0) {
+        this.noticeTimer = setTimeout(() => {
+          this.inlineNotice = { text: '', type: 'info' };
+          this.noticeTimer = null;
+        }, duration);
+      }
+    },
+
+    /**
+     * 清空当前输入的 API Key
+     */
+    handleClearKey() {
+      this.apiKeyInput = '';
+      this.setNotice('已清空 API Key 输入框', 'info', 2000);
+    },
 
     /**
      * 关闭弹窗
@@ -224,11 +267,23 @@ export default {
     close() {
       this.isSyncingFromPc = false;
       this.isVerifyingNexusKey = false;
+      this.inlineNotice = { text: '', type: 'info' };
+      if (this.noticeTimer) {
+        clearTimeout(this.noticeTimer);
+        this.noticeTimer = null;
+      }
       this.$emit('close');
     },
 
     /**
-     * 快速粘贴剪贴板到 API Key 输入框 (多端兼容，优先使用现代异步剪贴板)
+     * 外部官网链接点击事件
+     */
+    onWebLinkClick() {
+      this.setNotice('🌐 正在跳转 NexusMods 官网申请页面...', 'info', 3000);
+    },
+
+    /**
+     * 快速粘贴剪贴板到 API Key 输入框 (多端兼容，带直观反馈)
      */
     async handlePasteClipboard() {
       // 1. 尝试现代浏览器 / H5 异步 Clipboard API
@@ -238,6 +293,7 @@ export default {
           const text = await navigator.clipboard.readText();
           if (text && text.trim()) {
             this.apiKeyInput = text.trim();
+            this.setNotice('✓ 已成功从系统剪贴板填入密钥', 'success', 3000);
             uni.showToast({
               title: '已自动填入密钥',
               icon: 'success'
@@ -255,11 +311,13 @@ export default {
         success: (res) => {
           if (res.data) {
             this.apiKeyInput = String(res.data).trim();
+            this.setNotice('✓ 已成功填入剪贴板内容', 'success', 3000);
             uni.showToast({
               title: '已填入剪贴板内容',
               icon: 'success'
             });
           } else {
+            this.setNotice('💡 剪贴板为空，请在输入框按 Ctrl+V 粘贴', 'info', 3500);
             uni.showToast({
               title: '请点击输入框按 Ctrl+V 粘贴',
               icon: 'none'
@@ -267,6 +325,7 @@ export default {
           }
         },
         fail: () => {
+          this.setNotice('💡 浏览器已限制自动读取，请直接在输入框按 Ctrl+V 粘贴', 'info', 4500);
           uni.showToast({
             title: '请直接点击输入框按 Ctrl+V 粘贴',
             icon: 'none'
@@ -286,6 +345,8 @@ export default {
         if (!win || win.closed || typeof win.closed === 'undefined') {
           this.handleCopyKeyUrl('已复制官网链接，请在系统浏览器打开');
           return;
+        } else {
+          this.setNotice('🌐 已在浏览器新标签页打开官网申请页面', 'success', 3500);
         }
       } catch (e) {
         this.handleCopyKeyUrl('已复制官网链接，请在系统浏览器打开');
@@ -301,13 +362,23 @@ export default {
      * 复制官方 API Key 获取链接到剪贴板
      */
     handleCopyKeyUrl(customNotice = '') {
+      const targetUrl = 'https://www.nexusmods.com/users/myaccount?tab=api';
+      // #ifdef H5
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(targetUrl).catch(() => {});
+      }
+      // #endif
       uni.setClipboardData({
-        data: 'https://www.nexusmods.com/users/myaccount?tab=api',
+        data: targetUrl,
         success: () => {
+          this.setNotice(customNotice || '✓ 官网链接已复制到剪贴板，请在浏览器中打开申请', 'success', 3500);
           uni.showToast({
             title: customNotice || '官网链接已复制到剪贴板',
             icon: 'success'
           });
+        },
+        fail: () => {
+          this.setNotice('官网链接: ' + targetUrl, 'info', 6000);
         }
       });
     },
@@ -318,6 +389,7 @@ export default {
     async handleLoginWithApiKey() {
       const key = (this.apiKeyInput || '').trim();
       if (!key) {
+        this.setNotice('⚠️ 请先在上方输入框粘贴或输入 API Key', 'error', 3500);
         uni.showToast({
           title: '请先粘贴或输入 API Key',
           icon: 'none'
@@ -325,28 +397,36 @@ export default {
         return;
       }
       this.isVerifyingNexusKey = true;
+      this.setNotice('正在向 NexusMods 官方校验密钥...', 'info', 10000);
       try {
         const res = await validateNexusApiKey(key);
         if (res && res.success && res.user) {
           const userName = res.user.name || 'Nexus 用户';
           this.apiKeyInput = '';
+          this.setNotice(`✓ 验证成功！欢迎 ${userName}`, 'success', 3000);
           uni.showToast({
             title: `验证成功！欢迎 ${userName}`,
             icon: 'success'
           });
           this.$emit('login-success', { user: res.user, apiKey: key });
-          this.close();
+          setTimeout(() => {
+            this.close();
+          }, 600);
         } else {
+          const errMsg = (res && res.message) || '请检查密钥是否正确，或登录 Nexus 官网重新申请';
+          this.setNotice(`❌ 校验未通过: ${errMsg}`, 'error', 5000);
           uni.showModal({
             title: 'API Key 校验未通过',
-            content: (res && res.message) || '请检查密钥是否正确，或登录 Nexus 官网重新申请',
+            content: errMsg,
             showCancel: false
           });
         }
       } catch (err) {
+        const errMsg = err.message || '网络连接超时，请确认能够正常访问 NexusMods 官方服务';
+        this.setNotice(`❌ 校验异常: ${errMsg}`, 'error', 5000);
         uni.showModal({
           title: 'API Key 校验未通过',
-          content: err.message || '网络连接超时，请确认能够正常访问 NexusMods 官方服务',
+          content: errMsg,
           showCancel: false
         });
       } finally {
@@ -360,6 +440,7 @@ export default {
     handleSwitchApiKey() {
       logoutNexus();
       this.apiKeyInput = '';
+      this.setNotice('已重置凭据，请重新输入', 'info', 2500);
       this.$emit('logout');
     },
 
@@ -390,26 +471,34 @@ export default {
     async handleSyncFromDesktop() {
       if (this.isSyncingFromPc) return;
       this.isSyncingFromPc = true;
+      this.setNotice('正在探测电脑端 Mayfly 局域网服务...', 'info', 5000);
       try {
         const syncResult = await syncNexusFromDesktop(this.desktopConfig);
         if (syncResult && syncResult.user) {
+          this.setNotice(`✓ 已同步电脑端凭据: ${syncResult.user.name}`, 'success', 3000);
           uni.showToast({
             title: `已同步电脑端凭据: ${syncResult.user.name}`,
             icon: 'success'
           });
           this.$emit('login-success', { user: syncResult.user, apiKey: syncResult.apiKey });
-          this.close();
+          setTimeout(() => {
+            this.close();
+          }, 600);
         } else {
+          const msg = (syncResult && syncResult.message) || '电脑端 Mayfly 暂未登录 Nexus 账户，或当前未连接电脑端。';
+          this.setNotice(`⚠️ ${msg}`, 'error', 5000);
           uni.showModal({
             title: '未同步到有效账号',
-            content: (syncResult && syncResult.message) || '电脑端 Mayfly 暂未登录 Nexus 账户，或当前未连接电脑端。',
+            content: msg,
             showCancel: false
           });
         }
       } catch (err) {
+        const msg = err.message || '请确保电脑端 Mayfly 处于运行状态且在同一局域网';
+        this.setNotice(`⚠️ ${msg}`, 'error', 5000);
         uni.showModal({
           title: '同步请求异常',
-          content: err.message || '请确保电脑端 Mayfly 处于运行状态且在同一局域网',
+          content: msg,
           showCancel: false
         });
       } finally {
@@ -432,15 +521,20 @@ export default {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 32rpx;
   box-sizing: border-box;
+  pointer-events: auto;
 }
 
 .nexusAuthModalContent {
+  position: relative;
+  z-index: 1001;
+  pointer-events: auto;
   width: 100%;
   max-width: 680rpx;
   background: #181a1f;
@@ -717,6 +811,60 @@ export default {
   flex-direction: column;
 }
 
+/* 实时操作状态横幅动效 */
+.inlineStatusBanner {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 14rpx 18rpx;
+  border-radius: 12rpx;
+  font-size: 22rpx;
+  line-height: 1.4;
+  margin-top: 4rpx;
+  box-sizing: border-box;
+  animation: noticeFadeIn 0.25s ease-out;
+}
+
+@keyframes noticeFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.inlineStatusBanner.info {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1rpx solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+
+.inlineStatusBanner.error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1rpx solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+.inlineStatusBanner.success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1rpx solid rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+}
+
+.statusBannerIcon {
+  font-size: 24rpx;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.statusBannerText {
+  flex: 1;
+  word-break: break-all;
+}
+
 .formLabelRow {
   display: flex;
   align-items: center;
@@ -735,6 +883,14 @@ export default {
   color: #da6b17;
   font-weight: 600;
   cursor: pointer;
+  padding: 4rpx 8rpx;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+.pasteQuickLink:active {
+  opacity: 0.6;
+  transform: scale(0.96);
 }
 
 .keyInputBox {
@@ -742,19 +898,34 @@ export default {
   display: flex;
   align-items: center;
   width: 100%;
+  height: 84rpx;
+  min-height: 84rpx;
+  background: #1f232b;
+  border: 1rpx solid #363c4a;
+  border-radius: 12rpx;
   box-sizing: border-box;
+  transition: border-color 0.2s ease;
+}
+
+.keyInputBox:focus-within {
+  border-color: #da6b17;
 }
 
 .keyInput {
   flex: 1;
   width: 100%;
-  background: #1f232b;
-  border: 1rpx solid #363c4a;
-  border-radius: 12rpx;
-  padding: 18rpx 60rpx 18rpx 20rpx;
+  height: 84rpx;
+  min-height: 84rpx;
+  line-height: 84rpx;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0 68rpx 0 20rpx;
   font-size: 24rpx;
   color: #ffffff;
   box-sizing: border-box;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .clearKeyBtn {
@@ -763,7 +934,17 @@ export default {
   font-size: 24rpx;
   color: #9ca3af;
   cursor: pointer;
-  padding: 6rpx;
+  padding: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+
+.clearKeyBtn:active {
+  color: #ffffff;
+  transform: scale(0.9);
 }
 
 .authLoginBtn {
@@ -784,6 +965,11 @@ export default {
   transition: all 0.2s ease;
 }
 
+.authLoginBtn:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
 .authLoginBtn::after {
   border: none;
 }
@@ -794,6 +980,7 @@ export default {
   color: #71717a !important;
   border: 1rpx solid #3b4252 !important;
   cursor: not-allowed;
+  transform: none !important;
 }
 
 .syncPcBtn {
@@ -811,10 +998,22 @@ export default {
   margin: 0;
   box-sizing: border-box;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.syncPcBtn:active {
+  transform: scale(0.98);
+  background: #323948;
 }
 
 .syncPcBtn::after {
   border: none;
+}
+
+.syncPcBtn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
 }
 
 .syncPcBtnText {
@@ -882,6 +1081,12 @@ export default {
   box-sizing: border-box;
   cursor: pointer;
   text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.copyUrlBtn.actionBtn:active {
+  transform: scale(0.97);
+  opacity: 0.8;
 }
 
 .copyUrlBtn.actionBtn::after {
@@ -893,6 +1098,10 @@ export default {
   background: #252a35;
   border: 1rpx solid #3a4254;
   color: #cbd5e1;
+}
+
+.copyUrlBtn.actionBtn.subBtn:active {
+  background: #323948;
 }
 
 .copyUrlBtn.actionBtn.subBtn .copyUrlBtnText {
