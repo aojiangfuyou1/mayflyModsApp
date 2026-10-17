@@ -130,6 +130,19 @@
             <text class="loginBtnText">🚀 前往 N 网网页完成授权</text>
           </button>
 
+          <!-- #ifdef H5 -->
+          <!-- 网页端专属防拦截直接链接：点击直接在浏览器新标签页打开授权 -->
+          <a
+            v-if="currentSsoUrl"
+            class="ssoDirectLink"
+            :href="currentSsoUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            如未自动打开窗口，点此直接在新标签页打开授权页面 ›
+          </a>
+          <!-- #endif -->
+
           <view class="ssoActionSubRow">
             <button class="ssoSubActionBtn" @click="handleCopySsoUrl">
               <text class="ssoSubBtnText">📋 复制授权网址到浏览器</text>
@@ -301,6 +314,13 @@ export default {
         default:
           return 'gray';
       }
+    },
+
+    /**
+     * 官方 SSO 授权目标 URL (兼容 authUrl 与 ssoUrl 字段)
+     */
+    currentSsoUrl() {
+      return this.ssoSession ? (this.ssoSession.authUrl || this.ssoSession.ssoUrl || '') : '';
     }
   },
 
@@ -352,6 +372,10 @@ export default {
       }
     },
 
+    // ------------------------------------------------------------------------
+    // SSO 会话生命周期与跳转方法
+    // ------------------------------------------------------------------------
+
     /**
      * 初始化 Nexus 官方 SSO WebSocket 长连接会话
      */
@@ -361,53 +385,89 @@ export default {
       this.ssoErrorMsg = '';
 
       this.ssoSession = startNexusSsoSession({
+        // 实时信道状态变化回调
         onStatusChange: (status, data) => {
           this.ssoStatus = status;
           if (status === 'error' && data && data.message) {
             this.ssoErrorMsg = data.message;
           }
         },
-        onSuccess: ({ user, apiKey }) => {
+        // 授权成功回调：兼容多种传参形式
+        onSuccess: (data, maybeApiKey) => {
           this.ssoStatus = 'idle';
+          const user = data?.user || (data?.name ? data : null);
+          const apiKey = data?.apiKey || maybeApiKey || '';
+          const userName = user?.name || 'Nexus 用户';
           uni.showToast({
-            title: `欢迎回来，${user.name}！`,
+            title: `欢迎回来，${userName}！`,
             icon: 'success'
           });
           this.$emit('login-success', { user, apiKey });
           this.close();
         },
+        // 异常回调
         onError: (err) => {
           this.ssoStatus = 'error';
-          this.ssoErrorMsg = (err && err.message) || 'SSO 认证发生异常';
+          this.ssoErrorMsg = (err && (err.message || (typeof err === 'string' && err))) || 'SSO 认证发生异常';
         }
       });
     },
 
     /**
-     * 一键在浏览器打开 SSO 授权网址
+     * 一键在浏览器打开 SSO 官方授权页面
+     * 解决 H5/浏览器弹窗拦截问题，并支持移动端直接跳转
      */
     handleOpenSsoUrl() {
-      if (!this.ssoSession || !this.ssoSession.authUrl) {
+      // 若信道未连接或 URL 丢失，先尝试重新初始化
+      if (!this.ssoSession || !this.currentSsoUrl) {
         this.initSsoSession();
       }
-      const url = this.ssoSession ? this.ssoSession.authUrl : '';
+      const url = this.currentSsoUrl;
       if (!url) {
         uni.showToast({
-          title: '信道初始化中，请稍候...',
+          title: '信道初始化中，请稍候重试...',
           icon: 'none'
         });
         return;
       }
       this.ssoStatus = 'waiting';
+
+      // ----------------------------------------------------------------------
+      // 1. H5 网页/浏览器环境：唤起新标签页或模拟超链接防拦截
+      // ----------------------------------------------------------------------
       // #ifdef H5
-      window.open(url, '_blank');
+      try {
+        const win = window.open(url, '_blank', 'noopener,noreferrer');
+        // 检测是否被浏览器拦截弹窗
+        if (!win || win.closed || typeof win.closed === 'undefined') {
+          // 降级策略：创建动态 a 标签模拟用户真实点击
+          const a = document.createElement('a');
+          a.href = url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } catch (e) {
+        console.warn('[SSO] 窗口打开受限，提示手动打开:', e);
+        uni.showToast({
+          title: '请点击下方链接直接在新标签页打开',
+          icon: 'none'
+        });
+      }
       // #endif
+
+      // ----------------------------------------------------------------------
+      // 2. 非 H5 环境 (移动端原生/小程序)：复制到剪贴板并弹窗引导
+      // ----------------------------------------------------------------------
       // #ifndef H5
       uni.setClipboardData({
         data: url,
+        showToast: false,
         success: () => {
           uni.showModal({
-            title: '授权链接已复制',
+            title: '授权链接已就绪',
             content: '已将 N 网官方 SSO 授权网址复制到剪贴板，请在浏览器粘贴打开。登录并授权后，本应用将自动完成登入！',
             confirmText: '我知道了',
             showCancel: false
@@ -418,18 +478,19 @@ export default {
     },
 
     /**
-     * 复制 SSO 授权网址
+     * 复制 SSO 授权网址到系统剪贴板
      */
     handleCopySsoUrl() {
-      if (!this.ssoSession || !this.ssoSession.authUrl) {
+      const url = this.currentSsoUrl;
+      if (!url) {
         uni.showToast({
-          title: '信道准备中，请重试',
+          title: '信道准备中，请稍候重试',
           icon: 'none'
         });
         return;
       }
       uni.setClipboardData({
-        data: this.ssoSession.authUrl,
+        data: url,
         success: () => {
           uni.showToast({
             title: 'SSO 授权网址已复制',
@@ -972,6 +1033,21 @@ export default {
 
 .ssoLaunchBtn {
   margin-top: 6rpx;
+}
+
+.ssoDirectLink {
+  display: block;
+  text-align: center;
+  font-size: 21rpx;
+  color: #60a5fa;
+  text-decoration: underline;
+  padding: 4rpx 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.ssoDirectLink:hover {
+  opacity: 0.85;
 }
 
 .ssoActionSubRow {
