@@ -7,11 +7,9 @@
       title="模组详情"
       :show-back="true"
       :show-search="false"
-      :show-share="true"
       :desktop-config="desktopConfig"
       :nexus-user="nexusUser"
       @back-click="handleNavBack"
-      @share-click="handleShareMod"
       @pc-click="openDeviceModal"
       @user-click="openNexusAuthModal"
       @logo-click="handleNavBack"
@@ -386,7 +384,6 @@ import {
   getCategoryZhName
 } from '../../services/translate.js';
 import { isFavorited, toggleFavorite } from '../../services/favorites.js';
-import { formatModShareText } from '../../services/poster.js';
 import NexusHeader from '../../components/NexusHeader.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
@@ -900,23 +897,6 @@ export default {
       uni.showToast({
         title: status ? '已收藏到心愿单 ❤️' : '已移出心愿单',
         icon: 'none'
-      });
-    },
-
-    /**
-     * 分享模组装机口令
-     */
-    handleShareMod() {
-      const text = formatModShareText(this.modInfo);
-      uni.setClipboardData({
-        data: text,
-        success: () => {
-          uni.showModal({
-            title: '装机口令已复制',
-            content: '已将该模组的专属 Mayfly 装机口令复制到剪贴板，可直接发送给好友一键打开！',
-            showCancel: false
-          });
-        }
       });
     },
 

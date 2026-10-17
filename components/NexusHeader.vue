@@ -16,13 +16,10 @@
       <text class="headerPageTitle" v-if="title">{{ title }}</text>
     </view>
 
-    <!-- 右侧功能区：搜索/分享 + 电脑端指示灯 + 官方用户头像 -->
+    <!-- 右侧功能区：搜索 + 电脑端指示灯 + 官方用户头像 -->
     <view class="headerRightArea">
       <view class="headerBtn" v-if="showSearch" @click="$emit('search-click')">
         <NexusIcon name="search" size="36rpx" color="#cbd5e1" />
-      </view>
-      <view class="headerBtn" v-if="showShare" @click="$emit('share-click')">
-        <NexusIcon name="share" size="36rpx" color="#cbd5e1" />
       </view>
       <view class="headerBtn pcBtn" @click="$emit('pc-click')">
         <NexusIcon name="desktop" size="36rpx" :color="desktopConfig && desktopConfig.connected ? '#10b981' : '#94a3b8'" />
@@ -70,10 +67,6 @@ export default {
     showSearch: {
       type: Boolean,
       default: true
-    },
-    showShare: {
-      type: Boolean,
-      default: false
     },
     desktopConfig: {
       type: Object,

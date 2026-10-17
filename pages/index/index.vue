@@ -396,7 +396,7 @@ import {
 } from '../../services/translate.js';
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
 import { getFavorites, toggleFavorite } from '../../services/favorites.js';
-import { parseShareClipboard, formatFavoritesShareText } from '../../services/poster.js';
+import { formatFavoritesShareText } from '../../services/poster.js';
 import NexusHeader from '../../components/NexusHeader.vue';
 import NexusDrawer from '../../components/NexusDrawer.vue';
 import ModCard from '../../components/ModCard.vue';
@@ -638,7 +638,6 @@ export default {
     this.refreshHistory();
     this.refreshFavorites();
     this.refreshNexusUser();
-    this.checkClipboardModShare();
   },
 
   onPullDownRefresh() {
@@ -1401,34 +1400,6 @@ export default {
       } else {
         uni.showToast({ title: res.message || '重推失败', icon: 'none' });
       }
-    },
-
-    checkClipboardModShare() {
-      uni.getClipboardData({
-        success: (res) => {
-          const content = res.data;
-          if (!content || content === this.lastHandledClipboard) return;
-          const parsed = parseShareClipboard(content);
-          if (parsed && parsed.modId) {
-            this.lastHandledClipboard = content;
-            uni.showModal({
-              title: '发现 Mayfly 装机口令',
-              content: `是否打开模组【${parsed.title || 'Nexus Mod #' + parsed.modId}】？`,
-              confirmText: '立即打开',
-              success: (mRes) => {
-                if (mRes.confirm) {
-                  this.openDetail({
-                    id: parsed.modId,
-                    modId: parsed.modId,
-                    title: parsed.title,
-                    game: { domainName: parsed.gameDomain, name: parsed.gameDomain }
-                  });
-                }
-              }
-            });
-          }
-        }
-      });
     },
 
     // ------------------------------------------------------------------------
