@@ -317,10 +317,10 @@
         <text class="bottomIconLabel">原帖</text>
       </view>
 
-      <!-- 心愿单收藏 -->
+      <!-- 心愿单收藏 / N网云端追踪 -->
       <view class="bottomIconBtn" @click="handleToggleFavorite">
         <text class="bottomIcon">{{ favorited ? '❤️' : '🤍' }}</text>
-        <text class="bottomIconLabel">{{ favorited ? '已收藏' : '心愿单' }}</text>
+        <text class="bottomIconLabel">{{ favorited ? '已追踪' : '追踪' }}</text>
       </view>
 
       <!-- 核心大按钮：一键推送到电脑 Mayfly 安装 -->
@@ -879,9 +879,9 @@ export default {
     },
 
     /**
-     * 切换心愿单收藏
+     * 切换心愿单收藏 (全面对接 NexusMods 官方云端追踪 Tracked Mods)
      */
-    handleToggleFavorite() {
+    async handleToggleFavorite() {
       if (!this.modInfo.game || !this.modInfo.game.domainName) {
         try {
           const savedGame = uni.getStorageSync('mayfly_active_game');
@@ -892,10 +892,24 @@ export default {
           }
         } catch (e) {}
       }
-      const status = toggleFavorite(this.modInfo);
-      this.favorited = status;
+      const res = await toggleFavorite(this.modInfo);
+      if (res && res.needLogin) {
+        uni.showModal({
+          title: '需要登录 NexusMods',
+          content: '收藏模组将直接与您的 N网 官方账号“追踪历史 (Tracked Mods)”实时云端同步。请先登录您的 N网 账号。',
+          confirmText: '去登录',
+          cancelText: '取消',
+          success: (m) => {
+            if (m.confirm) {
+              this.nexusAuthModalVisible = true;
+            }
+          }
+        });
+        return;
+      }
+      this.favorited = res.favorited;
       uni.showToast({
-        title: status ? '已收藏到心愿单 ❤️' : '已移出心愿单',
+        title: res.message || (res.favorited ? '已加入 N网追踪 ❤️' : '已取消 N网追踪'),
         icon: 'none'
       });
     },

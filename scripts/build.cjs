@@ -89,10 +89,13 @@ for (const vFile of vueFiles) {
     const fullPath = path.join(rootDir, vFile);
     if (!fs.existsSync(fullPath)) continue;
     const vContent = fs.readFileSync(fullPath, 'utf8');
-    const tMatch = vContent.match(/<template>([\s\S]*?)<\/template>/);
-    if (!tMatch) continue;
+    const startIdx = vContent.indexOf('<template>');
+    if (startIdx === -1) continue;
+    const scriptIdx = vContent.indexOf('<script');
+    const endIdx = scriptIdx !== -1 ? vContent.lastIndexOf('</template>', scriptIdx) : vContent.lastIndexOf('</template>');
+    if (endIdx === -1 || endIdx <= startIdx) continue;
 
-    const tStr = tMatch[1];
+    const tStr = vContent.substring(startIdx + '<template>'.length, endIdx);
     const stack = [];
     const tagReg = /<(\/)?([a-zA-Z0-9_-]+)([\s\S]*?)>/g;
     let m;

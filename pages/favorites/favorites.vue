@@ -39,11 +39,17 @@
         </view>
 
         <view class="favSummaryText">
-          <view style="display: flex; align-items: center; gap: 6rpx;">
-            <NexusIcon name="heart-fill" size="26rpx" color="#ef4444" />
-            <text class="favCountNum">已收藏 {{ filteredFavoritesList.length }} 个模组</text>
+          <view style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <view style="display: flex; align-items: center; gap: 8rpx;">
+              <NexusIcon name="heart-fill" size="26rpx" color="#ef4444" />
+              <text class="favCountNum">已追踪 {{ filteredFavoritesList.length }} 个模组</text>
+            </view>
+            <view class="favSyncBtn" @click="syncTrackedFromNexus(true)">
+              <NexusIcon name="refresh" size="24rpx" color="#38bdf8" :class="{ 'spin-icon': isSyncingTracked }" />
+              <text class="favSyncBtnText">{{ isSyncingTracked ? '同步中...' : '同步 N网' }}</text>
+            </view>
           </view>
-          <text class="favTipText">{{ selectedGameDomain && favoritesScope === 'current' ? `当前仅展示 ${activeGameDisplayName} 模组` : '展示全游戏综合心愿单' }}</text>
+          <text class="favTipText">已对接 NexusMods 官方云端追踪 (Tracked Mods)，实时双向同步</text>
         </view>
 
         <view class="favBatchActions" v-if="filteredFavoritesList.length > 0">
@@ -79,14 +85,23 @@
         />
       </view>
 
-      <!-- 空状态提示 (优雅大尺寸空心爱心) -->
+      <!-- 空状态提示 (区分是否登录) -->
       <view class="emptyFavBox" v-else>
         <NexusIcon name="heart" size="84rpx" color="#475569" style="margin-bottom: 16rpx;" />
-        <text class="emptyFavTitle">心愿单空空如也</text>
-        <text class="emptyFavSub">在模组流中点击卡片右上角的心形图标即可加入心愿单</text>
-        <button class="goExploreBtn" @click="handleNavBack">
-          <text class="goExploreBtnText">去发现精彩 Mod ›</text>
-        </button>
+        <block v-if="!nexusApiKey">
+          <text class="emptyFavTitle">登录同步 N网 追踪历史</text>
+          <text class="emptyFavSub">心愿单已对接 NexusMods 官方云端追踪，登录后将自动拉取您在 N网 追踪收藏的所有模组</text>
+          <button class="goExploreBtn" style="background: linear-gradient(135deg, #da6b17, #f97316);" @click="openNexusAuth">
+            <text class="goExploreBtnText">🔑 登录 NexusMods 账号 ›</text>
+          </button>
+        </block>
+        <block v-else>
+          <text class="emptyFavTitle">暂无追踪的模组</text>
+          <text class="emptyFavSub">在模组流中点击卡片右上角的心形图标即可加入 N网 官方云端追踪</text>
+          <button class="goExploreBtn" @click="handleNavBack">
+            <text class="goExploreBtnText">去发现精彩 Mod ›</text>
+          </button>
+        </block>
       </view>
     </view>
 
@@ -140,7 +155,8 @@
 // ============================================================================
 import {
   getFavorites,
-  toggleFavorite
+  toggleFavorite,
+  syncFavoritesFromNexus
 } from '../../services/favorites.js';
 import { getPushHistory } from '../../services/history.js';
 import {
@@ -149,7 +165,8 @@ import {
   saveDesktopConfig,
   testDesktopConnection,
   getNexusUser,
-  getNexusApiKey
+  getNexusApiKey,
+  syncNexusFromDesktop
 } from '../../services/nexus.js';
 import { formatFavoritesShareText } from '../../services/poster.js';
 import NexusHeader from '../../components/NexusHeader.vue';
@@ -183,6 +200,7 @@ export default {
       nexusAuthModalVisible: false,
       pushingModId: null,
       isBatchPushing: false,
+      isSyncingTracked: false,
       desktopConfig: { host: '10.204.160.22', port: 28888, connected: false },
       nexusUser: null,
       nexusApiKey: '',
@@ -208,13 +226,29 @@ export default {
     }
   },
 
-  onShow() {
+  async onShow() {
     this.refreshFavorites();
     const hist = getPushHistory();
     this.historyCount = Array.isArray(hist) ? hist.length : 0;
     this.desktopConfig = getDesktopConfig();
     this.nexusUser = getNexusUser();
     this.nexusApiKey = getNexusApiKey();
+
+    // 未登录时若电脑端已连接，尝试静默同步 N网 会话
+    if (!this.nexusApiKey && this.desktopConfig && this.desktopConfig.connected) {
+      try {
+        const synced = await syncNexusFromDesktop(this.desktopConfig);
+        if (synced && synced.apiKey) {
+          this.nexusApiKey = synced.apiKey;
+          this.nexusUser = synced.user;
+        }
+      } catch (e) {}
+    }
+
+    // 已登录则后台轻量静默同步最新 N网 追踪列表
+    if (this.nexusApiKey) {
+      this.syncTrackedFromNexus(false);
+    }
   },
 
   onLoad(query) {
@@ -230,10 +264,75 @@ export default {
       this.favoritesList = getFavorites();
     },
 
-    toggleCardFavorite(modItem) {
-      toggleFavorite(modItem);
+    /**
+     * 主动从 N网 云端同步追踪列表
+     * @param {boolean} showToast
+     */
+    async syncTrackedFromNexus(showToast = true) {
+      if (this.isSyncingTracked) return;
+      if (!this.nexusApiKey) {
+        if (showToast) {
+          uni.showModal({
+            title: '需要登录 NexusMods',
+            content: '心愿单模组与您的 N网 官方账号“追踪历史 (Tracked Mods)”直接云端同步。请先登录 N网 账号。',
+            confirmText: '去登录',
+            cancelText: '取消',
+            success: (m) => {
+              if (m.confirm) {
+                this.openNexusAuth();
+              }
+            }
+          });
+        }
+        return;
+      }
+
+      this.isSyncingTracked = true;
+      if (showToast) {
+        uni.showLoading({ title: '同步 N网 追踪中...' });
+      }
+      try {
+        const list = await syncFavoritesFromNexus(this.nexusApiKey);
+        this.favoritesList = list;
+        if (showToast) {
+          uni.showToast({
+            title: `已同步 ${list.length} 个 N网追踪模组`,
+            icon: 'none'
+          });
+        }
+      } catch (err) {
+        if (showToast) {
+          uni.showToast({ title: '同步追踪异常', icon: 'none' });
+        }
+      } finally {
+        this.isSyncingTracked = false;
+        if (showToast) {
+          uni.hideLoading();
+        }
+      }
+    },
+
+    async toggleCardFavorite(modItem) {
+      const res = await toggleFavorite(modItem);
+      if (res && res.needLogin) {
+        uni.showModal({
+          title: '需要登录 NexusMods',
+          content: '加入或移出心愿单将直接与您的 N网 官方“追踪历史 (Tracked Mods)”云端双向同步，请先登录 N网 账号。',
+          confirmText: '去登录',
+          cancelText: '取消',
+          success: (m) => {
+            if (m.confirm) {
+              this.openNexusAuth();
+            }
+          }
+        });
+        return;
+      }
       this.refreshFavorites();
-      uni.showToast({ title: '已移出心愿单', icon: 'none' });
+      uni.showToast({
+        title: res.message || (res.favorited ? '已加入 N网追踪' : '已取消 N网追踪'),
+        icon: 'none'
+      });
     },
 
     openDetail(item) {
@@ -317,11 +416,13 @@ export default {
     onNexusLoginSuccess({ user, apiKey }) {
       this.nexusUser = user;
       this.nexusApiKey = apiKey;
+      this.syncTrackedFromNexus(true);
     },
 
     onNexusLogout() {
       this.nexusUser = null;
       this.nexusApiKey = '';
+      this.refreshFavorites();
     },
 
     async runQuickTest() {
@@ -422,14 +523,40 @@ export default {
 
 .favSummaryText {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
 .favCountNum {
   font-size: 24rpx;
   font-weight: 700;
   color: #da6b17;
+}
+
+.favSyncBtn {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  background: #1e293b;
+  border: 1rpx solid #334155;
+  border-radius: 8rpx;
+  padding: 6rpx 16rpx;
+  cursor: pointer;
+}
+
+.favSyncBtnText {
+  font-size: 20rpx;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
 }
 
 .favTipText {

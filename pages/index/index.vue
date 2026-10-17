@@ -395,7 +395,7 @@ import {
   batchTranslateModList
 } from '../../services/translate.js';
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
-import { getFavorites, toggleFavorite } from '../../services/favorites.js';
+import { getFavorites, toggleFavorite, syncFavoritesFromNexus } from '../../services/favorites.js';
 import { formatFavoritesShareText } from '../../services/poster.js';
 import NexusHeader from '../../components/NexusHeader.vue';
 import NexusDrawer from '../../components/NexusDrawer.vue';
@@ -638,6 +638,13 @@ export default {
     this.refreshHistory();
     this.refreshFavorites();
     this.refreshNexusUser();
+    if (this.nexusApiKey) {
+      syncFavoritesFromNexus(this.nexusApiKey).then((list) => {
+        if (Array.isArray(list)) {
+          this.refreshFavorites();
+        }
+      }).catch(() => {});
+    }
   },
 
   onPullDownRefresh() {
@@ -648,8 +655,18 @@ export default {
       return;
     }
     if (this.currentSort === 'favorites') {
-      this.refreshFavorites();
-      uni.stopPullDownRefresh();
+      if (this.nexusApiKey) {
+        syncFavoritesFromNexus(this.nexusApiKey).then(() => {
+          this.refreshFavorites();
+          uni.stopPullDownRefresh();
+        }).catch(() => {
+          this.refreshFavorites();
+          uni.stopPullDownRefresh();
+        });
+      } else {
+        this.refreshFavorites();
+        uni.stopPullDownRefresh();
+      }
       return;
     }
     this.resetAndLoad(() => {
@@ -969,6 +986,13 @@ export default {
       this.currentSort = sortType;
       if (sortType === 'favorites') {
         this.refreshFavorites();
+        if (this.nexusApiKey) {
+          syncFavoritesFromNexus(this.nexusApiKey).then((list) => {
+            if (Array.isArray(list)) {
+              this.refreshFavorites();
+            }
+          }).catch(() => {});
+        }
         return;
       }
       this.resetAndLoad();
@@ -991,7 +1015,7 @@ export default {
     },
 
     // ------------------------------------------------------------------------
-    // 收藏与心愿单
+    // 收藏与心愿单 (全面对接 NexusMods 官方云端追踪 Tracked Mods)
     // ------------------------------------------------------------------------
 
     refreshFavorites() {
@@ -1003,7 +1027,7 @@ export default {
       this.favoriteIdMap = map;
     },
 
-    toggleCardFavorite(item) {
+    async toggleCardFavorite(item) {
       if (!item || !item.id) return;
       // 补齐游戏元数据，杜绝无归属模组导致跨游戏乱跑
       if ((!item.game || !item.game.domainName) && this.selectedGameDomain) {
@@ -1011,10 +1035,24 @@ export default {
         item.game.domainName = this.selectedGameDomain;
         item.game.name = this.selectedGameName || this.selectedGameDomain;
       }
-      const nextStatus = toggleFavorite(item);
+      const res = await toggleFavorite(item);
+      if (res && res.needLogin) {
+        uni.showModal({
+          title: '需要登录 NexusMods',
+          content: '收藏模组将直接与您的 N网 官方账号“追踪历史 (Tracked Mods)”实时云端同步。请先登录您的 N网 账号。',
+          confirmText: '去登录',
+          cancelText: '取消',
+          success: (m) => {
+            if (m.confirm) {
+              this.openNexusAuthModal();
+            }
+          }
+        });
+        return;
+      }
       this.refreshFavorites();
       uni.showToast({
-        title: nextStatus ? '已加入装机心愿单' : '已移出心愿单',
+        title: res.message || (res.favorited ? '已加入 N网追踪' : '已取消 N网追踪'),
         icon: 'none'
       });
     },

@@ -101,7 +101,7 @@
         <view class="drawerNavItem" @click="handleNav('favorites')">
           <view class="navItemLeft">
             <NexusIcon name="heart-fill" size="34rpx" color="#f43f5e" />
-            <text class="itemText">装机心愿单 (Wishlist)</text>
+            <text class="itemText">N网云端追踪 / 心愿单</text>
           </view>
           <view class="navItemRight">
             <text class="itemBadge" v-if="favoritesCount > 0">{{ favoritesCount }}</text>
