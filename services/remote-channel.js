@@ -86,10 +86,11 @@ export async function pushViaLanHttp(payload, host, port = 28888) {
     });
 
     if (res.statusCode >= 200 && res.statusCode < 300) {
+      const serverMsg = res.data && (res.data.message || res.data.msg);
       return {
         success: true,
         channel: 'LAN_HTTP',
-        message: `《${payload.title}》已通过局域网直连投递至电脑 Mayfly 原生助手！`
+        message: serverMsg || `《${payload.title}》已通过局域网直连投递至电脑 Mayfly 原生助手！`
       };
     }
   } catch (err) {
