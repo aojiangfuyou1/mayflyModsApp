@@ -82,139 +82,60 @@
       </view>
 
       <!-- ==================================================================== -->
-      <!-- 区域 B：未登录状态授权表单 (双通道：网页免密/验证码 SSO + API Key)   -->
+      <!-- 区域 B：未登录状态授权表单 (只保留 Personal API Key 官方访问凭据)    -->
       <!-- ==================================================================== -->
       <view class="authLoginForm" v-else>
-        <!-- 登录方式切换 Tab -->
-        <view class="authTabRow">
-          <view
-            class="authTabItem"
-            :class="{ active: authTab === 'sso' }"
-            @click="switchAuthTab('sso')"
-          >
-            <text class="authTabIcon">🌐</text>
-            <text class="authTabText">网页免密授权 (推荐)</text>
+        <view class="authIntroBanner">
+          <text class="authIntroTitle">🔑 绑定 NexusMods 官方账号</text>
+          <text class="authIntroDesc">
+            输入您的 Personal API Key 即可一键绑定账号，畅享无限制模组检索、查看详情与远程一键推送装机。
+          </text>
+        </view>
+
+        <!-- API Key 输入框 -->
+        <view class="formItem">
+          <view class="formLabelRow">
+            <text class="formLabel">Personal API Key (个人访问密钥)</text>
+            <text class="pasteQuickLink" @click="handlePasteClipboard">📋 粘贴剪贴板</text>
           </view>
-          <view
-            class="authTabItem"
-            :class="{ active: authTab === 'apikey' }"
-            @click="switchAuthTab('apikey')"
-          >
-            <text class="authTabIcon">🔑</text>
-            <text class="authTabText">API Key 密钥</text>
+          <view class="keyInputBox">
+            <input
+              class="keyInput"
+              type="text"
+              password
+              v-model="apiKeyInput"
+              placeholder="粘贴以 nxm_ 或密钥开头的 API Key..."
+            />
+            <text v-if="apiKeyInput" class="clearKeyBtn" @click="apiKeyInput = ''">✕</text>
           </view>
         </view>
 
-        <!-- 方式一：网页免密授权 (SSO / 验证码模式) -->
-        <view class="ssoAuthSection" v-if="authTab === 'sso'">
-          <view class="authIntroBanner">
-            <text class="authIntroTitle">🌐 NexusMods 官方网页免密授权</text>
-            <text class="authIntroDesc">
-              无需手动复制长密钥！点击前往 Nexus 官网登录并授权，本应用将通过安全信道自动接收授权并完成登录。
-            </text>
+        <!-- 登录按钮 -->
+        <button
+          class="authLoginBtn"
+          :disabled="isVerifyingNexusKey || !apiKeyInput.trim()"
+          @click="handleLoginWithApiKey"
+        >
+          <text class="loginBtnText">{{ isVerifyingNexusKey ? '正在向 NexusMods 验证授权...' : '🚀 验证并登录' }}</text>
+        </button>
+
+        <!-- 贴心获取指引卡片 -->
+        <view class="keyGuideCard">
+          <view class="guideHeader">
+            <text class="guideIcon">💡</text>
+            <text class="guideTitle">如何获取免费官方 API Key？</text>
           </view>
-
-          <!-- SSO 实时信道状态 -->
-          <view class="ssoStatusBox">
-            <view class="ssoStatusRow">
-              <view class="pulseDot" :class="ssoStatusClass"></view>
-              <text class="ssoStatusText">{{ ssoStatusLabel }}</text>
-            </view>
-            <text class="ssoSubTip" v-if="ssoStatus === 'waiting'">
-              请在打开的网页中点击绿色「Authorize」；若开启了 2FA，请在网页完成验证码校验。
-            </text>
+          <view class="guideSteps">
+            <text class="guideStepText">1. 在已登录 N 网的浏览器中打开下方官方页面；</text>
+            <text class="guideStepText">2. 滑动至页面最底部【Personal API Key】；</text>
+            <text class="guideStepText">3. 点击【Request Key】生成密钥，复制后粘贴到上方即可。</text>
           </view>
-
-          <!-- 网页授权主操作按钮 -->
-          <button class="authLoginBtn ssoLaunchBtn" @click="handleOpenSsoUrl">
-            <text class="loginBtnText">🚀 前往 N 网网页完成授权</text>
-          </button>
-
-          <!-- #ifdef H5 -->
-          <!-- 网页端专属防拦截直接链接：点击直接在浏览器新标签页打开授权 -->
-          <a
-            v-if="currentSsoUrl"
-            class="ssoDirectLink"
-            :href="currentSsoUrl"
-            target="_blank"
-          >
-            如未自动打开窗口，点此直接在新标签页打开授权页面 ›
-          </a>
-          <!-- #endif -->
-
-          <view class="ssoActionSubRow">
-            <button class="ssoSubActionBtn" @click="handleCopySsoUrl">
-              <text class="ssoSubBtnText">📋 复制授权网址到浏览器</text>
+          <view class="keyActionRow">
+            <button class="copyUrlBtn actionBtn" @click="handleOpenKeyUrl">
+              <text class="copyUrlBtnText">🌐 前往官网生成页面</text>
             </button>
-            <button class="ssoSubActionBtn" @click="handleRestartSso">
-              <text class="ssoSubBtnText">⟳ 刷新信道</text>
-            </button>
-          </view>
-
-          <view class="keyGuideCard">
-            <view class="guideHeader">
-              <text class="guideIcon">💡</text>
-              <text class="guideTitle">网页授权操作指引</text>
-            </view>
-            <view class="guideSteps">
-              <text class="guideStepText">1. 点击上方「前往 N 网网页完成授权」打开官方页面；</text>
-              <text class="guideStepText">2. 登录您的 NexusMods 账号（若有双重验证则输入验证码）；</text>
-              <text class="guideStepText">3. 页面提示请求授权时，点击绿色「Authorize」按钮；</text>
-              <text class="guideStepText">4. 返回本应用，系统将通过官方安全信道自动登入！</text>
-              <text class="guideStepText warnTip">⚠️ 注意：若在电脑 F12「手机设备模拟器」中打开，Cloudflare 会因伪装特征直接拦截报错；请在正常电脑标签页中打开或直接切换至上方【API Key 登录】。</text>
-            </view>
-          </view>
-        </view>
-
-        <!-- 方式二：API Key 密钥输入 -->
-        <view class="apiKeyAuthSection" v-else>
-          <view class="authIntroBanner">
-            <text class="authIntroTitle">🔑 粘贴 Personal API Key 登录</text>
-            <text class="authIntroDesc">
-              适合网络受限无法使用 WebSocket 的场景，在 NexusMods 个人设置中获取 Personal API Key 粘贴即可。
-            </text>
-          </view>
-
-          <!-- API Key 输入框 -->
-          <view class="formItem">
-            <view class="formLabelRow">
-              <text class="formLabel">Personal API Key (个人访问密钥)</text>
-              <text class="pasteQuickLink" @click="handlePasteClipboard">📋 粘贴剪贴板</text>
-            </view>
-            <view class="keyInputBox">
-              <input
-                class="keyInput"
-                type="text"
-                password
-                v-model="apiKeyInput"
-                placeholder="粘贴以 nxm_ 或密钥开头的 API Key..."
-              />
-              <text v-if="apiKeyInput" class="clearKeyBtn" @click="apiKeyInput = ''">✕</text>
-            </view>
-          </view>
-
-          <!-- 登录按钮 -->
-          <button
-            class="authLoginBtn"
-            :disabled="isVerifyingNexusKey || !apiKeyInput.trim()"
-            @click="handleLoginWithApiKey"
-          >
-            <text class="loginBtnText">{{ isVerifyingNexusKey ? '正在向 NexusMods 验证授权...' : '🚀 验证并登录' }}</text>
-          </button>
-
-          <!-- 贴心获取指引卡片 -->
-          <view class="keyGuideCard">
-            <view class="guideHeader">
-              <text class="guideIcon">💡</text>
-              <text class="guideTitle">如何获取免费官方 API Key？</text>
-            </view>
-            <view class="guideSteps">
-              <text class="guideStepText">1. 登录 NexusMods 官网，进入个人账户安全设置；</text>
-              <text class="guideStepText">2. 滑至底部【Personal API Key】，点击【Request Key】生成；</text>
-              <text class="guideStepText">3. 复制生成的密钥并粘贴到上方输入框即可。</text>
-            </view>
-            <button class="copyUrlBtn" @click="handleCopyKeyUrl">
-              <text class="copyUrlBtnText">📋 复制官方 API Key 获取页面链接</text>
+            <button class="copyUrlBtn actionBtn subBtn" @click="handleCopyKeyUrl">
+              <text class="copyUrlBtnText">📋 复制链接</text>
             </button>
           </view>
         </view>
@@ -234,13 +155,12 @@
 
 <script>
 // ============================================================================
-// NexusAuthModal 组件逻辑：SSO 网页授权长连接与 API Key 双模式登录
+// NexusAuthModal 组件逻辑：仅保留 Personal API Key 官方访问凭据与电脑端同步
 // ============================================================================
 import {
   logoutNexus,
   validateNexusApiKey,
-  syncNexusFromDesktop,
-  startNexusSsoSession
+  syncNexusFromDesktop
 } from '../services/nexus.js';
 
 export default {
@@ -265,77 +185,10 @@ export default {
 
   data() {
     return {
-      authTab: 'sso', // 'sso' (网页免密/验证码) | 'apikey' (密钥输入)
-      ssoSession: null,
-      ssoStatus: 'idle', // 'idle' | 'connecting' | 'connected' | 'waiting' | 'verifying' | 'error'
-      ssoErrorMsg: '',
       apiKeyInput: '',
       isVerifyingNexusKey: false,
       isSyncingFromPc: false
     };
-  },
-
-  computed: {
-    /**
-     * SSO 状态实时提示语
-     */
-    ssoStatusLabel() {
-      switch (this.ssoStatus) {
-        case 'connecting':
-          return '正在建立安全 SSO 授权信道...';
-        case 'connected':
-          return '信道已就绪，请点击按钮前往网页授权';
-        case 'waiting':
-          return '等待网页端点击「Authorize」授权与验证码...';
-        case 'verifying':
-          return '已捕获凭据，正在校验账户信息...';
-        case 'error':
-          return this.ssoErrorMsg || 'SSO 信道连接失败，请点击刷新重试';
-        default:
-          return '点击下方按钮前往 NexusMods 官方完成授权';
-      }
-    },
-
-    /**
-     * SSO 呼吸灯状态样式类
-     */
-    ssoStatusClass() {
-      switch (this.ssoStatus) {
-        case 'connecting':
-          return 'yellow pulse';
-        case 'connected':
-          return 'green';
-        case 'waiting':
-          return 'yellow fast-pulse';
-        case 'verifying':
-          return 'green fast-pulse';
-        case 'error':
-          return 'red';
-        default:
-          return 'gray';
-      }
-    },
-
-    /**
-     * 官方 SSO 授权目标 URL (兼容 authUrl 与 ssoUrl 字段)
-     */
-    currentSsoUrl() {
-      return this.ssoSession ? (this.ssoSession.authUrl || this.ssoSession.ssoUrl || '') : '';
-    }
-  },
-
-  watch: {
-    visible(val) {
-      if (val && !this.nexusUser) {
-        this.initSsoSession();
-      } else if (!val) {
-        this.destroySsoSession();
-      }
-    }
-  },
-
-  beforeDestroy() {
-    this.destroySsoSession();
   },
 
   methods: {
@@ -343,172 +196,7 @@ export default {
      * 关闭弹窗
      */
     close() {
-      this.destroySsoSession();
       this.$emit('close');
-    },
-
-    /**
-     * 销毁 SSO 会话长连接
-     */
-    destroySsoSession() {
-      if (this.ssoSession) {
-        try {
-          this.ssoSession.close();
-        } catch (e) {
-          // ignore
-        }
-        this.ssoSession = null;
-      }
-      this.ssoStatus = 'idle';
-    },
-
-    /**
-     * 切换未登录模式 Tab
-     */
-    switchAuthTab(tab) {
-      this.authTab = tab;
-      if (tab === 'sso' && !this.ssoSession) {
-        this.initSsoSession();
-      }
-    },
-
-    // ------------------------------------------------------------------------
-    // SSO 会话生命周期与跳转方法
-    // ------------------------------------------------------------------------
-
-    /**
-     * 初始化 Nexus 官方 SSO WebSocket 长连接会话
-     */
-    initSsoSession() {
-      this.destroySsoSession();
-      this.ssoStatus = 'connecting';
-      this.ssoErrorMsg = '';
-
-      this.ssoSession = startNexusSsoSession({
-        // 实时信道状态变化回调
-        onStatusChange: (status, data) => {
-          this.ssoStatus = status;
-          if (status === 'error' && data && data.message) {
-            this.ssoErrorMsg = data.message;
-          }
-        },
-        // 授权成功回调：兼容多种传参形式
-        onSuccess: (data, maybeApiKey) => {
-          this.ssoStatus = 'idle';
-          const user = data?.user || (data?.name ? data : null);
-          const apiKey = data?.apiKey || maybeApiKey || '';
-          const userName = user?.name || 'Nexus 用户';
-          uni.showToast({
-            title: `欢迎回来，${userName}！`,
-            icon: 'success'
-          });
-          this.$emit('login-success', { user, apiKey });
-          this.close();
-        },
-        // 异常回调
-        onError: (err) => {
-          this.ssoStatus = 'error';
-          this.ssoErrorMsg = (err && (err.message || (typeof err === 'string' && err))) || 'SSO 认证发生异常';
-        }
-      });
-    },
-
-    /**
-     * 一键在浏览器打开 SSO 官方授权页面
-     * 解决 H5/浏览器弹窗拦截问题，并支持移动端直接跳转
-     */
-    handleOpenSsoUrl() {
-      // 若信道未连接或 URL 丢失，先尝试重新初始化
-      if (!this.ssoSession || !this.currentSsoUrl) {
-        this.initSsoSession();
-      }
-      const url = this.currentSsoUrl;
-      if (!url) {
-        uni.showToast({
-          title: '信道初始化中，请稍候重试...',
-          icon: 'none'
-        });
-        return;
-      }
-      this.ssoStatus = 'waiting';
-
-      // ----------------------------------------------------------------------
-      // 1. H5 网页/浏览器环境：唤起新标签页或模拟超链接防拦截
-      // ----------------------------------------------------------------------
-      // #ifdef H5
-      try {
-        // 打开新标签页（不携带 noreferrer，确保保留 Referer 和登录态 Cookie，避免触发 Cloudflare 验证失败）
-        const win = window.open(url, '_blank');
-        // 检测是否被浏览器拦截弹窗
-        if (!win || win.closed || typeof win.closed === 'undefined') {
-          // 降级策略：创建动态 a 标签模拟用户真实点击
-          const a = document.createElement('a');
-          a.href = url;
-          a.target = '_blank';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-        }
-      } catch (e) {
-        console.warn('[SSO] 窗口打开受限，提示手动打开:', e);
-        uni.showToast({
-          title: '请点击下方链接直接在新标签页打开',
-          icon: 'none'
-        });
-      }
-      // #endif
-
-      // ----------------------------------------------------------------------
-      // 2. 非 H5 环境 (移动端原生/小程序)：复制到剪贴板并弹窗引导
-      // ----------------------------------------------------------------------
-      // #ifndef H5
-      uni.setClipboardData({
-        data: url,
-        showToast: false,
-        success: () => {
-          uni.showModal({
-            title: '授权链接已就绪',
-            content: '已将 N 网官方 SSO 授权网址复制到剪贴板，请在浏览器粘贴打开。登录并授权后，本应用将自动完成登入！',
-            confirmText: '我知道了',
-            showCancel: false
-          });
-        }
-      });
-      // #endif
-    },
-
-    /**
-     * 复制 SSO 授权网址到系统剪贴板
-     */
-    handleCopySsoUrl() {
-      const url = this.currentSsoUrl;
-      if (!url) {
-        uni.showToast({
-          title: '信道准备中，请稍候重试',
-          icon: 'none'
-        });
-        return;
-      }
-      uni.setClipboardData({
-        data: url,
-        success: () => {
-          uni.showToast({
-            title: 'SSO 授权网址已复制',
-            icon: 'success'
-          });
-        }
-      });
-    },
-
-    /**
-     * 重启 / 刷新 SSO 信道
-     */
-    handleRestartSso() {
-      this.initSsoSession();
-      uni.showToast({
-        title: '已重置 SSO 信道',
-        icon: 'none'
-      });
     },
 
     /**
@@ -540,7 +228,20 @@ export default {
     },
 
     /**
-     * 复制官方 API Key 获取链接
+     * 浏览器直接打开获取官方 API Key 的安全设置页面
+     */
+    handleOpenKeyUrl() {
+      const url = 'https://www.nexusmods.com/users/myaccount?tab=api';
+      // #ifdef H5
+      window.open(url, '_blank');
+      // #endif
+      // #ifndef H5
+      this.handleCopyKeyUrl();
+      // #endif
+    },
+
+    /**
+     * 复制官方 API Key 获取链接到剪贴板
      */
     handleCopyKeyUrl() {
       uni.setClipboardData({
@@ -568,18 +269,27 @@ export default {
       }
       this.isVerifyingNexusKey = true;
       try {
-        const user = await validateNexusApiKey(key);
-        this.apiKeyInput = '';
-        uni.showToast({
-          title: `验证成功！欢迎 ${user.name}`,
-          icon: 'success'
-        });
-        this.$emit('login-success', { user, apiKey: key });
-        this.close();
+        const res = await validateNexusApiKey(key);
+        if (res && res.success && res.user) {
+          const userName = res.user.name || 'Nexus 用户';
+          this.apiKeyInput = '';
+          uni.showToast({
+            title: `验证成功！欢迎 ${userName}`,
+            icon: 'success'
+          });
+          this.$emit('login-success', { user: res.user, apiKey: key });
+          this.close();
+        } else {
+          uni.showModal({
+            title: 'API Key 校验未通过',
+            content: (res && res.message) || '请检查密钥是否正确，或登录 Nexus 官网重新申请',
+            showCancel: false
+          });
+        }
       } catch (err) {
         uni.showModal({
           title: 'API Key 校验未通过',
-          content: err.message || '请检查密钥是否正确，或登录 Nexus 官网重新申请',
+          content: err.message || '网络连接超时，请确认能够正常访问 NexusMods 官方服务',
           showCancel: false
         });
       } finally {
@@ -591,9 +301,8 @@ export default {
      * 更换 API Key (切换到输入状态)
      */
     handleSwitchApiKey() {
-      this.destroySsoSession();
-      this.authTab = 'apikey';
       logoutNexus();
+      this.apiKeyInput = '';
       this.$emit('logout');
     },
 
@@ -607,7 +316,7 @@ export default {
         success: (res) => {
           if (res.confirm) {
             logoutNexus();
-            this.destroySsoSession();
+            this.apiKeyInput = '';
             this.$emit('logout');
             uni.showToast({
               title: '已退出登录',
@@ -907,170 +616,6 @@ export default {
   font-weight: 600;
 }
 
-/* 登录方式切换 Tab */
-.authTabRow {
-  display: flex;
-  background: #121418;
-  border-radius: 14rpx;
-  padding: 6rpx;
-  gap: 8rpx;
-  border: 1rpx solid #282c36;
-}
-
-.authTabItem {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10rpx;
-  padding: 16rpx 0;
-  border-radius: 10rpx;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.authTabItem.active {
-  background: #252a35;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.4);
-}
-
-.authTabIcon {
-  font-size: 26rpx;
-}
-
-.authTabText {
-  font-size: 22rpx;
-  font-weight: 700;
-  color: #9ca3af;
-}
-
-.authTabItem.active .authTabText {
-  color: #ffffff;
-}
-
-/* SSO 区域 */
-.ssoAuthSection,
-.apiKeyAuthSection {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-}
-
-.ssoStatusBox {
-  background: #14161a;
-  border: 1rpx solid #2a2e38;
-  border-radius: 14rpx;
-  padding: 18rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-}
-
-.ssoStatusRow {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-}
-
-.pulseDot {
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.pulseDot.gray {
-  background: #64748b;
-}
-
-.pulseDot.yellow {
-  background: #f59e0b;
-}
-
-.pulseDot.red {
-  background: #ef4444;
-}
-
-.pulseDot.green {
-  background: #10b981;
-}
-
-.pulseDot.pulse {
-  animation: ssoPulse 1.8s infinite;
-}
-
-.pulseDot.fast-pulse {
-  animation: ssoPulse 0.8s infinite;
-}
-
-@keyframes ssoPulse {
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-  }
-  70% {
-    transform: scale(1.1);
-    box-shadow: 0 0 0 12rpx rgba(16, 185, 129, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-  }
-}
-
-.ssoStatusText {
-  font-size: 22rpx;
-  font-weight: 600;
-  color: #e5e7eb;
-}
-
-.ssoSubTip {
-  font-size: 19rpx;
-  color: #9ca3af;
-  line-height: 1.4;
-  margin-left: 30rpx;
-}
-
-.ssoLaunchBtn {
-  margin-top: 6rpx;
-}
-
-.ssoDirectLink {
-  display: block;
-  text-align: center;
-  font-size: 21rpx;
-  color: #60a5fa;
-  text-decoration: underline;
-  padding: 4rpx 0;
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-
-.ssoDirectLink:hover {
-  opacity: 0.85;
-}
-
-.ssoActionSubRow {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-}
-
-.ssoSubActionBtn {
-  flex: 1;
-  background: #20242e;
-  border: 1rpx solid #333946;
-  border-radius: 10rpx;
-  padding: 14rpx 0;
-  margin: 0;
-}
-
-.ssoSubBtnText {
-  font-size: 22rpx;
-  color: #cbd5e1;
-  font-weight: 600;
-}
-
 /* 未登录授权表单 */
 .authLoginForm {
   display: flex;
@@ -1129,16 +674,20 @@ export default {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .keyInput {
   flex: 1;
+  width: 100%;
   background: #1f232b;
   border: 1rpx solid #363c4a;
   border-radius: 12rpx;
-  padding: 16rpx 60rpx 16rpx 20rpx;
+  padding: 18rpx 60rpx 18rpx 20rpx;
   font-size: 24rpx;
   color: #ffffff;
+  box-sizing: border-box;
 }
 
 .clearKeyBtn {
@@ -1151,29 +700,54 @@ export default {
 }
 
 .authLoginBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #da6b17;
   color: #ffffff;
   border-radius: 12rpx;
   font-size: 26rpx;
   font-weight: 700;
-  padding: 18rpx 0;
-  margin-top: 6rpx;
+  padding: 20rpx 0;
+  margin-top: 8rpx;
+  border: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.authLoginBtn::after {
   border: none;
 }
 
 .authLoginBtn[disabled] {
-  opacity: 0.5;
+  opacity: 0.6;
+  background: #282d37 !important;
+  color: #71717a !important;
+  border: 1rpx solid #3b4252 !important;
+  cursor: not-allowed;
 }
 
 .syncPcBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #252a35;
   border: 1rpx solid #3a4152;
   color: #e5e7eb;
   border-radius: 12rpx;
   font-size: 24rpx;
   font-weight: 600;
-  padding: 16rpx 0;
+  padding: 18rpx 0;
   margin: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.syncPcBtn::after {
+  border: none;
 }
 
 .syncPcBtnText {
@@ -1184,8 +758,8 @@ export default {
   background: #191c22;
   border: 1rpx dashed #303542;
   border-radius: 14rpx;
-  padding: 16rpx;
-  margin-top: 6rpx;
+  padding: 18rpx;
+  margin-top: 4rpx;
   display: flex;
   flex-direction: column;
   gap: 10rpx;
@@ -1219,21 +793,42 @@ export default {
   line-height: 1.4;
 }
 
-.guideStepText.warnTip {
-  color: #f59e0b;
-  margin-top: 6rpx;
-  line-height: 1.5;
+.keyActionRow {
+  display: flex;
+  gap: 12rpx;
+  margin-top: 8rpx;
 }
 
-.copyUrlBtn {
-  background: rgba(218, 107, 23, 0.12);
-  border: 1rpx solid rgba(218, 107, 23, 0.35);
+.copyUrlBtn.actionBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(218, 107, 23, 0.15);
+  border: 1rpx solid rgba(218, 107, 23, 0.4);
   color: #da6b17;
-  border-radius: 8rpx;
-  padding: 10rpx 0;
-  font-size: 20rpx;
+  border-radius: 10rpx;
+  padding: 12rpx 0;
+  font-size: 21rpx;
   font-weight: 700;
-  margin-top: 4rpx;
+  margin: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.copyUrlBtn.actionBtn::after {
+  border: none;
+}
+
+.copyUrlBtn.actionBtn.subBtn {
+  flex: 0.8;
+  background: #252a35;
+  border: 1rpx solid #3a4254;
+  color: #cbd5e1;
+}
+
+.copyUrlBtn.actionBtn.subBtn .copyUrlBtnText {
+  color: #cbd5e1;
 }
 
 .copyUrlBtnText {
