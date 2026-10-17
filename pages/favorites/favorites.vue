@@ -17,75 +17,81 @@
     />
 
     <view class="favContainer">
-      <!-- 2. 心愿单顶栏与批量操作区 -->
-      <view class="favoritesHeaderCard">
-        <view class="favScopeRow" v-if="selectedGameDomain">
-          <view
-            class="favScopeTab"
-            :class="{ active: favoritesScope === 'current' }"
-            @click="favoritesScope = 'current'"
-          >
-            <NexusIcon name="gamepad" size="24rpx" color="#da6b17" style="margin-right: 6rpx;" />
-            <text class="favScopeText">{{ activeGameDisplayName || '当前游戏' }} ({{ currentGameFavCount }})</text>
-          </view>
-          <view
-            class="favScopeTab"
-            :class="{ active: favoritesScope === 'all' }"
-            @click="favoritesScope = 'all'"
-          >
-            <NexusIcon name="globe" size="24rpx" color="#818cf8" style="margin-right: 6rpx;" />
-            <text class="favScopeText">全部游戏 ({{ favoritesList.length }})</text>
-          </view>
-        </view>
-
-        <view class="favSummaryText">
-          <view style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <view style="display: flex; align-items: center; gap: 8rpx;">
-              <NexusIcon name="heart-fill" size="26rpx" color="#ef4444" />
-              <text class="favCountNum">已追踪 {{ filteredFavoritesList.length }} 个模组</text>
-            </view>
-            <view class="favSyncBtn" @click="syncTrackedFromNexus(true)">
-              <NexusIcon name="refresh" size="24rpx" color="#38bdf8" :class="{ 'spin-icon': isSyncingTracked }" />
-              <text class="favSyncBtnText">{{ isSyncingTracked ? '同步中...' : '同步 N网' }}</text>
+      <!-- 2. 紧凑型筛选与操作控制区 (节省垂直空间，支持游戏与热度/时间筛选) -->
+      <view class="favControlsArea">
+        <!-- 游戏专区横向滚动胶囊 (动态提取全部追踪模组归属游戏) -->
+        <scroll-view
+          class="favGameScroll"
+          scroll-x
+          show-scrollbar="false"
+          v-if="gameFilterList.length > 2"
+        >
+          <view class="favGamePillsList">
+            <view
+              class="favGamePill"
+              v-for="g in gameFilterList"
+              :key="g.domain"
+              :class="{ active: currentSelectedGameDomain === g.domain }"
+              @click="selectGameFilter(g.domain)"
+            >
+              <text class="favGamePillText">{{ g.name }}</text>
+              <text class="favGamePillCount">{{ g.count }}</text>
             </view>
           </view>
-          <text class="favTipText">已对接 NexusMods 官方云端追踪 (Tracked Mods)，实时双向同步</text>
-        </view>
+        </scroll-view>
 
-        <view class="favBatchActions" v-if="filteredFavoritesList.length > 0">
-          <button class="favExportBtn" @click="exportFavoritesList">
-            <NexusIcon name="share" size="24rpx" color="#cbd5e1" style="margin-right: 6rpx;" />
-            <text class="favExportBtnText">导出分享</text>
-          </button>
-          <button
-            class="favBatchPushBtn"
-            :disabled="isBatchPushing"
-            @click="batchPushFavorites"
-          >
-            <text class="favBatchBtnText">
-              {{ isBatchPushing ? '投递中...' : `批量推送 (${filteredFavoritesList.length})` }}
-            </text>
-          </button>
+        <!-- 紧凑工具操作行 (排序筛选 + 同步 + 多选切换) -->
+        <view class="favFilterBar">
+          <!-- 排序维度切换 -->
+          <picker :range="sortOptions" :value="sortIndex" @change="onSortChange">
+            <view class="favSortSelect">
+              <NexusIcon name="trending" size="24rpx" color="#cbd5e1" style="margin-right: 6rpx;" />
+              <text class="favSortLabel">{{ sortOptions[sortIndex] }}</text>
+              <text class="favSortArrow">⌄</text>
+            </view>
+          </picker>
+
+          <!-- 右侧极简按钮组 -->
+          <view class="favBarRightActions">
+            <!-- 极简同步按钮 -->
+            <view class="miniSyncBtn" @click="syncTrackedFromNexus(true)" title="同步 N网">
+              <NexusIcon name="refresh" size="22rpx" color="#38bdf8" :class="{ 'spin-icon': isSyncingTracked }" />
+              <text class="miniSyncText">{{ isSyncingTracked ? '同步中' : '同步' }}</text>
+            </view>
+
+            <!-- 多选管理入口 -->
+            <button
+              class="multiSelectBtn"
+              :class="{ active: isMultiSelectMode }"
+              @click="toggleMultiSelectMode"
+              v-if="processedFavoritesList.length > 0"
+            >
+              <text class="multiSelectText">{{ isMultiSelectMode ? '完成' : '多选' }}</text>
+            </button>
+          </view>
         </view>
       </view>
 
       <!-- 3. 模组网格列表 -->
-      <view class="modsGrid" v-if="filteredFavoritesList.length > 0">
+      <view class="modsGrid" v-if="processedFavoritesList.length > 0">
         <ModCard
-          v-for="item in filteredFavoritesList"
+          v-for="item in processedFavoritesList"
           :key="item.id"
           :item="item"
           :selected-game-domain="selectedGameDomain"
           :enable-auto-translate="enableAutoTranslate"
           :is-favorited="true"
           :is-pushing="pushingModId === item.id"
+          :selectable="isMultiSelectMode"
+          :is-selected="Boolean(selectedModIdMap[item.id])"
           @click="openDetail(item)"
+          @select="toggleCardSelect(item)"
           @favorite="toggleCardFavorite(item)"
           @push="quickPushToDesktop(item)"
         />
       </view>
 
-      <!-- 空状态提示 (区分是否登录) -->
+      <!-- 空状态提示 (区分是否登录以及筛选无结果) -->
       <view class="emptyFavBox" v-else>
         <NexusIcon name="heart" size="84rpx" color="#475569" style="margin-bottom: 16rpx;" />
         <block v-if="!nexusApiKey">
@@ -95,13 +101,42 @@
             <text class="goExploreBtnText">🔑 登录 NexusMods 账号 ›</text>
           </button>
         </block>
-        <block v-else>
+        <block v-else-if="favoritesList.length === 0">
           <text class="emptyFavTitle">暂无追踪的模组</text>
           <text class="emptyFavSub">在模组流中点击卡片右上角的心形图标即可加入 N网 官方云端追踪</text>
           <button class="goExploreBtn" @click="handleNavBack">
             <text class="goExploreBtnText">去发现精彩 Mod ›</text>
           </button>
         </block>
+        <block v-else>
+          <text class="emptyFavTitle">当前筛选无模组</text>
+          <text class="emptyFavSub">在选中的游戏分类或排序维度下暂无追踪模组</text>
+          <button class="goExploreBtn" @click="selectGameFilter('all')">
+            <text class="goExploreBtnText">查看全部游戏模组 ›</text>
+          </button>
+        </block>
+      </view>
+
+      <!-- 4. 浮动批量多选操作底栏 (进入多选模式时在页面底部升起) -->
+      <view class="floatingMultiActionBar" v-if="isMultiSelectMode">
+        <view class="batchSelectLeft" @click="toggleSelectAll">
+          <view class="batchCheckbox" :class="{ checked: isAllSelected }">
+            <text class="batchCheckmark" v-if="isAllSelected">✓</text>
+          </view>
+          <text class="batchSelectLabel">全选 (已选 {{ selectedCount }}/{{ processedFavoritesList.length }})</text>
+        </view>
+
+        <view class="batchActionButtons">
+          <button
+            class="batchPushActionButton"
+            :disabled="selectedCount === 0 || isBatchPushing"
+            @click="pushSelectedFavorites"
+          >
+            <text class="batchPushActionText">
+              {{ isBatchPushing ? '正在投递...' : `推送到电脑 (${selectedCount})` }}
+            </text>
+          </button>
+        </view>
       </view>
     </view>
 
@@ -191,9 +226,13 @@ export default {
   data() {
     return {
       favoritesList: [],
-      favoritesScope: 'all', // 'current' | 'all'
       selectedGameDomain: '',
       activeGameDisplayName: '',
+      currentSelectedGameDomain: 'all',
+      sortOptions: ['最新追踪', '热门下载', '最多点赞', '模组名称'],
+      sortIndex: 0,
+      isMultiSelectMode: false,
+      selectedModIdMap: {},
       enableAutoTranslate: true,
       drawerVisible: false,
       deviceModalVisible: false,
@@ -209,20 +248,60 @@ export default {
   },
 
   computed: {
-    currentGameFavCount() {
-      if (!this.selectedGameDomain) return 0;
-      return this.favoritesList.filter(
-        (m) => m.game?.domainName === this.selectedGameDomain
-      ).length;
+    gameFilterList() {
+      const counts = {};
+      const names = {};
+      this.favoritesList.forEach((m) => {
+        const domain = m.game?.domainName || 'unknown';
+        const name = m.game?.shortZhName || m.game?.name || domain;
+        counts[domain] = (counts[domain] || 0) + 1;
+        names[domain] = name;
+      });
+      const list = [
+        { domain: 'all', name: '全部游戏', count: this.favoritesList.length }
+      ];
+      Object.keys(counts).forEach((d) => {
+        if (d !== 'unknown' && counts[d] > 0) {
+          list.push({
+            domain: d,
+            name: names[d],
+            count: counts[d]
+          });
+        }
+      });
+      return list;
     },
 
-    filteredFavoritesList() {
-      if (this.selectedGameDomain && this.favoritesScope === 'current') {
-        return this.favoritesList.filter(
-          (m) => m.game?.domainName === this.selectedGameDomain
-        );
+    processedFavoritesList() {
+      let list = [...this.favoritesList];
+
+      // 1. 游戏专区分类筛选
+      if (this.currentSelectedGameDomain && this.currentSelectedGameDomain !== 'all') {
+        list = list.filter((m) => m.game?.domainName === this.currentSelectedGameDomain);
       }
-      return this.favoritesList;
+
+      // 2. 排序筛选 (最新追踪、热门下载、最多点赞、模组名称)
+      if (this.sortIndex === 0) {
+        list.sort((a, b) => (b.favoriteTime || 0) - (a.favoriteTime || 0));
+      } else if (this.sortIndex === 1) {
+        list.sort((a, b) => (Number(b.downloads) || 0) - (Number(a.downloads) || 0));
+      } else if (this.sortIndex === 2) {
+        list.sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0));
+      } else if (this.sortIndex === 3) {
+        list.sort((a, b) => (a.zhTitle || a.title || '').localeCompare(b.zhTitle || b.title || ''));
+      }
+
+      return list;
+    },
+
+    selectedCount() {
+      return Object.keys(this.selectedModIdMap).length;
+    },
+
+    isAllSelected() {
+      const list = this.processedFavoritesList;
+      if (list.length === 0) return false;
+      return list.every((m) => Boolean(this.selectedModIdMap[m.id]));
     }
   },
 
@@ -254,8 +333,8 @@ export default {
   onLoad(query) {
     if (query && query.domain) {
       this.selectedGameDomain = query.domain;
+      this.currentSelectedGameDomain = query.domain;
       this.activeGameDisplayName = decodeURIComponent(query.zhName || query.name || '');
-      this.favoritesScope = 'current';
     }
   },
 
@@ -364,23 +443,56 @@ export default {
       }
     },
 
-    exportFavoritesList() {
-      if (this.filteredFavoritesList.length === 0) return;
-      const text = formatFavoritesShareText(this.filteredFavoritesList, this.activeGameDisplayName || '全游戏');
-      uni.setClipboardData({
-        data: text,
-        success: () => {
-          uni.showToast({ title: '心愿单分享口令已复制', icon: 'success' });
-        }
-      });
+    selectGameFilter(domain) {
+      this.currentSelectedGameDomain = domain;
+      this.selectedModIdMap = {};
     },
 
-    async batchPushFavorites() {
-      const list = this.filteredFavoritesList;
-      if (list.length === 0) return;
+    onSortChange(e) {
+      this.sortIndex = Number(e.detail?.value) || 0;
+    },
+
+    toggleMultiSelectMode() {
+      this.isMultiSelectMode = !this.isMultiSelectMode;
+      if (!this.isMultiSelectMode) {
+        this.selectedModIdMap = {};
+      }
+    },
+
+    toggleCardSelect(item) {
+      const id = String(item.id || item.modId);
+      const next = { ...this.selectedModIdMap };
+      if (next[id]) {
+        delete next[id];
+      } else {
+        next[id] = item;
+      }
+      this.selectedModIdMap = next;
+    },
+
+    toggleSelectAll() {
+      const list = this.processedFavoritesList;
+      if (this.isAllSelected) {
+        this.selectedModIdMap = {};
+      } else {
+        const next = {};
+        list.forEach((m) => {
+          next[String(m.id || m.modId)] = m;
+        });
+        this.selectedModIdMap = next;
+      }
+    },
+
+    async pushSelectedFavorites() {
+      const selectedItems = Object.values(this.selectedModIdMap);
+      if (selectedItems.length === 0) {
+        uni.showToast({ title: '请先勾选模组', icon: 'none' });
+        return;
+      }
+
       this.isBatchPushing = true;
       let successCount = 0;
-      for (const item of list) {
+      for (const item of selectedItems) {
         try {
           const pushItem = {
             ...item,
@@ -392,10 +504,27 @@ export default {
       }
       this.isBatchPushing = false;
       this.historyCount = getPushHistory().length;
+
       uni.showModal({
         title: '批量推送完成',
-        content: `成功投递 ${successCount}/${list.length} 个模组到电脑端 Mayfly。`,
-        showCancel: false
+        content: `成功投递 ${successCount}/${selectedItems.length} 个模组到电脑端 Mayfly。`,
+        showCancel: false,
+        success: () => {
+          this.isMultiSelectMode = false;
+          this.selectedModIdMap = {};
+        }
+      });
+    },
+
+    exportFavoritesList() {
+      const list = this.processedFavoritesList;
+      if (list.length === 0) return;
+      const text = formatFavoritesShareText(list, this.activeGameDisplayName || '全游戏');
+      uni.setClipboardData({
+        data: text,
+        success: () => {
+          uni.showToast({ title: '心愿单分享口令已复制', icon: 'success' });
+        }
       });
     },
 
@@ -479,75 +608,144 @@ export default {
   padding: 24rpx;
 }
 
-.favoritesHeaderCard {
-  background: #181a1f;
-  border: 1rpx solid #292e3a;
-  border-radius: 18rpx;
-  padding: 20rpx;
-  margin-bottom: 24rpx;
+/* ---------------------------------------------------------------------------- */
+/* 区域 2：紧凑型筛选与操作控制区                                                */
+/* ---------------------------------------------------------------------------- */
+.favControlsArea {
+  margin-bottom: 20rpx;
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: 12rpx;
 }
 
-.favScopeRow {
-  display: flex;
-  background: #121418;
-  border-radius: 12rpx;
-  padding: 4rpx;
+/* 游戏专区横向滚动胶囊条 */
+.favGameScroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.favGamePillsList {
+  display: inline-flex;
+  align-items: center;
+  gap: 12rpx;
+  padding: 4rpx 0;
+}
+
+.favGamePill {
+  display: inline-flex;
+  align-items: center;
   gap: 8rpx;
-}
-
-.favScopeTab {
-  flex: 1;
-  text-align: center;
-  padding: 12rpx 0;
-  border-radius: 8rpx;
+  background: #181a20;
+  border: 1rpx solid #272d3b;
+  border-radius: 30rpx;
+  padding: 8rpx 20rpx;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.favScopeTab.active {
-  background: #252a35;
+.favGamePill.active {
+  background: #252c3d;
+  border-color: #da6b17;
 }
 
-.favScopeText {
+.favGamePillText {
   font-size: 22rpx;
-  font-weight: 700;
-  color: #9ca3af;
+  color: #94a3b8;
+  font-weight: 500;
 }
 
-.favScopeTab.active .favScopeText {
+.favGamePill.active .favGamePillText {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.favGamePillCount {
+  font-size: 18rpx;
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  padding: 2rpx 8rpx;
+  border-radius: 12rpx;
+}
+
+.favGamePill.active .favGamePillCount {
+  background: #da6b17;
   color: #ffffff;
 }
 
-.favSummaryText {
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-}
-
-.favCountNum {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #da6b17;
-}
-
-.favSyncBtn {
+/* 紧凑工具操作行 */
+.favFilterBar {
   display: flex;
   align-items: center;
-  gap: 8rpx;
-  background: #1e293b;
-  border: 1rpx solid #334155;
-  border-radius: 8rpx;
-  padding: 6rpx 16rpx;
+  justify-content: space-between;
+  background: #181a20;
+  border: 1rpx solid #272d3b;
+  border-radius: 12rpx;
+  padding: 10rpx 16rpx;
+}
+
+.favSortSelect {
+  display: flex;
+  align-items: center;
   cursor: pointer;
 }
 
-.favSyncBtnText {
+.favSortLabel {
+  font-size: 22rpx;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.favSortArrow {
+  font-size: 20rpx;
+  color: #94a3b8;
+  margin-left: 6rpx;
+}
+
+.favBarRightActions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.miniSyncBtn {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  background: #1e2638;
+  border: 1rpx solid #333d52;
+  border-radius: 8rpx;
+  padding: 6rpx 14rpx;
+  cursor: pointer;
+}
+
+.miniSyncText {
   font-size: 20rpx;
   color: #38bdf8;
   font-weight: 600;
+}
+
+.multiSelectBtn {
+  background: #222938;
+  border: 1rpx solid #3b455c;
+  border-radius: 8rpx;
+  padding: 6rpx 18rpx;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.multiSelectBtn.active {
+  background: #da6b17;
+  border-color: #da6b17;
+}
+
+.multiSelectText {
+  font-size: 20rpx;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.multiSelectBtn.active .multiSelectText {
+  color: #ffffff;
 }
 
 @keyframes spin {
@@ -559,43 +757,81 @@ export default {
   animation: spin 1s linear infinite;
 }
 
-.favTipText {
-  font-size: 20rpx;
-  color: #64748b;
-}
-
-.favBatchActions {
+/* ---------------------------------------------------------------------------- */
+/* 区域 3：浮动多选操作底栏 (位于 TabBar 上方，固定贴底)                        */
+/* ---------------------------------------------------------------------------- */
+.floatingMultiActionBar {
+  position: fixed;
+  bottom: 120rpx;
+  left: 24rpx;
+  right: 24rpx;
+  background: rgba(24, 26, 32, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1rpx solid #3b4252;
+  border-radius: 20rpx;
+  padding: 16rpx 24rpx;
   display: flex;
   align-items: center;
-  gap: 14rpx;
-  padding-top: 14rpx;
-  border-top: 1rpx solid #232731;
+  justify-content: space-between;
+  box-shadow: 0 12rpx 36rpx rgba(0, 0, 0, 0.6);
+  z-index: 99;
 }
 
-.favExportBtn {
-  background: #222630;
-  border: 1rpx solid #363d4e;
-  border-radius: 10rpx;
-  padding: 12rpx 20rpx;
-  margin: 0;
+.batchSelectLeft {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  cursor: pointer;
 }
 
-.favExportBtnText {
+.batchCheckbox {
+  width: 38rpx;
+  height: 38rpx;
+  border-radius: 50%;
+  border: 2rpx solid #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #121418;
+}
+
+.batchCheckbox.checked {
+  background: #da6b17;
+  border-color: #da6b17;
+}
+
+.batchCheckmark {
   font-size: 22rpx;
-  color: #cbd5e1;
+  color: #ffffff;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.batchSelectLabel {
+  font-size: 22rpx;
+  color: #e5e7eb;
   font-weight: 600;
 }
 
-.favBatchPushBtn {
-  flex: 1;
-  background: #da6b17;
-  border-radius: 10rpx;
-  padding: 12rpx 0;
-  margin: 0;
-  border: none;
+.batchActionButtons {
+  display: flex;
+  align-items: center;
 }
 
-.favBatchBtnText {
+.batchPushActionButton {
+  background: #da6b17;
+  border-radius: 12rpx;
+  padding: 12rpx 28rpx;
+  margin: 0;
+  border: none;
+  line-height: 1.4;
+}
+
+.batchPushActionButton[disabled] {
+  opacity: 0.45;
+}
+
+.batchPushActionText {
   font-size: 22rpx;
   color: #ffffff;
   font-weight: 700;

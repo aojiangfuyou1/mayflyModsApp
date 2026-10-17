@@ -2,7 +2,7 @@
   <!-- ======================================================================== -->
   <!-- 模组卡片组件 (双列网格流卡片，对标 Nexus 移动端标准卡片)               -->
   <!-- ======================================================================== -->
-  <view class="modCard" @click="$emit('click', item)">
+  <view class="modCard" :class="{ 'card-selectable': selectable, 'is-selected': isSelected }" @click="handleCardClick">
     <!-- 封面大图 (16:9) + 游戏短角标 + 右上角操作点 -->
     <view class="modCoverBox">
       <image
@@ -11,7 +11,11 @@
         mode="aspectFill"
         lazy-load
       />
-      <view class="modGameBadge" v-if="!selectedGameDomain && item.game">
+      <!-- 多选模式下的复选框标记 -->
+      <view class="modSelectBadge" :class="{ checked: isSelected }" v-if="selectable" @click.stop="$emit('select', item)">
+        <text class="modSelectIcon">{{ isSelected ? '✓' : '' }}</text>
+      </view>
+      <view class="modGameBadge" v-else-if="!selectedGameDomain && item.game">
         <text class="modGameBadgeText">{{ item.game.shortZhName || item.game.name }}</text>
       </view>
       <view class="modActionBtn" @click.stop="$emit('favorite', item)">
@@ -71,7 +75,7 @@
           :disabled="isPushing"
           @click.stop="$emit('push', item)"
         >
-          <text class="nexusPushBtnText">{{ isPushing ? '推送中...' : '推送到电脑' }}</text>
+          <text class="nexusPushBtnText">{{ isPushing ? '推送中...' : '推送' }}</text>
         </button>
       </view>
     </view>
@@ -118,6 +122,14 @@ export default {
     isPushing: {
       type: Boolean,
       default: false
+    },
+    selectable: {
+      type: Boolean,
+      default: false
+    },
+    isSelected: {
+      type: Boolean,
+      default: false
     }
   },
 
@@ -150,6 +162,16 @@ export default {
       if (num >= 1000000) return `${(num / 1000000).toFixed(1)}m`;
       if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
       return String(num);
+    }
+  },
+
+  methods: {
+    handleCardClick() {
+      if (this.selectable) {
+        this.$emit('select', this.item);
+      } else {
+        this.$emit('click', this.item);
+      }
     }
   }
 };
@@ -335,16 +357,53 @@ export default {
   line-height: 1;
 }
 
+.modCard.is-selected {
+  border-color: #da6b17;
+  box-shadow: 0 0 16rpx rgba(218, 107, 23, 0.35);
+}
+
+.modSelectBadge {
+  position: absolute;
+  top: 12rpx;
+  left: 12rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  background: rgba(18, 20, 24, 0.85);
+  border: 2rpx solid #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  transition: all 0.2s ease;
+}
+
+.modSelectBadge.checked {
+  background: #da6b17;
+  border-color: #da6b17;
+}
+
+.modSelectIcon {
+  font-size: 24rpx;
+  color: #ffffff;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .nexusPushBtn {
   background-color: #da6b17;
   color: #ffffff;
   border-radius: 8rpx;
-  padding: 8rpx 18rpx;
+  padding: 6rpx 16rpx;
   font-size: 20rpx;
   font-weight: 700;
   margin: 0;
   line-height: 1.4;
   border: none;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .nexusPushBtnText {
