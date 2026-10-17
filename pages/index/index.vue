@@ -68,7 +68,15 @@
               mode="aspectFill"
               lazy-load
             />
-            <view class="gameBookmarkBadge" :class="{ selected: selectedGameDomain === game.domain }">
+            <view
+              class="gameBookmarkBadge"
+              :class="{
+                selected: selectedGameDomain === game.domain,
+                isBookmarked: myGamesMap[String(game.id)] || myGamesMap[String(game.domain || '').toLowerCase()]
+              }"
+              @click.stop="handleToggleGameBookmark(game)"
+              title="标记为我的游戏"
+            >
               <text class="bookmarkIcon">🔖</text>
             </view>
           </view>
@@ -419,6 +427,12 @@ import {
 } from '../../services/translate.js';
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
 import { getFavorites, toggleFavorite, syncFavoritesFromNexus } from '../../services/favorites.js';
+import {
+  getMyGames,
+  isGameBookmarked,
+  toggleGameBookmark,
+  fetchNexusFavouriteGames
+} from '../../services/games.js';
 import { formatFavoritesShareText } from '../../services/poster.js';
 import NexusHeader from '../../components/NexusHeader.vue';
 import NexusDrawer from '../../components/NexusDrawer.vue';
@@ -447,6 +461,9 @@ export default {
 
   data() {
     return {
+      // 我的游戏标记状态
+      myGamesList: [],
+      myGamesMap: {},
       confirmModal: {
         visible: false,
         title: '提示',
@@ -668,13 +685,20 @@ export default {
     }
 
     // 首次进入动态加载游戏列表与模组列表
+    this.refreshMyGames();
     this.loadGames();
     this.loadMods();
+
+    // 跨页面监听我的游戏标记变动
+    uni.$on('mayfly-games-updated', () => {
+      this.refreshMyGames();
+    });
   },
 
   onShow() {
     this.refreshHistory();
     this.refreshFavorites();
+    this.refreshMyGames();
     this.refreshNexusUser();
     if (this.nexusApiKey) {
       syncFavoritesFromNexus(this.nexusApiKey).then((list) => {
@@ -1050,6 +1074,34 @@ export default {
     clearSearch() {
       this.searchText = '';
       this.resetAndLoad();
+    },
+
+    // ------------------------------------------------------------------------
+    // 游戏专区与「我的游戏」书签标记 (100% 对标 N网 My Games 与书签功能)
+    // ------------------------------------------------------------------------
+
+    refreshMyGames() {
+      const list = getMyGames();
+      this.myGamesList = list;
+      const map = {};
+      list.forEach((g) => {
+        if (g.id) map[String(g.id)] = true;
+        if (g.domain) map[String(g.domain).toLowerCase()] = true;
+      });
+      this.myGamesMap = map;
+    },
+
+    /**
+     * 响应点击游戏卡片右上角书签 🔖 标记/取消标记
+     */
+    async handleToggleGameBookmark(game) {
+      if (!game) return;
+      const res = await toggleGameBookmark(game, this.nexusApiKey);
+      this.refreshMyGames();
+      uni.showToast({
+        title: res.message,
+        icon: 'none'
+      });
     },
 
     // ------------------------------------------------------------------------

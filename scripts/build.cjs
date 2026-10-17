@@ -37,6 +37,7 @@ const requiredFiles = [
   'services/remote-channel.js',
   'services/history.js',
   'services/favorites.js',
+  'services/games.js',
   'services/poster.js'
 ];
 
