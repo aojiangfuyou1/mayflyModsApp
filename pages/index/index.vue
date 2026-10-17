@@ -357,6 +357,18 @@
       @login-success="onNexusLoginSuccess"
       @logout="onNexusLogout"
     />
+
+    <!-- ==================================================================== -->
+    <!-- 区域 8：全局手机 App 底部导航栏 (已组件化)                         -->
+    <!-- ==================================================================== -->
+    <NexusTabBar
+      active-tab="home"
+      :favorites-count="favoritesList.length"
+      :history-count="historyList.length"
+      :desktop-connected="desktopConfig && desktopConfig.connected"
+      :nexus-user="nexusUser"
+      @tab-refresh="resetAndLoad"
+    />
   </view>
 </template>
 
@@ -388,6 +400,7 @@ import ModCard from '../../components/ModCard.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import PushHistoryModal from '../../components/PushHistoryModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
+import NexusTabBar from '../../components/NexusTabBar.vue';
 
 export default {
   components: {
@@ -396,7 +409,8 @@ export default {
     ModCard,
     DevicePairModal,
     PushHistoryModal,
-    NexusAuthModal
+    NexusAuthModal,
+    NexusTabBar
   },
 
   data() {
@@ -683,16 +697,20 @@ export default {
       if (target === 'home') {
         this.currentView = 'mods';
       } else if (target === 'games') {
-        uni.navigateTo({
+        uni.reLaunch({
           url: '/pages/games/games'
         });
       } else if (target === 'favorites') {
-        uni.navigateTo({
+        uni.reLaunch({
           url: '/pages/favorites/favorites'
         });
       } else if (target === 'history') {
-        uni.navigateTo({
+        uni.reLaunch({
           url: '/pages/history/history'
+        });
+      } else if (target === 'profile') {
+        uni.reLaunch({
+          url: '/pages/profile/profile'
         });
       } else if (target === 'auth') {
         this.openNexusAuthModal();
@@ -1469,7 +1487,7 @@ export default {
   min-height: 100vh;
   background-color: #121212;
   color: #e5e7eb;
-  padding: 0 0 60rpx 0;
+  padding: 0 0 160rpx 0;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }

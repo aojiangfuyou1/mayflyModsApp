@@ -133,6 +133,14 @@
           </view>
         </view>
 
+        <view class="drawerNavItem" @click="handleNav('profile')">
+          <view class="navItemLeft">
+            <text class="itemIcon">⚙️</text>
+            <text class="itemText">个人中心与设置 (Profile)</text>
+          </view>
+          <text class="drawerNavArrow">›</text>
+        </view>
+
         <view class="drawerNavItem" @click="$emit('toggle-translate')">
           <view class="navItemLeft">
             <text class="itemIcon">🌐</text>

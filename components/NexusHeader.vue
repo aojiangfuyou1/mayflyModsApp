@@ -3,8 +3,8 @@
   <!-- NexusHeader：统一全局标准顶栏组件 (抽屉/返回 + 橙标 + 搜索/分享 + 设备 + 用户) -->
   <!-- ======================================================================== -->
   <view class="nexusHeader">
-    <!-- 左侧区域：抽屉按钮 或 返回按钮 -->
-    <view class="headerBtn" @click="handleLeftBtnClick">
+    <!-- 左侧区域：抽屉按钮 或 返回按钮 (仅在指定显示或二级返回时呈现) -->
+    <view class="headerBtn" v-if="showBack || showDrawer" @click="handleLeftBtnClick">
       <text class="headerIcon">{{ showBack ? '←' : '☰' }}</text>
     </view>
 
@@ -55,6 +55,10 @@ export default {
       default: ''
     },
     showBack: {
+      type: Boolean,
+      default: false
+    },
+    showDrawer: {
       type: Boolean,
       default: false
     },

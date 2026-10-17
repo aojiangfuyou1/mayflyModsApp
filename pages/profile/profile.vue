@@ -1,0 +1,911 @@
+<template>
+  <!-- ======================================================================== -->
+  <!-- 页面名称：个人中心与设置 (Profile & Settings Page)                        -->
+  <!-- 功能描述：对标移动端体验，整合 Nexus 账户授权、电脑端配对、偏好设置与状态 -->
+  <!-- ======================================================================== -->
+  <view class="profilePage">
+    <!-- 1. 全局沉浸式顶栏 (一级 Tab 页面，无需返回键) -->
+    <NexusHeader
+      title="个人中心与设置"
+      :show-back="false"
+      :show-search="false"
+      :desktop-config="desktopConfig"
+      :nexus-user="nexusUser"
+      @pc-click="deviceModalVisible = true"
+      @user-click="openNexusAuth"
+    />
+
+    <!-- 2. 主体可滚动内容区 (底部预留安全距离防止被 Tab 遮挡) -->
+    <scroll-view class="profileScrollView" scroll-y>
+      <view class="profileContainer">
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域 A：Nexus 账户与授权卡片                                        -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="sectionCard userCard">
+          <view class="userCardContent" v-if="!nexusUser" @click="openNexusAuth">
+            <view class="userAvatarBox guest">
+              <text class="userAvatarGlyph">👤</text>
+            </view>
+            <view class="userMetaCol">
+              <view class="userTitleRow">
+                <text class="userNameText">登录 NexusMods 账户</text>
+                <text class="authPillBtn">点击授权 ›</text>
+              </view>
+              <text class="userSubText">支持网页免密授权与 API Key 直连服务</text>
+            </view>
+          </view>
+
+          <view class="userCardContent logged" v-else @click="openNexusAuth">
+            <view class="userAvatarBox">
+              <image v-if="nexusUser.avatar" class="userAvatarImg" :src="nexusUser.avatar" mode="aspectFill" />
+              <text v-else class="userAvatarGlyph">👤</text>
+              <text v-if="nexusUser.isPremium" class="crownBadge">👑</text>
+            </view>
+            <view class="userMetaCol">
+              <view class="userTitleRow">
+                <text class="userNameText">{{ nexusUser.name }}</text>
+                <text v-if="nexusUser.isPremium" class="roleTag premium">PREMIUM</text>
+                <text v-else-if="nexusUser.isSupporter" class="roleTag supporter">SUPPORTER</text>
+                <text v-else class="roleTag member">MEMBER</text>
+              </view>
+              <text class="userSubText">UID: {{ nexusUser.userId }} · 已授权绑定 (点击管理)</text>
+            </view>
+            <text class="cardArrow">›</text>
+          </view>
+        </view>
+
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域 B：电脑端 Mayfly 连接与配对状态卡片                            -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="sectionCard pcConnectCard">
+          <view class="cardHeaderRow">
+            <view class="cardHeaderLeft">
+              <text class="headerIcon">💻</text>
+              <text class="cardHeaderText">电脑端连接状态</text>
+            </view>
+            <view class="pcStatusBadge" :class="{ online: desktopConfig && desktopConfig.connected }">
+              <view class="statusDot"></view>
+              <text class="statusText">{{ desktopConfig && desktopConfig.connected ? '已连接' : '未连接' }}</text>
+            </view>
+          </view>
+
+          <view class="pcMetaBox">
+            <text class="pcIpText">目标主机: {{ desktopConfig ? desktopConfig.host : '192.168.1.100' }}:{{ desktopConfig ? desktopConfig.port : '9876' }}</text>
+            <text class="pcNoticeText">{{ desktopConfig && desktopConfig.connected ? '局域网与云端信令通畅，可在手机一键推送模组到电脑' : '请确保电脑端 Mayfly 处于运行状态，并完成设备配对' }}</text>
+          </view>
+
+          <view class="pcActionsRow">
+            <button class="actionBtn primary" @click="deviceModalVisible = true">
+              <text class="btnText">⚙️ 配对设置</text>
+            </button>
+            <button class="actionBtn outline" :loading="isTestingConnection" @click="runQuickTest">
+              <text class="btnText">📶 测试连接</text>
+            </button>
+          </view>
+        </view>
+
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域 C：当前激活的游戏专区卡片                                      -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="sectionCard activeGameSection">
+          <view class="cardHeaderRow">
+            <view class="cardHeaderLeft">
+              <text class="headerIcon">🎮</text>
+              <text class="cardHeaderText">当前偏好游戏</text>
+            </view>
+            <text class="changeGameBtn" @click="goToGamesPage">切换专区 ›</text>
+          </view>
+
+          <view class="activeGameCard" v-if="activeGame.domain">
+            <image class="activeGameThumb" :src="activeGame.tileUrl || '/static/logo.png'" mode="aspectFill" />
+            <view class="activeGameMeta">
+              <text class="gameTitle">{{ activeGame.zhName || activeGame.name }}</text>
+              <text class="gameSubTitle" v-if="activeGame.zhName && activeGame.zhName !== activeGame.name">{{ activeGame.name }}</text>
+              <text class="gameDomainTag">{{ activeGame.domain }}</text>
+            </view>
+            <view class="clearGameBtn" @click="clearActiveGame">
+              <text class="clearGameText">清除</text>
+            </view>
+          </view>
+
+          <view class="noGameCard" v-else @click="goToGamesPage">
+            <view class="noGameIcon">🌐</view>
+            <view class="noGameMeta">
+              <text class="noGameTitle">全网模组模式</text>
+              <text class="noGameSub">未锁定单一游戏，点击选择热门游戏专区</text>
+            </view>
+            <text class="cardArrow">›</text>
+          </view>
+        </view>
+
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域 D：常用偏好与开关                                              -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="sectionCard preferencesCard">
+          <view class="cardHeaderRow">
+            <view class="cardHeaderLeft">
+              <text class="headerIcon">⚙️</text>
+              <text class="cardHeaderText">通用偏好与功能</text>
+            </view>
+          </view>
+
+          <!-- AI 双语图鉴开关 -->
+          <view class="prefItemRow" @click="toggleTranslate">
+            <view class="prefItemLeft">
+              <text class="prefIcon">🌐</text>
+              <view class="prefTextCol">
+                <text class="prefTitle">AI 智能双语图鉴</text>
+                <text class="prefSub">自动将游戏名、模组标题与标签译为中文</text>
+              </view>
+            </view>
+            <view class="switchBadge" :class="{ on: enableAutoTranslate }">
+              <text class="switchText">{{ enableAutoTranslate ? '已开启' : '英文原文' }}</text>
+            </view>
+          </view>
+
+          <!-- 心愿单快速入口 -->
+          <view class="prefItemRow" @click="goToFavorites">
+            <view class="prefItemLeft">
+              <text class="prefIcon">❤️</text>
+              <view class="prefTextCol">
+                <text class="prefTitle">装机心愿单</text>
+                <text class="prefSub">本地离线收藏的模组集合</text>
+              </view>
+            </view>
+            <view class="prefRightMeta">
+              <text class="countPill" v-if="favoritesCount > 0">{{ favoritesCount }} 项</text>
+              <text class="cardArrow">›</text>
+            </view>
+          </view>
+
+          <!-- 任务清单快速入口 -->
+          <view class="prefItemRow" @click="goToHistory">
+            <view class="prefItemLeft">
+              <text class="prefIcon">📋</text>
+              <view class="prefTextCol">
+                <text class="prefTitle">推送任务清单</text>
+                <text class="prefSub">推送到电脑端 Mayfly 的任务记录</text>
+              </view>
+            </view>
+            <view class="prefRightMeta">
+              <text class="countPill" v-if="historyCount > 0">{{ historyCount }} 项</text>
+              <text class="cardArrow">›</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域 E：版本与关于说明                                              -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="aboutSection">
+          <text class="aboutTitle">Mayfly Mods 手机移动伴侣</text>
+          <text class="aboutDesc">基于 NexusMods 官方公开 GraphQL 直连生态</text>
+          <text class="aboutDesc">支持无感局域网与云端双模投递安装</text>
+          <text class="aboutVersion">Version 1.0.0 (Mobile App Edition)</text>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 3. 全局底部导航栏组件 -->
+    <NexusTabBar
+      active-tab="profile"
+      :favorites-count="favoritesCount"
+      :history-count="historyCount"
+      :desktop-connected="desktopConfig && desktopConfig.connected"
+      :nexus-user="nexusUser"
+      @tab-refresh="onTabRefresh"
+    />
+
+    <!-- 4. 电脑端连接与配对设置弹窗 -->
+    <DevicePairModal
+      :visible="deviceModalVisible"
+      :config="desktopConfig"
+      @close="deviceModalVisible = false"
+      @saved="onDeviceSaved"
+    />
+
+    <!-- 5. NexusMods 账户授权弹窗 -->
+    <NexusAuthModal
+      :visible="nexusAuthModalVisible"
+      :nexus-user="nexusUser"
+      :desktop-config="desktopConfig"
+      @close="nexusAuthModalVisible = false"
+      @login-success="onLoginSuccess"
+      @logout="onLogout"
+    />
+  </view>
+</template>
+
+<script>
+// ============================================================================
+// 页面脚本：个人中心与系统设置逻辑
+// ============================================================================
+import NexusHeader from '../../components/NexusHeader.vue';
+import NexusTabBar from '../../components/NexusTabBar.vue';
+import DevicePairModal from '../../components/DevicePairModal.vue';
+import NexusAuthModal from '../../components/NexusAuthModal.vue';
+import {
+  getDesktopConfig,
+  saveDesktopConfig,
+  testDesktopConnection,
+  getNexusUser,
+  getNexusApiKey
+} from '../../services/nexus.js';
+import { getFavorites } from '../../services/favorites.js';
+import { getPushHistory } from '../../services/history.js';
+
+export default {
+  name: 'ProfilePage',
+  components: {
+    NexusHeader,
+    NexusTabBar,
+    DevicePairModal,
+    NexusAuthModal
+  },
+
+  data() {
+    return {
+      // 电脑端连接配置
+      desktopConfig: {
+        host: '192.168.1.100',
+        port: 9876,
+        deviceToken: 'MF-PC-8891',
+        connected: false
+      },
+      isTestingConnection: false,
+      deviceModalVisible: false,
+
+      // NexusMods 账号信息
+      nexusUser: null,
+      nexusApiKey: '',
+      nexusAuthModalVisible: false,
+
+      // 统计数据
+      favoritesCount: 0,
+      historyCount: 0,
+
+      // 当前选中的游戏
+      activeGame: {
+        domain: '',
+        name: '',
+        zhName: '',
+        tileUrl: ''
+      },
+
+      // AI 智能翻译开关
+      enableAutoTranslate: true
+    };
+  },
+
+  onShow() {
+    this.refreshAllData();
+  },
+
+  methods: {
+    /**
+     * 刷新页面全部基础数据
+     */
+    refreshAllData() {
+      // 读取电脑端配置
+      this.desktopConfig = getDesktopConfig();
+
+      // 读取 Nexus 用户
+      this.nexusUser = getNexusUser();
+      this.nexusApiKey = getNexusApiKey();
+
+      // 读取心愿单总数
+      const favs = getFavorites();
+      this.favoritesCount = Array.isArray(favs) ? favs.length : 0;
+
+      // 读取历史任务数
+      const history = getPushHistory();
+      this.historyCount = Array.isArray(history) ? history.length : 0;
+
+      // 读取激活的游戏
+      try {
+        const saved = uni.getStorageSync('mayfly_active_game');
+        if (saved && saved.domain) {
+          this.activeGame = saved;
+        } else {
+          this.activeGame = { domain: '', name: '', zhName: '', tileUrl: '' };
+        }
+      } catch (e) {}
+
+      // 读取翻译开关
+      try {
+        const tr = uni.getStorageSync('mayfly_enable_auto_translate');
+        if (tr !== '') {
+          this.enableAutoTranslate = Boolean(tr);
+        }
+      } catch (e) {}
+    },
+
+    /**
+     * 打开 Nexus 账号授权弹窗
+     */
+    openNexusAuth() {
+      this.nexusAuthModalVisible = true;
+    },
+
+    /**
+     * 账号登录成功回调
+     */
+    onLoginSuccess(userData) {
+      this.nexusUser = userData;
+      this.nexusAuthModalVisible = false;
+      uni.showToast({ title: 'NexusMods 授权成功', icon: 'success' });
+    },
+
+    /**
+     * 退出登录回调
+     */
+    onLogout() {
+      this.nexusUser = null;
+      this.nexusApiKey = '';
+      this.nexusAuthModalVisible = false;
+      uni.showToast({ title: '已退出登录', icon: 'none' });
+    },
+
+    /**
+     * 设备配对保存回调
+     */
+    onDeviceSaved(newCfg) {
+      this.desktopConfig = { ...newCfg };
+      this.deviceModalVisible = false;
+      uni.showToast({ title: '设备配置已保存', icon: 'success' });
+    },
+
+    /**
+     * 快速测试电脑端连接
+     */
+    async runQuickTest() {
+      this.isTestingConnection = true;
+      try {
+        const ok = await testDesktopConnection(this.desktopConfig);
+        this.desktopConfig.connected = ok;
+        saveDesktopConfig(this.desktopConfig);
+        uni.showToast({
+          title: ok ? '电脑端连接成功！' : '连接失败，请检查 IP 与端口',
+          icon: ok ? 'success' : 'none'
+        });
+      } catch (e) {
+        uni.showToast({ title: '测试发生异常', icon: 'none' });
+      } finally {
+        this.isTestingConnection = false;
+      }
+    },
+
+    /**
+     * 切换 AI 双语图鉴状态
+     */
+    toggleTranslate() {
+      this.enableAutoTranslate = !this.enableAutoTranslate;
+      try {
+        uni.setStorageSync('mayfly_enable_auto_translate', this.enableAutoTranslate);
+      } catch (e) {}
+      uni.showToast({
+        title: this.enableAutoTranslate ? '已开启双语图鉴' : '已切换为英文原文',
+        icon: 'none'
+      });
+    },
+
+    /**
+     * 清空当前激活的游戏专区筛选
+     */
+    clearActiveGame() {
+      this.activeGame = { domain: '', name: '', zhName: '', tileUrl: '' };
+      try {
+        uni.removeStorageSync('mayfly_active_game');
+      } catch (e) {}
+      uni.showToast({ title: '已恢复全网模组模式', icon: 'none' });
+    },
+
+    /**
+     * 跳转到游戏专区
+     */
+    goToGamesPage() {
+      uni.reLaunch({ url: '/pages/games/games' });
+    },
+
+    /**
+     * 跳转到心愿单
+     */
+    goToFavorites() {
+      uni.reLaunch({ url: '/pages/favorites/favorites' });
+    },
+
+    /**
+     * 跳转到历史记录
+     */
+    goToHistory() {
+      uni.reLaunch({ url: '/pages/history/history' });
+    },
+
+    /**
+     * 当前 Tab 刷新
+     */
+    onTabRefresh() {
+      this.refreshAllData();
+      uni.showToast({ title: '已刷新设置', icon: 'none' });
+    }
+  }
+};
+</script>
+
+<style scoped>
+/* ============================================================================ */
+/* 页面基础容器样式                                                             */
+/* ============================================================================ */
+.profilePage {
+  min-height: 100vh;
+  background-color: #0c0d11;
+  display: flex;
+  flex-direction: column;
+}
+
+.profileScrollView {
+  flex: 1;
+  height: 0;
+}
+
+.profileContainer {
+  padding: 24rpx 24rpx 160rpx 24rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+/* ============================================================================ */
+/* 通用卡片容器样式                                                             */
+/* ============================================================================ */
+.sectionCard {
+  background-color: #151821;
+  border-radius: 20rpx;
+  border: 1rpx solid #232838;
+  padding: 28rpx;
+  box-sizing: border-box;
+}
+
+.cardHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.cardHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.headerIcon {
+  font-size: 32rpx;
+}
+
+.cardHeaderText {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #f1f3f7;
+}
+
+.cardArrow {
+  font-size: 36rpx;
+  color: #62697b;
+  font-weight: 300;
+}
+
+/* ============================================================================ */
+/* 区域 A：用户状态卡片                                                         */
+/* ============================================================================ */
+.userCard {
+  background: linear-gradient(135deg, #1e2230 0%, #151821 100%);
+  border: 1rpx solid #2e3549;
+}
+
+.userCardContent {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  cursor: pointer;
+}
+
+.userAvatarBox {
+  position: relative;
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background-color: #242938;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.userAvatarBox.guest {
+  background-color: rgba(218, 107, 23, 0.15);
+  border: 2rpx dashed #da6b17;
+}
+
+.userAvatarImg {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3rpx solid #da6b17;
+}
+
+.userAvatarGlyph {
+  font-size: 48rpx;
+  color: #da6b17;
+}
+
+.crownBadge {
+  position: absolute;
+  top: -6rpx;
+  right: -6rpx;
+  font-size: 26rpx;
+}
+
+.userMetaCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.userTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.userNameText {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.authPillBtn {
+  font-size: 22rpx;
+  color: #da6b17;
+  font-weight: 700;
+  background-color: rgba(218, 107, 23, 0.12);
+  padding: 4rpx 14rpx;
+  border-radius: 20rpx;
+}
+
+.userSubText {
+  font-size: 22rpx;
+  color: #8b92a5;
+  line-height: 1.4;
+}
+
+.roleTag {
+  font-size: 18rpx;
+  font-weight: 800;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  letter-spacing: 1rpx;
+}
+
+.roleTag.premium {
+  background-color: #ffd700;
+  color: #121212;
+}
+
+.roleTag.supporter {
+  background-color: #06b6d4;
+  color: #ffffff;
+}
+
+.roleTag.member {
+  background-color: #4b5563;
+  color: #d1d5db;
+}
+
+/* ============================================================================ */
+/* 区域 B：电脑端连接卡片                                                       */
+/* ============================================================================ */
+.pcStatusBadge {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 6rpx 16rpx;
+  background-color: rgba(75, 85, 99, 0.3);
+  border-radius: 20rpx;
+}
+
+.pcStatusBadge.online {
+  background-color: rgba(16, 185, 129, 0.15);
+  border: 1rpx solid rgba(16, 185, 129, 0.4);
+}
+
+.statusDot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background-color: #9ca3af;
+}
+
+.pcStatusBadge.online .statusDot {
+  background-color: #10b981;
+  box-shadow: 0 0 8rpx #10b981;
+}
+
+.statusText {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #9ca3af;
+}
+
+.pcStatusBadge.online .statusText {
+  color: #10b981;
+}
+
+.pcMetaBox {
+  background-color: #0e1017;
+  border-radius: 14rpx;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.pcIpText {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #dbe0eb;
+  font-family: monospace;
+}
+
+.pcNoticeText {
+  font-size: 20rpx;
+  color: #7b8296;
+  line-height: 1.4;
+}
+
+.pcActionsRow {
+  display: flex;
+  gap: 16rpx;
+}
+
+.actionBtn {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 14rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actionBtn.primary {
+  background-color: #da6b17;
+  color: #ffffff;
+  border: none;
+}
+
+.actionBtn.outline {
+  background-color: #1c202d;
+  color: #cbd5e1;
+  border: 1rpx solid #31384e;
+}
+
+.btnText {
+  font-size: 26rpx;
+}
+
+/* ============================================================================ */
+/* 区域 C：当前激活的游戏专区卡片                                               */
+/* ============================================================================ */
+.changeGameBtn {
+  font-size: 24rpx;
+  color: #da6b17;
+  font-weight: 600;
+}
+
+.activeGameCard {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  background-color: #0e1017;
+  border-radius: 14rpx;
+  padding: 16rpx;
+}
+
+.activeGameThumb {
+  width: 90rpx;
+  height: 120rpx;
+  border-radius: 10rpx;
+  flex-shrink: 0;
+}
+
+.activeGameMeta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  overflow: hidden;
+}
+
+.gameTitle {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gameSubTitle {
+  font-size: 20rpx;
+  color: #8b92a5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gameDomainTag {
+  font-size: 18rpx;
+  color: #da6b17;
+  font-family: monospace;
+}
+
+.clearGameBtn {
+  padding: 8rpx 16rpx;
+  background-color: #242938;
+  border-radius: 8rpx;
+  cursor: pointer;
+}
+
+.clearGameText {
+  font-size: 22rpx;
+  color: #cbd5e1;
+}
+
+.noGameCard {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  background-color: #0e1017;
+  border-radius: 14rpx;
+  padding: 20rpx;
+  cursor: pointer;
+}
+
+.noGameIcon {
+  font-size: 40rpx;
+}
+
+.noGameMeta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.noGameTitle {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.noGameSub {
+  font-size: 20rpx;
+  color: #7b8296;
+}
+
+/* ============================================================================ */
+/* 区域 D：常用偏好与入口                                                       */
+/* ============================================================================ */
+.prefItemRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #1f2433;
+  cursor: pointer;
+}
+
+.prefItemRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.prefItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  flex: 1;
+}
+
+.prefIcon {
+  font-size: 34rpx;
+}
+
+.prefTextCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.prefTitle {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #f1f3f7;
+}
+
+.prefSub {
+  font-size: 20rpx;
+  color: #7b8296;
+}
+
+.switchBadge {
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  background-color: #242938;
+}
+
+.switchBadge.on {
+  background-color: rgba(16, 185, 129, 0.15);
+  border: 1rpx solid rgba(16, 185, 129, 0.35);
+}
+
+.switchText {
+  font-size: 22rpx;
+  color: #8b92a5;
+  font-weight: 600;
+}
+
+.switchBadge.on .switchText {
+  color: #10b981;
+}
+
+.prefRightMeta {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.countPill {
+  font-size: 22rpx;
+  color: #da6b17;
+  font-weight: 700;
+  background-color: rgba(218, 107, 23, 0.12);
+  padding: 2rpx 12rpx;
+  border-radius: 12rpx;
+}
+
+/* ============================================================================ */
+/* 区域 E：版本与关于说明                                                       */
+/* ============================================================================ */
+.aboutSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+  padding: 30rpx 0;
+}
+
+.aboutTitle {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.aboutDesc {
+  font-size: 20rpx;
+  color: #475569;
+}
+
+.aboutVersion {
+  font-size: 18rpx;
+  color: #334155;
+  font-family: monospace;
+  margin-top: 8rpx;
+}
+</style>

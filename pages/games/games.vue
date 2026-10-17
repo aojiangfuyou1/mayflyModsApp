@@ -4,19 +4,18 @@
   <!-- 功能描述：独立全屏展示 Nexus 热门游戏海报库 (100% 对标图 1 竖版海报双列流) -->
   <!-- ======================================================================== -->
   <view class="gamesPage">
-    <!-- 1. 全局沉浸式顶栏 -->
+    <!-- 1. 全局沉浸式顶栏 (一级 Tab 页面) -->
     <NexusHeader
       title="热门游戏专区"
-      :show-back="true"
+      :show-back="false"
       :show-search="true"
       :desktop-config="desktopConfig"
       :nexus-user="nexusUser"
-      @back-click="handleNavBack"
       @drawer-click="drawerVisible = true"
       @search-click="toggleSearch"
       @pc-click="deviceModalVisible = true"
       @user-click="openNexusAuth"
-      @logo-click="handleNavBack"
+      @logo-click="goToModsStream"
     />
 
     <!-- 搜索展开栏 -->
@@ -123,6 +122,16 @@
       @login-success="onNexusLoginSuccess"
       @logout="onNexusLogout"
     />
+
+    <!-- 6. 全局手机 App 底部导航栏 -->
+    <NexusTabBar
+      active-tab="games"
+      :favorites-count="favoritesCount"
+      :history-count="historyCount"
+      :desktop-connected="desktopConfig && desktopConfig.connected"
+      :nexus-user="nexusUser"
+      @tab-refresh="loadGames"
+    />
   </view>
 </template>
 
@@ -139,17 +148,21 @@ import {
   getNexusApiKey
 } from '../../services/nexus.js';
 import { batchTranslateToZh } from '../../services/translate.js';
+import { getFavorites } from '../../services/favorites.js';
+import { getPushHistory } from '../../services/history.js';
 import NexusHeader from '../../components/NexusHeader.vue';
 import NexusDrawer from '../../components/NexusDrawer.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
+import NexusTabBar from '../../components/NexusTabBar.vue';
 
 export default {
   components: {
     NexusHeader,
     NexusDrawer,
     DevicePairModal,
-    NexusAuthModal
+    NexusAuthModal,
+    NexusTabBar
   },
 
   data() {
@@ -165,7 +178,9 @@ export default {
       zhGameNameMap: {},
       desktopConfig: { host: '192.168.1.100', port: 9876, connected: false },
       nexusUser: null,
-      nexusApiKey: ''
+      nexusApiKey: '',
+      favoritesCount: 0,
+      historyCount: 0
     };
   },
 
@@ -181,14 +196,31 @@ export default {
     }
   },
 
+  onShow() {
+    this.refreshMeta();
+  },
+
   mounted() {
     this.desktopConfig = getDesktopConfig();
     this.nexusUser = getNexusUser();
     this.nexusApiKey = getNexusApiKey();
+    this.refreshMeta();
     this.loadGames();
   },
 
   methods: {
+    /**
+     * 刷新心愿单与推送清单角标数据
+     */
+    refreshMeta() {
+      const favs = getFavorites();
+      this.favoritesCount = Array.isArray(favs) ? favs.length : 0;
+      const hist = getPushHistory();
+      this.historyCount = Array.isArray(hist) ? hist.length : 0;
+      this.desktopConfig = getDesktopConfig();
+      this.nexusUser = getNexusUser();
+    },
+
     async loadGames() {
       this.loading = true;
       try {
@@ -287,10 +319,14 @@ export default {
       this.drawerVisible = false;
       if (target === 'home') {
         uni.reLaunch({ url: '/pages/index/index' });
+      } else if (target === 'games') {
+        // 当前已在 games 页面
       } else if (target === 'favorites') {
-        uni.navigateTo({ url: '/pages/favorites/favorites' });
+        uni.reLaunch({ url: '/pages/favorites/favorites' });
       } else if (target === 'history') {
-        uni.navigateTo({ url: '/pages/history/history' });
+        uni.reLaunch({ url: '/pages/history/history' });
+      } else if (target === 'profile') {
+        uni.reLaunch({ url: '/pages/profile/profile' });
       } else if (target === 'auth') {
         this.openNexusAuth();
       } else if (target === 'device') {
@@ -351,7 +387,8 @@ export default {
 }
 
 .gamesContainer {
-  padding: 24rpx;
+  padding: 24rpx 24rpx 160rpx 24rpx;
+  box-sizing: border-box;
 }
 
 .gamesHeaderRow {

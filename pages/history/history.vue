@@ -4,18 +4,16 @@
   <!-- 功能描述：独立全屏展示已推送到电脑端的 Mod 历史任务，支持一键重推与清空  -->
   <!-- ======================================================================== -->
   <view class="historyPage">
-    <!-- 1. 全局沉浸式顶栏 -->
+    <!-- 1. 全局沉浸式顶栏 (一级 Tab 页面) -->
     <NexusHeader
       title="推送任务清单"
-      :show-back="true"
+      :show-back="false"
       :show-search="false"
       :desktop-config="desktopConfig"
       :nexus-user="nexusUser"
-      @back-click="handleNavBack"
       @drawer-click="drawerVisible = true"
       @pc-click="deviceModalVisible = true"
       @user-click="openNexusAuth"
-      @logo-click="handleNavBack"
     />
 
     <view class="historyContainer">
@@ -86,6 +84,16 @@
       @login-success="onNexusLoginSuccess"
       @logout="onNexusLogout"
     />
+
+    <!-- 6. 全局手机 App 底部导航栏 -->
+    <NexusTabBar
+      active-tab="history"
+      :favorites-count="favoritesCount"
+      :history-count="historyList.length"
+      :desktop-connected="desktopConfig && desktopConfig.connected"
+      :nexus-user="nexusUser"
+      @tab-refresh="refreshHistory"
+    />
   </view>
 </template>
 
@@ -94,6 +102,7 @@
 // 页面脚本：推送任务历史记录查询与重投
 // ============================================================================
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
+import { getFavorites } from '../../services/favorites.js';
 import {
   pushModToDesktop,
   getDesktopConfig,
@@ -106,13 +115,15 @@ import NexusHeader from '../../components/NexusHeader.vue';
 import NexusDrawer from '../../components/NexusDrawer.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
+import NexusTabBar from '../../components/NexusTabBar.vue';
 
 export default {
   components: {
     NexusHeader,
     NexusDrawer,
     DevicePairModal,
-    NexusAuthModal
+    NexusAuthModal,
+    NexusTabBar
   },
 
   data() {
@@ -123,12 +134,15 @@ export default {
       nexusAuthModalVisible: false,
       desktopConfig: { host: '192.168.1.100', port: 9876, connected: false },
       nexusUser: null,
-      nexusApiKey: ''
+      nexusApiKey: '',
+      favoritesCount: 0
     };
   },
 
   onShow() {
     this.refreshHistory();
+    const favs = getFavorites();
+    this.favoritesCount = Array.isArray(favs) ? favs.length : 0;
     this.desktopConfig = getDesktopConfig();
     this.nexusUser = getNexusUser();
     this.nexusApiKey = getNexusApiKey();
@@ -227,9 +241,13 @@ export default {
       if (target === 'home') {
         uni.reLaunch({ url: '/pages/index/index' });
       } else if (target === 'games') {
-        uni.navigateTo({ url: '/pages/games/games' });
+        uni.reLaunch({ url: '/pages/games/games' });
       } else if (target === 'favorites') {
-        uni.navigateTo({ url: '/pages/favorites/favorites' });
+        uni.reLaunch({ url: '/pages/favorites/favorites' });
+      } else if (target === 'history') {
+        // 当前已在 history 页面
+      } else if (target === 'profile') {
+        uni.reLaunch({ url: '/pages/profile/profile' });
       } else if (target === 'auth') {
         this.openNexusAuth();
       } else if (target === 'device') {
@@ -248,7 +266,7 @@ export default {
   min-height: 100vh;
   background-color: #121212;
   color: #e5e7eb;
-  padding-bottom: 80rpx;
+  padding-bottom: 160rpx;
   box-sizing: border-box;
 }
 

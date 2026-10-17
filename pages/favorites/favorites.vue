@@ -4,18 +4,16 @@
   <!-- 功能描述：独立全屏展示与管理本地收藏的 Mod，支持批量导出与一键安装到电脑 -->
   <!-- ======================================================================== -->
   <view class="favoritesPage">
-    <!-- 1. 全局沉浸式顶栏 -->
+    <!-- 1. 全局沉浸式顶栏 (一级 Tab 页面) -->
     <NexusHeader
       title="装机心愿单"
-      :show-back="true"
+      :show-back="false"
       :show-search="false"
       :desktop-config="desktopConfig"
       :nexus-user="nexusUser"
-      @back-click="handleNavBack"
       @drawer-click="drawerVisible = true"
       @pc-click="deviceModalVisible = true"
       @user-click="openNexusAuth"
-      @logo-click="handleNavBack"
     />
 
     <view class="favContainer">
@@ -117,6 +115,16 @@
       @login-success="onNexusLoginSuccess"
       @logout="onNexusLogout"
     />
+
+    <!-- 6. 全局手机 App 底部导航栏 -->
+    <NexusTabBar
+      active-tab="favorites"
+      :favorites-count="favoritesList.length"
+      :history-count="historyCount"
+      :desktop-connected="desktopConfig && desktopConfig.connected"
+      :nexus-user="nexusUser"
+      @tab-refresh="refreshFavorites"
+    />
   </view>
 </template>
 
@@ -128,6 +136,7 @@ import {
   getFavorites,
   toggleFavorite
 } from '../../services/favorites.js';
+import { getPushHistory } from '../../services/history.js';
 import {
   pushModToDesktop,
   getDesktopConfig,
@@ -142,6 +151,7 @@ import NexusDrawer from '../../components/NexusDrawer.vue';
 import ModCard from '../../components/ModCard.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
+import NexusTabBar from '../../components/NexusTabBar.vue';
 
 export default {
   components: {
@@ -149,7 +159,8 @@ export default {
     NexusDrawer,
     ModCard,
     DevicePairModal,
-    NexusAuthModal
+    NexusAuthModal,
+    NexusTabBar
   },
 
   data() {
@@ -166,7 +177,8 @@ export default {
       isBatchPushing: false,
       desktopConfig: { host: '192.168.1.100', port: 9876, connected: false },
       nexusUser: null,
-      nexusApiKey: ''
+      nexusApiKey: '',
+      historyCount: 0
     };
   },
 
@@ -190,6 +202,8 @@ export default {
 
   onShow() {
     this.refreshFavorites();
+    const hist = getPushHistory();
+    this.historyCount = Array.isArray(hist) ? hist.length : 0;
     this.desktopConfig = getDesktopConfig();
     this.nexusUser = getNexusUser();
     this.nexusApiKey = getNexusApiKey();
@@ -313,9 +327,13 @@ export default {
       if (target === 'home') {
         uni.reLaunch({ url: '/pages/index/index' });
       } else if (target === 'games') {
-        uni.navigateTo({ url: '/pages/games/games' });
+        uni.reLaunch({ url: '/pages/games/games' });
+      } else if (target === 'favorites') {
+        // 当前已在 favorites 页面
       } else if (target === 'history') {
-        uni.navigateTo({ url: '/pages/history/history' });
+        uni.reLaunch({ url: '/pages/history/history' });
+      } else if (target === 'profile') {
+        uni.reLaunch({ url: '/pages/profile/profile' });
       } else if (target === 'auth') {
         this.openNexusAuth();
       } else if (target === 'device') {
@@ -334,7 +352,7 @@ export default {
   min-height: 100vh;
   background-color: #121212;
   color: #e5e7eb;
-  padding-bottom: 80rpx;
+  padding-bottom: 160rpx;
   box-sizing: border-box;
 }
 

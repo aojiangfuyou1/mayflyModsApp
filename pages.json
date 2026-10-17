@@ -42,6 +42,16 @@
 			}
 		},
 		{
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "个人中心与设置",
+				"navigationBarBackgroundColor": "#0b0e14",
+				"navigationBarTextStyle": "white",
+				"backgroundColor": "#0b0e14"
+			}
+		},
+		{
 			"path": "pages/detail/detail",
 			"style": {
 				"navigationStyle": "custom",
