@@ -14,11 +14,12 @@ export const NEXUS_GRAPHQL_ENDPOINT = 'https://api-router.nexusmods.com/graphql'
 /** 本地存储配对设备信息的 Key */
 export const STORAGE_KEY_DESKTOP_CONFIG = 'mayfly_desktop_config';
 
-/** 默认电脑端配置 */
+/** 默认电脑端配置 (对齐原生 28888 端口与真实局域网 IP) */
 export const DEFAULT_DESKTOP_CONFIG = {
-  host: '192.168.1.100',
-  port: 9876,
-  deviceToken: 'MF-PC-8891',
+  host: '10.204.160.22',
+  port: 28888,
+  deviceToken: '',
+  devicePin: '',
   connected: false
 };
 
@@ -706,34 +707,107 @@ export async function pushModToDesktop(modItem, overrideConfig = null) {
   return pushModAdaptive(modItem, overrideConfig);
 }
 
-export async function testDesktopConnection(host, port = 9876) {
-  const cleanHost = String(host || '').trim().replace(/^http:\/\//, '');
+/**
+ * 测试局域网电脑端 Mayfly 连通性与服务健康状态
+ * @param {string} host - 电脑 IP
+ * @param {number} [port=28888] - 通信端口 (默认 28888)
+ * @param {string} [token=""] - 授权 Token 或 6 位 PIN 码 (可选)
+ * @returns {Promise<{ online: boolean, verified?: boolean, statusData?: Object, token?: string, hostname?: string, message?: string } | boolean>}
+ */
+export async function testDesktopConnection(host, port = 28888, token = '') {
+  const cleanHost = String(host || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   if (!cleanHost) return false;
 
-  // 1. 优先尝试伴侣端点 /api/ping
-  const pingUrl = `http://${cleanHost}:${port}/api/ping`;
-  try {
-    const res = await uni.request({
-      url: pingUrl,
-      method: 'GET',
-      timeout: 2500
-    });
-    if (res.statusCode === 200) return true;
-  } catch (err) {
-    // 静默降级尝试下一个端点
-  }
-
-  // 2. 尝试电脑端原生内置助手状态端点 /api/status
+  // 1. 优先探测原生 28888 开放状态端点 /api/status (无需任何鉴权，即时返回电脑 IP 与主机名)
   const statusUrl = `http://${cleanHost}:${port}/api/status`;
   try {
     const res = await uni.request({
       url: statusUrl,
       method: 'GET',
-      timeout: 2500
+      timeout: 2000
     });
-    return res.statusCode === 200;
+    if (res.statusCode === 200 && res.data) {
+      const data = res.data;
+      let verified = false;
+      let permanentToken = '';
+
+      // 若传入了 token 或 6 位 PIN 码，进行鉴权换取
+      if (token && token.trim()) {
+        const verifyRes = await verifyDesktopPin(cleanHost, port, token.trim());
+        if (verifyRes.success) {
+          verified = true;
+          permanentToken = verifyRes.token;
+        }
+      }
+
+      return {
+        online: true,
+        verified,
+        token: permanentToken || token,
+        statusData: data,
+        hostname: data.hostname || 'Mayfly-PC'
+      };
+    }
   } catch (err) {
-    return false;
+    // 降级尝试旧伴侣端点 /api/ping
+  }
+
+  // 2. 尝试伴侣端点 /api/ping 兜底兼容
+  const pingUrl = `http://${cleanHost}:${port}/api/ping`;
+  try {
+    const res = await uni.request({
+      url: pingUrl,
+      method: 'GET',
+      timeout: 1500
+    });
+    if (res.statusCode === 200) {
+      return { online: true, verified: true, token };
+    }
+  } catch (err) {
+    // 连通失败
+  }
+
+  return false;
+}
+
+/**
+ * 校验 6 位 PIN 码或 Token 换取电脑端永久访问凭据
+ * @param {string} host - 电脑 IP
+ * @param {number} [port=28888] - 端口
+ * @param {string} pinOrToken - 6 位 PIN 码或 Hex Token
+ * @returns {Promise<{ success: boolean, token?: string, message?: string }>}
+ */
+export async function verifyDesktopPin(host, port = 28888, pinOrToken = '') {
+  const cleanHost = String(host || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+  const cleanPin = String(pinOrToken || '').trim();
+  if (!cleanHost || !cleanPin) {
+    return { success: false, message: '请输入电脑 IP 与 6 位 PIN 码' };
+  }
+
+  const verifyUrl = `http://${cleanHost}:${port}/api/verify?token=${encodeURIComponent(cleanPin)}`;
+  try {
+    const res = await uni.request({
+      url: verifyUrl,
+      method: 'GET',
+      timeout: 3000
+    });
+    if (res.statusCode === 200 && res.data?.success) {
+      return {
+        success: true,
+        token: res.data.token || cleanPin,
+        message: '配对成功！'
+      };
+    } else {
+      return {
+        success: false,
+        message: res.data?.error || 'PIN 码错误或已失效，请检查电脑端显示的 6 位动态码'
+      };
+    }
+  } catch (err) {
+    return {
+      success: false,
+      message: '无法连接到电脑端验证服务，请确认在同一 WiFi 下'
+    };
   }
 }
 
@@ -1001,7 +1075,7 @@ export async function syncNexusFromDesktop(desktopConfig) {
     return { success: false, message: '请先在设备管理中连接电脑端 Mayfly' };
   }
   const cleanHost = String(desktopConfig.host).trim().replace(/^http:\/\//, '');
-  const port = desktopConfig.port || 9876;
+  const port = desktopConfig.port || 28888;
   const targetUrl = `http://${cleanHost}:${port}/api/nexus/status`;
 
   try {

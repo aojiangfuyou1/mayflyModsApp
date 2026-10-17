@@ -1,68 +1,133 @@
 <template>
   <!-- ======================================================================== -->
-  <!-- 电脑端 Mayfly 局域网配对与连接设置弹窗组件 (多页面复用)                 -->
+  <!-- 电脑端 Mayfly 局域网配对与连接设置弹窗组件 (DevicePairModal.vue)         -->
   <!-- ======================================================================== -->
   <view class="modalOverlay" v-if="visible" @click="close">
     <view class="deviceModalContent" @click.stop>
-      <!-- 弹窗顶栏 -->
+      <!-- -------------------------------------------------------------------- -->
+      <!-- 区域一：弹窗头部与关闭按钮                                           -->
+      <!-- -------------------------------------------------------------------- -->
       <view class="deviceModalHeader">
-        <text class="modalTitle">💻 配对电脑端 Mayfly</text>
+        <view class="headerTitleRow">
+          <text class="modalTitle">💻 配对电脑端 Mayfly</text>
+          <text class="lanBadge">同 WiFi 直连</text>
+        </view>
         <view class="modalCloseBtn" @click="close">✕</view>
       </view>
 
-      <view class="deviceForm">
-        <!-- 扫码一键配对按钮 -->
-        <button class="scanCodeBtn" @click="handleScanCodePair">
-          <text class="scanCodeBtnText">📷 扫一扫屏幕二维码自动配对</text>
-        </button>
-
-        <view class="formDividerRow">
-          <view class="dividerLine"></view>
-          <text class="dividerText">或手动输入配置</text>
-          <view class="dividerLine"></view>
+      <view class="deviceModalBody">
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域二：局域网雷达探测状态卡片                                     -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="radarCard" :class="{ isOnline: desktopOnline }">
+          <view class="radarStatusRow">
+            <view class="radarDot" :class="{ pulse: testingConnection, online: desktopOnline }"></view>
+            <text class="radarStatusText">
+              {{ testingConnection ? '正在探测局域网电脑端...' : (desktopOnline ? `电脑在线 (${detectedHostname || form.host})` : '未检测到电脑端 (请确保在同 WiFi 下)') }}
+            </text>
+          </view>
+          <view class="radarActionRow">
+            <text class="radarSubText">端口: {{ form.port }} · {{ form.host }}</text>
+            <view class="radarRefreshBtn" @click="runAutoRadarProbe">
+              <text class="radarRefreshText">🔄 重新探测</text>
+            </view>
+          </view>
         </view>
 
-        <view class="formItem">
-          <text class="formLabel">电脑局域网 IP 地址</text>
-          <input
-            class="formInput"
-            v-model="form.host"
-            placeholder="例如 192.168.1.100"
-          />
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域三：核心方式 - 6 位 PIN 码一秒极简配对 (推荐首选)               -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="pinPairCard">
+          <view class="pinHeaderRow">
+            <text class="pinCardTitle">🔑 电脑 6 位配对动态码 (PIN)</text>
+            <text class="pinCardTip">查看电脑弹窗显示的 6 位数字</text>
+          </view>
+          <view class="pinInputBox">
+            <input
+              class="pinInputField"
+              type="number"
+              maxlength="6"
+              v-model="pinInput"
+              placeholder="例如 657095"
+              placeholder-class="pinPlaceholder"
+              @confirm="handlePinPair"
+            />
+          </view>
+          <!-- 一键配对主按钮 (强化宽高与居中排版，杜绝挤扁) -->
+          <button
+            class="primaryPairBtn"
+            :disabled="pairingWithPin || !pinInput.trim()"
+            @click="handlePinPair"
+          >
+            <text class="primaryBtnText">{{ pairingWithPin ? '正在验证配对...' : '✨ 一键配对并连接电脑' }}</text>
+          </button>
         </view>
 
-        <view class="formItem">
-          <text class="formLabel">通信端口</text>
-          <input
-            class="formInput"
-            type="number"
-            v-model="form.port"
-            placeholder="默认 28888 或 9876"
-          />
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域四：快捷方式 - 剪贴板链接智能识别与扫码                         -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="quickToolsRow">
+          <button class="quickToolBtn" @click="handlePasteLink">
+            <text class="quickToolText">📋 粘贴电脑链接识别</text>
+          </button>
+          <button class="quickToolBtn" @click="handleScanCodePair">
+            <text class="quickToolText">📷 扫一扫二维码</text>
+          </button>
         </view>
 
-        <view class="formItem">
-          <text class="formLabel">设备配对 Token / Pin</text>
-          <input
-            class="formInput"
-            v-model="form.deviceToken"
-            placeholder="例如 MF-PC-8891"
-          />
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域五：高级设置 (折叠展开，支持自定义 IP 与端口)                   -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="advancedSection">
+          <view class="advancedToggleRow" @click="showAdvanced = !showAdvanced">
+            <text class="advancedToggleText">⚙️ 高级网络设置 (自定义 IP / 端口)</text>
+            <text class="advancedArrow">{{ showAdvanced ? '▲ 收起' : '▼ 展开' }}</text>
+          </view>
+
+          <view class="advancedContent" v-if="showAdvanced">
+            <view class="formItem">
+              <text class="formLabel">电脑局域网 IP 地址</text>
+              <input
+                class="formInput"
+                v-model="form.host"
+                placeholder="例如 10.204.160.22"
+              />
+            </view>
+
+            <view class="formItem">
+              <text class="formLabel">通信端口 (默认 28888)</text>
+              <input
+                class="formInput"
+                type="number"
+                v-model="form.port"
+                placeholder="默认 28888"
+              />
+            </view>
+
+            <view class="formItem">
+              <text class="formLabel">设备持久化 Token (选填)</text>
+              <input
+                class="formInput"
+                v-model="form.deviceToken"
+                placeholder="配对成功后自动生成"
+              />
+            </view>
+
+            <!-- 高级手动保存与测试连接 -->
+            <view class="advancedBtnRow">
+              <button
+                class="testConnBtn"
+                :disabled="testingConnection"
+                @click="runTestConnection"
+              >
+                <text class="testBtnText">{{ testingConnection ? '探测中...' : '⚡ 测试连通' }}</text>
+              </button>
+              <button class="saveConfigBtn" @click="saveDeviceSettings">
+                <text class="saveBtnText">保存配置</text>
+              </button>
+            </view>
+          </view>
         </view>
-
-        <!-- 测试连接按钮 -->
-        <button
-          class="testConnBtn"
-          :disabled="testingConnection"
-          @click="runTestConnection"
-        >
-          <text class="testBtnText">{{ testingConnection ? '正在探测连通性...' : '⚡ 测试连接' }}</text>
-        </button>
-
-        <!-- 保存按钮 -->
-        <button class="saveConfigBtn" @click="saveDeviceSettings">
-          <text class="saveBtnText">保存配置</text>
-        </button>
       </view>
     </view>
   </view>
@@ -70,12 +135,14 @@
 
 <script>
 // ============================================================================
-// DevicePairModal 组件逻辑：扫码与手动配置电脑端连接
+// DevicePairModal 逻辑：局域网雷达探测、6 位 PIN 码一键配对与剪贴板识别
 // ============================================================================
 import {
   testDesktopConnection,
+  verifyDesktopPin,
   saveDesktopConfig,
-  getDesktopConfig
+  getDesktopConfig,
+  DEFAULT_DESKTOP_CONFIG
 } from '../services/nexus.js';
 
 export default {
@@ -94,11 +161,16 @@ export default {
   data() {
     return {
       form: {
-        host: '',
-        port: 9876,
+        host: '10.204.160.22',
+        port: 28888,
         deviceToken: ''
       },
-      testingConnection: false
+      pinInput: '',
+      desktopOnline: false,
+      detectedHostname: '',
+      testingConnection: false,
+      pairingWithPin: false,
+      showAdvanced: false
     };
   },
 
@@ -109,10 +181,15 @@ export default {
         if (val) {
           const cfg = this.config && this.config.host ? this.config : getDesktopConfig();
           this.form = {
-            host: cfg.host || '',
-            port: cfg.port || 9876,
-            deviceToken: cfg.deviceToken || 'MF-PC-8891'
+            host: cfg.host || DEFAULT_DESKTOP_CONFIG.host || '10.204.160.22',
+            port: cfg.port || DEFAULT_DESKTOP_CONFIG.port || 28888,
+            deviceToken: cfg.deviceToken || ''
           };
+          this.pinInput = '';
+          // 弹窗唤起时自动触发一次局域网雷达探活
+          this.$nextTick(() => {
+            this.runAutoRadarProbe();
+          });
         }
       }
     }
@@ -127,13 +204,189 @@ export default {
     },
 
     /**
+     * 局域网雷达自动探测电脑在线状态
+     */
+    async runAutoRadarProbe() {
+      const host = (this.form.host || '').trim();
+      const port = Number(this.form.port) || 28888;
+      if (!host) return;
+
+      this.testingConnection = true;
+      try {
+        const res = await testDesktopConnection(host, port, this.form.deviceToken);
+        if (res && (res.online || res === true)) {
+          this.desktopOnline = true;
+          this.detectedHostname = res.hostname || '';
+          if (res.token) {
+            this.form.deviceToken = res.token;
+          }
+        } else {
+          this.desktopOnline = false;
+        }
+      } catch (e) {
+        this.desktopOnline = false;
+      } finally {
+        this.testingConnection = false;
+      }
+    },
+
+    /**
+     * 使用 6 位 PIN 码一键配对握手换取永久 Token
+     */
+    async handlePinPair() {
+      const pin = this.pinInput.trim();
+      const host = (this.form.host || '').trim();
+      const port = Number(this.form.port) || 28888;
+
+      if (!host) {
+        uni.showToast({ title: '请填写电脑 IP', icon: 'none' });
+        return;
+      }
+      if (!pin) {
+        uni.showToast({ title: '请输入 6 位 PIN 码', icon: 'none' });
+        return;
+      }
+
+      this.pairingWithPin = true;
+      try {
+        const verifyRes = await verifyDesktopPin(host, port, pin);
+        if (verifyRes.success && verifyRes.token) {
+          this.form.deviceToken = verifyRes.token;
+          this.desktopOnline = true;
+
+          const newConfig = {
+            host,
+            port,
+            deviceToken: verifyRes.token,
+            connected: true
+          };
+          saveDesktopConfig(newConfig);
+          this.$emit('saved', newConfig);
+
+          uni.showToast({
+            title: '🎉 配对成功！已连接电脑',
+            icon: 'success'
+          });
+          setTimeout(() => {
+            this.close();
+          }, 800);
+        } else {
+          uni.showModal({
+            title: '配对未成功',
+            content: verifyRes.message || 'PIN 码不正确或连接超时，请确认电脑端弹窗显示的 6 位 PIN 码',
+            showCancel: false
+          });
+        }
+      } catch (err) {
+        uni.showToast({
+          title: '连接超时，请检查网络',
+          icon: 'none'
+        });
+      } finally {
+        this.pairingWithPin = false;
+      }
+    },
+
+    /**
+     * 智能识别剪贴板或用户输入的访问链接 (如 http://10.204.160.22:28888/?token=xxx)
+     */
+    handlePasteLink() {
+      uni.getClipboardData({
+        success: (res) => {
+          const text = (res.data || '').trim();
+          if (!text) {
+            this.promptManualPaste();
+            return;
+          }
+          this.parseAndApplyUrl(text);
+        },
+        fail: () => {
+          this.promptManualPaste();
+        }
+      });
+    },
+
+    /**
+     * 弹框手动输入链接进行解析
+     */
+    promptManualPaste() {
+      // #ifdef H5
+      const url = window.prompt('请粘贴电脑端复制的访问链接 (例如 http://10.204.160.22:28888/?token=...):');
+      if (url) {
+        this.parseAndApplyUrl(url);
+      }
+      // #endif
+      // #ifndef H5
+      uni.showModal({
+        title: '粘贴访问链接',
+        editable: true,
+        placeholderText: 'http://10.204.160.22:28888/?token=...',
+        success: (modalRes) => {
+          if (modalRes.confirm && modalRes.content) {
+            this.parseAndApplyUrl(modalRes.content);
+          }
+        }
+      });
+      // #endif
+    },
+
+    /**
+     * 解析 URL 并自动填入 host, port, token
+     */
+    parseAndApplyUrl(rawUrl) {
+      try {
+        const text = String(rawUrl || '').trim();
+        let targetHost = '';
+        let targetPort = 28888;
+        let targetToken = '';
+
+        // 匹配完整 URL 格式
+        const match = text.match(/https?:\/\/([^:/]+)(?::(\d+))?(?:\/?\?token=([a-zA-Z0-9_-]+))?/);
+        if (match) {
+          targetHost = match[1];
+          if (match[2]) targetPort = parseInt(match[2], 10);
+          if (match[3]) targetToken = match[3];
+        } else {
+          // 匹配 host:port
+          const parts = text.split(':');
+          if (parts.length >= 2) {
+            targetHost = parts[0].trim();
+            targetPort = parseInt(parts[1], 10) || 28888;
+          }
+        }
+
+        if (targetHost) {
+          this.form.host = targetHost;
+          this.form.port = targetPort;
+          if (targetToken) {
+            this.form.deviceToken = targetToken;
+          }
+
+          uni.showToast({
+            title: '已成功识别电脑配置！',
+            icon: 'success'
+          });
+
+          // 自动触发一次探测验证
+          this.runTestConnection();
+          return;
+        }
+      } catch (e) {}
+
+      uni.showToast({
+        title: '未能识别出有效的 Mayfly 链接',
+        icon: 'none'
+      });
+    },
+
+    /**
      * 扫一扫二维码自动填入配对配置
      */
     handleScanCodePair() {
       // #ifdef H5
       uni.showModal({
         title: '提示',
-        content: '网页端暂不支持摄像头扫码，请在手机端 App 或小程序中使用，或直接在下方手动输入电脑 IP 与 Token。',
+        content: '网页端暂不支持摄像头扫码，建议在上方直接输入电脑端显示的 6 位 PIN 码配对，或点击「粘贴电脑链接识别」。',
         showCancel: false
       });
       // #endif
@@ -141,35 +394,7 @@ export default {
       uni.scanCode({
         success: (res) => {
           if (res.result) {
-            try {
-              const data = JSON.parse(res.result);
-              if (data.host) {
-                this.form.host = data.host;
-                this.form.port = data.port || 9876;
-                this.form.deviceToken = data.deviceToken || '';
-                uni.showToast({
-                  title: '扫码配对成功！',
-                  icon: 'success'
-                });
-                return;
-              }
-            } catch (e) {
-              // 非 JSON 格式，尝试 host:port 格式
-              const parts = res.result.split(':');
-              if (parts.length >= 2) {
-                this.form.host = parts[0];
-                this.form.port = parseInt(parts[1], 10) || 9876;
-                uni.showToast({
-                  title: '已解析主机地址',
-                  icon: 'none'
-                });
-                return;
-              }
-            }
-            uni.showToast({
-              title: '未识别出 Mayfly 配对码',
-              icon: 'none'
-            });
+            this.parseAndApplyUrl(res.result);
           }
         },
         fail: () => {
@@ -187,7 +412,7 @@ export default {
      */
     async runTestConnection() {
       const host = (this.form.host || '').trim();
-      const port = Number(this.form.port) || 9876;
+      const port = Number(this.form.port) || 28888;
 
       if (!host) {
         uni.showToast({
@@ -199,16 +424,19 @@ export default {
 
       this.testingConnection = true;
       try {
-        const isOk = await testDesktopConnection(host, port);
-        if (isOk) {
+        const res = await testDesktopConnection(host, port, this.form.deviceToken);
+        if (res && (res.online || res === true)) {
+          this.desktopOnline = true;
+          this.detectedHostname = res.hostname || '';
           uni.showToast({
             title: '连接成功！电脑在线',
             icon: 'success'
           });
         } else {
+          this.desktopOnline = false;
           uni.showModal({
             title: '连接未成功',
-            content: `无法连接到 ${host}:${port}。请确保：\n1. 手机与电脑在同一 WiFi 局域网\n2. 电脑端 Mayfly 已开启伴侣模式\n3. 电脑防火墙未阻止 9876 端口`,
+            content: `无法连接到 ${host}:${port}。\n请确保：\n1. 手机与电脑连接同一 Wi-Fi\n2. 电脑端 Mayfly 保持运行\n3. 端口无防火墙拦截`,
             showCancel: false
           });
         }
@@ -227,7 +455,7 @@ export default {
      */
     async saveDeviceSettings() {
       const host = (this.form.host || '').trim();
-      const port = Number(this.form.port) || 9876;
+      const port = Number(this.form.port) || 28888;
       const deviceToken = (this.form.deviceToken || '').trim();
 
       if (!host) {
@@ -238,11 +466,12 @@ export default {
         return;
       }
 
-      const isOnline = await testDesktopConnection(host, port);
+      const res = await testDesktopConnection(host, port, deviceToken);
+      const isOnline = Boolean(res && (res.online || res === true));
       const newConfig = {
         host,
         port,
-        deviceToken,
+        deviceToken: (res && res.token) ? res.token : deviceToken,
         connected: isOnline
       };
 
@@ -261,7 +490,7 @@ export default {
 
 <style scoped>
 /* ============================================================================ */
-/* DevicePairModal 弹窗样式                                                     */
+/* DevicePairModal 弹窗样式 (移动端 + H5 自适应，防变形加固)                     */
 /* ============================================================================ */
 .modalOverlay {
   position: fixed;
@@ -269,9 +498,9 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+  z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -281,17 +510,19 @@ export default {
 
 .deviceModalContent {
   width: 100%;
-  max-width: 640rpx;
-  background: #181a1f;
-  border: 1rpx solid #2d3340;
-  border-radius: 24rpx;
+  max-width: 660rpx;
+  background: #16181e;
+  border: 1rpx solid #2b313d;
+  border-radius: 28rpx;
   padding: 32rpx;
-  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.8);
+  box-shadow: 0 24rpx 64rpx rgba(0, 0, 0, 0.85);
   box-sizing: border-box;
-  animation: modalIn 0.25s ease-out;
+  animation: modalPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
 }
 
-@keyframes modalIn {
+@keyframes modalPopIn {
   from {
     opacity: 0;
     transform: scale(0.95) translateY(20rpx);
@@ -302,6 +533,7 @@ export default {
   }
 }
 
+/* 顶栏 */
 .deviceModalHeader {
   display: flex;
   justify-content: space-between;
@@ -311,61 +543,270 @@ export default {
   border-bottom: 1rpx solid #232731;
 }
 
+.headerTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
 .modalTitle {
-  font-size: 30rpx;
+  font-size: 32rpx;
   font-weight: 700;
   color: #ffffff;
 }
 
+.lanBadge {
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1rpx solid rgba(52, 211, 153, 0.35);
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+}
+
 .modalCloseBtn {
-  font-size: 32rpx;
+  font-size: 34rpx;
   color: #9ca3af;
-  padding: 8rpx;
+  padding: 8rpx 12rpx;
   cursor: pointer;
 }
 
-.deviceForm {
+.deviceModalBody {
   display: flex;
   flex-direction: column;
   gap: 20rpx;
 }
 
-.scanCodeBtn {
-  background: #252a35;
-  border: 1rpx solid #3d4556;
-  border-radius: 12rpx;
-  padding: 18rpx 0;
-  margin: 0;
+/* 局域网雷达探测卡片 */
+.radarCard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1rpx solid #262b35;
+  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
 }
 
-.scanCodeBtnText {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #e5e7eb;
+.radarCard.isOnline {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(52, 211, 153, 0.4);
 }
 
-.formDividerRow {
+.radarStatusRow {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  margin: 4rpx 0;
+  gap: 12rpx;
 }
 
-.dividerLine {
-  flex: 1;
-  height: 1rpx;
-  background: #262b36;
+.radarDot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  background: #64748b;
 }
 
-.dividerText {
+.radarDot.online {
+  background: #10b981;
+  box-shadow: 0 0 10rpx #10b981;
+}
+
+.radarDot.pulse {
+  background: #f59e0b;
+  animation: radarPulse 1s infinite;
+}
+
+@keyframes radarPulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+.radarStatusText {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.radarActionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.radarSubText {
   font-size: 20rpx;
   color: #64748b;
+  font-family: monospace;
+}
+
+.radarRefreshBtn {
+  cursor: pointer;
+  padding: 4rpx 10rpx;
+}
+
+.radarRefreshText {
+  font-size: 20rpx;
+  color: #60a5fa;
+}
+
+/* 6 位 PIN 码配对卡片 */
+.pinPairCard {
+  background: rgba(218, 107, 23, 0.08);
+  border: 1rpx solid rgba(218, 107, 23, 0.35);
+  border-radius: 20rpx;
+  padding: 24rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.pinHeaderRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.pinCardTitle {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #fb923c;
+}
+
+.pinCardTip {
+  font-size: 20rpx;
+  color: #9ca3af;
+}
+
+.pinInputBox {
+  background: #0f1116;
+  border: 1rpx solid rgba(251, 146, 60, 0.4);
+  border-radius: 14rpx;
+  padding: 12rpx 16rpx;
+}
+
+.pinInputField {
+  font-size: 38rpx;
+  font-weight: 800;
+  color: #ffffff;
+  text-align: center;
+  letter-spacing: 12rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+}
+
+.pinPlaceholder {
+  color: #4b5563;
+  letter-spacing: 2rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+}
+
+/* 一键配对主按钮 (强化宽高与居中排版) */
+.primaryPairBtn {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  height: 84rpx !important;
+  line-height: normal !important;
+  background: linear-gradient(135deg, #da6b17, #ea580c) !important;
+  border-radius: 14rpx !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-shadow: 0 8rpx 20rpx rgba(218, 107, 23, 0.35);
+}
+
+.primaryPairBtn:active {
+  transform: scale(0.98);
+  filter: brightness(1.1);
+}
+
+.primaryPairBtn[disabled] {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+
+.primaryBtnText {
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+/* 快捷方式行 */
+.quickToolsRow {
+  display: flex;
+  gap: 16rpx;
+}
+
+.quickToolBtn {
+  flex: 1;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  height: 72rpx !important;
+  line-height: normal !important;
+  background: #20242e !important;
+  border: 1rpx solid #373f50 !important;
+  border-radius: 12rpx !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.quickToolBtn:active {
+  background: #282e3b !important;
+}
+
+.quickToolText {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #cbd5e1;
+}
+
+/* 高级设置 */
+.advancedSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  margin-top: 6rpx;
+}
+
+.advancedToggleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8rpx 4rpx;
+  cursor: pointer;
+}
+
+.advancedToggleText {
+  font-size: 22rpx;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.advancedArrow {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.advancedContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding-top: 10rpx;
+  border-top: 1rpx solid #232731;
 }
 
 .formItem {
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: 6rpx;
 }
 
 .formLabel {
@@ -375,41 +816,61 @@ export default {
 }
 
 .formInput {
-  background: #1f232b;
-  border: 1rpx solid #363c4a;
+  background: #12141a;
+  border: 1rpx solid #2d3340;
   border-radius: 12rpx;
-  padding: 16rpx 20rpx;
+  padding: 14rpx 18rpx;
   font-size: 24rpx;
   color: #ffffff;
+}
+
+.advancedBtnRow {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 8rpx;
 }
 
 .testConnBtn {
-  background: #20242e;
-  border: 1rpx solid #373f50;
-  color: #e5e7eb;
-  border-radius: 12rpx;
-  font-size: 24rpx;
-  font-weight: 600;
-  padding: 16rpx 0;
-  margin-top: 10rpx;
+  flex: 1;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  height: 74rpx !important;
+  line-height: normal !important;
+  background: #1f242e !important;
+  border: 1rpx solid #363d4e !important;
+  border-radius: 12rpx !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .testBtnText {
-  color: #e5e7eb;
+  font-size: 24rpx;
+  color: #cbd5e1;
+  font-weight: 600;
 }
 
 .saveConfigBtn {
-  background: #da6b17;
-  color: #ffffff;
-  border-radius: 12rpx;
-  font-size: 26rpx;
-  font-weight: 700;
-  padding: 18rpx 0;
-  margin-top: 6rpx;
-  border: none;
+  flex: 1;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  height: 74rpx !important;
+  line-height: normal !important;
+  background: #334155 !important;
+  border: 1rpx solid #475569 !important;
+  border-radius: 12rpx !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .saveBtnText {
+  font-size: 24rpx;
   color: #ffffff;
+  font-weight: 600;
 }
 </style>

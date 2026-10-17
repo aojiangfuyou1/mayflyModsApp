@@ -50,21 +50,54 @@ export function buildRemoteInstallPayload(modItem, deviceToken = 'MF-PC-8891') {
  * 通过同一 WiFi 局域网向电脑端 Mayfly 发送指令
  * @param {Object} payload - 控制信令
  * @param {string} host - 电脑 IP
- * @param {number} port - 通信端口
- * @returns {Promise<{ success: boolean, message: string }>}
+ * @param {number} [port=28888] - 通信端口 (默认 28888)
+ * @returns {Promise<{ success: boolean, message: string, channel?: string }>}
  */
-export async function pushViaLanHttp(payload, host, port = 9876) {
-  const cleanHost = String(host || '').trim().replace(/^http:\/\//, '');
+export async function pushViaLanHttp(payload, host, port = 28888) {
+  const cleanHost = String(host || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   if (!cleanHost) {
     return { success: false, message: '电脑局域网 IP 地址未配置' };
   }
 
-  // 1. 优先尝试伴侣端点 /api/remote-install
-  const endpoint = `http://${cleanHost}:${port}/api/remote-install`;
+  const token = String(payload.deviceToken || payload.token || '').trim();
 
+  // 1. 优先尝试电脑端原生 28888 助手端点 /api/action (无缝对接 Electron 内置副驾服务)
+  const actionEndpoint = `http://${cleanHost}:${port}/api/action${token ? `?token=${encodeURIComponent(token)}` : ''}`;
   try {
     const res = await uni.request({
-      url: endpoint,
+      url: actionEndpoint,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'x-lan-token': token
+      },
+      data: {
+        type: 'download-nexus-mod',
+        action: 'remote_install',
+        modId: payload.sourceModId || payload.modId,
+        gameDomain: payload.gameId || payload.gameDomain,
+        name: payload.title,
+        ...payload
+      },
+      timeout: 3500
+    });
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return {
+        success: true,
+        channel: 'LAN_HTTP',
+        message: `《${payload.title}》已通过局域网直连投递至电脑 Mayfly 原生助手！`
+      };
+    }
+  } catch (err) {
+    // 降级尝试旧伴侣端点 /api/remote-install
+  }
+
+  // 2. 降级尝试伴侣端点 /api/remote-install
+  const fallbackEndpoint = `http://${cleanHost}:${port}/api/remote-install`;
+  try {
+    const res = await uni.request({
+      url: fallbackEndpoint,
       method: 'POST',
       header: {
         'Content-Type': 'application/json'
@@ -80,48 +113,13 @@ export async function pushViaLanHttp(payload, host, port = 9876) {
         message: `《${payload.title}》已通过局域网秒级投递到电脑 Mayfly！`
       };
     }
-  } catch (err) {
-    // 降级尝试原生 /api/action
-  }
+  } catch (e) {}
 
-  // 2. 尝试电脑端原生助手端点 /api/action (无缝对接 Electron 内置服务)
-  const actionEndpoint = `http://${cleanHost}:${port}/api/action`;
-  try {
-    const res = await uni.request({
-      url: actionEndpoint,
-      method: 'POST',
-      header: {
-        'Content-Type': 'application/json',
-        'x-lan-token': payload.deviceToken || ''
-      },
-      data: {
-        type: 'remote-install',
-        action: 'remote_install',
-        ...payload
-      },
-      timeout: 3000
-    });
-
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return {
-        success: true,
-        channel: 'LAN_HTTP',
-        message: `《${payload.title}》已通过局域网直连投递至电脑 Mayfly 原生助手！`
-      };
-    }
-
-    return {
-      success: false,
-      channel: 'LAN_HTTP',
-      message: `电脑端响应失败 (HTTP ${res.statusCode})`
-    };
-  } catch (err) {
-    return {
-      success: false,
-      channel: 'LAN_HTTP',
-      message: '局域网不可达或未在同一 WiFi'
-    };
-  }
+  return {
+    success: false,
+    channel: 'LAN_HTTP',
+    message: '局域网不可达或未在同一 WiFi 下'
+  };
 }
 
 // ----------------------------------------------------------------------------
