@@ -17,63 +17,109 @@
     />
 
     <view class="historyContainer">
-      <!-- 2. 清单概览栏 -->
-      <view class="historyHeaderCard">
-        <view class="historyHeaderTop">
-          <view class="historyTitleCol">
-            <view style="display: flex; align-items: center; gap: 8rpx;">
-              <NexusIcon name="task" size="30rpx" color="#38bdf8" />
-              <text class="historyCountText">共 {{ historyList.length }} 个推送任务</text>
-            </view>
-            <text class="historySubTip">已通过局域网或云端信令投递到电脑端 Mayfly</text>
+      <!-- 2. 紧凑型顶部操作栏 (告别粗笨大卡片，极简科技胶囊 + 优雅清空按钮) -->
+      <view class="historyToolbar">
+        <!-- 左侧：统计与状态胶囊 -->
+        <view class="toolbarStatPill">
+          <NexusIcon name="task" size="24rpx" color="#38bdf8" />
+          <text class="statCountText">共 {{ historyList.length }} 个任务</text>
+          <view class="liveDotWrap" v-if="desktopConfig && desktopConfig.connected">
+            <view class="livePulseDot"></view>
+            <text class="liveText">已联机</text>
           </view>
-          <text class="clearAllBtn" v-if="historyList.length > 0" @click="handleClearHistory">清空记录</text>
+        </view>
+
+        <!-- 右侧：同步与清空操作组 -->
+        <view class="toolbarActions">
+          <view
+            class="actionChip syncChip"
+            @click="handleManualSync"
+            title="同步最新进度"
+          >
+            <NexusIcon name="refresh" size="20rpx" color="#94a3b8" :class="{ 'spinIcon': isSyncing }" />
+            <text class="chipText">{{ isSyncing ? '同步中' : '刷新' }}</text>
+          </view>
+          <view
+            class="actionChip clearChip"
+            v-if="historyList.length > 0"
+            @click="handleClearHistory"
+            title="清空推送记录"
+          >
+            <NexusIcon name="trash" size="20rpx" color="#f87171" />
+            <text class="chipText danger">清空</text>
+          </view>
         </view>
       </view>
 
       <!-- 3. 历史任务列表 -->
       <view class="historyListWrap" v-if="historyList.length > 0">
         <view class="historyItem" v-for="item in historyList" :key="item.id">
-          <image class="historyThumb" :src="item.coverImageUrl || '/static/logo.png'" mode="aspectFill" />
+          <!-- 黄金宽屏封面容器 -->
+          <view class="thumbWrap">
+            <image class="historyThumb" :src="item.coverImageUrl || '/static/logo.png'" mode="aspectFill" />
+            <text class="channelBadge">{{ item.channel === 'LAN_HTTP' ? '局域网' : '云通道' }}</text>
+          </view>
+
+          <!-- 详情信息体 -->
           <view class="historyBody">
             <text class="historyTitle">{{ item.zhTitle || item.title }}</text>
             <text class="historyOriginalTitle" v-if="item.zhTitle && item.zhTitle !== item.title">{{ item.title }}</text>
+
             <view class="historyMeta">
-              <text class="historyGame">{{ item.gameName }}</text>
-              <text class="historyChannelTag">{{ item.channel === 'LAN_HTTP' ? '局域网' : '云通道' }}</text>
-              <view class="statusBadge completed" v-if="item.status === 'completed'">
-                <text class="statusDot">●</text>
-                <text class="statusText">已完成下载</text>
-              </view>
-              <view class="statusBadge downloading" v-else-if="item.status === 'downloading'">
-                <text class="statusDot">●</text>
-                <text class="statusText">电脑下载中</text>
-              </view>
-              <view class="statusBadge failed" v-else-if="item.status === 'failed'">
-                <text class="statusDot">●</text>
-                <text class="statusText">下载失败</text>
-              </view>
-              <view class="statusBadge pushed" v-else>
-                <text class="statusDot">●</text>
-                <text class="statusText">已推送</text>
-              </view>
+              <text class="historyGame">{{ item.gameName || '通用游戏' }}</text>
+              <text class="metaDivider">·</text>
               <text class="historyTime">{{ formatHistoryTime(item.timestamp) }}</text>
             </view>
+
+            <!-- 详细状态回执提示 -->
+            <view class="statusMessageRow" v-if="item.statusMessage">
+              <text class="statusMessageText">{{ item.statusMessage }}</text>
+            </view>
           </view>
-          <button
-            class="rePushBtn"
-            :class="{
-              completedBtn: item.status === 'completed',
-              downloadingBtn: item.status === 'downloading',
-              failedBtn: item.status === 'failed'
-            }"
-            @click="rePushItem(item)"
-          >
-            <text class="rePushText" v-if="item.status === 'completed'">✅ 已完成</text>
-            <text class="rePushText" v-else-if="item.status === 'downloading'">下载中</text>
-            <text class="rePushText" v-else-if="item.status === 'failed'">重试</text>
-            <text class="rePushText" v-else>重推</text>
-          </button>
+
+          <!-- 右侧轻量状态与操作胶囊 (告别粗笨大方块按钮) -->
+          <view class="historyActionCol">
+            <!-- 状态 A: 已完成 -->
+            <view
+              class="statusPill isCompleted"
+              v-if="item.status === 'completed'"
+              @click.stop="rePushItem(item)"
+              title="已下载完成，点击可重新投递"
+            >
+              <NexusIcon name="check" size="20rpx" color="#34d399" />
+              <text class="statusPillText">已完成</text>
+            </view>
+
+            <!-- 状态 B: 电脑下载中 (流光青蓝 + 呼吸光点) -->
+            <view
+              class="statusPill isDownloading"
+              v-else-if="item.status === 'downloading'"
+            >
+              <view class="downloadPulse"></view>
+              <text class="statusPillText">下载中</text>
+            </view>
+
+            <!-- 状态 C: 失败 (绯红醒目 + 点击重试) -->
+            <view
+              class="statusPill isFailed"
+              v-else-if="item.status === 'failed'"
+              @click.stop="rePushItem(item)"
+              title="点击重试投递"
+            >
+              <NexusIcon name="refresh" size="18rpx" color="#f87171" />
+              <text class="statusPillText">重试</text>
+            </view>
+
+            <!-- 状态 D: 已推送 (暖橙色) -->
+            <view
+              class="statusPill isPushed"
+              v-else
+              @click.stop="rePushItem(item)"
+              title="点击再次投递"
+            >
+              <text class="statusPillText">重推</text>
+            </view>
+          </view>
         </view>
       </view>
 
@@ -174,7 +220,8 @@ export default {
       nexusUser: null,
       nexusApiKey: '',
       favoritesCount: 0,
-      statusTimer: null
+      statusTimer: null,
+      isSyncing: false
     };
   },
 
@@ -202,6 +249,22 @@ export default {
   methods: {
     refreshHistory() {
       this.historyList = getPushHistory();
+    },
+
+    /**
+     * 手动触发双向同步最新状态
+     */
+    async handleManualSync() {
+      if (this.isSyncing) return;
+      this.isSyncing = true;
+      try {
+        await this.syncAndTranslateHistory();
+        uni.showToast({ title: '已同步最新状态', icon: 'none' });
+      } finally {
+        setTimeout(() => {
+          this.isSyncing = false;
+        }, 600);
+      }
     },
 
     /**
@@ -371,44 +434,125 @@ export default {
   padding: 24rpx;
 }
 
-.historyHeaderCard {
-  background: #181a1f;
-  border: 1rpx solid #292e3a;
-  border-radius: 18rpx;
-  padding: 20rpx;
-  margin-bottom: 24rpx;
-}
-
-.historyHeaderTop {
+/* ============================================================================ */
+/* 区域 1：顶部极简操作工具栏 (紧凑胶囊设计，告别粗苯大卡片)                      */
+/* ============================================================================ */
+.historyToolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-bottom: 24rpx;
+  padding: 4rpx 4rpx;
 }
 
-.historyTitleCol {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
+.toolbarStatPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12rpx;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1rpx solid rgba(255, 255, 255, 0.09);
+  border-radius: 30rpx;
+  padding: 10rpx 20rpx;
 }
 
-.historyCountText {
-  font-size: 26rpx;
+.statCountText {
+  font-size: 24rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: #f1f5f9;
+  letter-spacing: 0.3rpx;
 }
 
-.historySubTip {
-  font-size: 19rpx;
-  color: #828a99;
+.liveDotWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-left: 6rpx;
+  padding-left: 12rpx;
+  border-left: 1rpx solid rgba(255, 255, 255, 0.12);
 }
 
-.clearAllBtn {
+.livePulseDot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8rpx #10b981;
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); box-shadow: 0 0 12rpx #10b981; }
+}
+
+.liveText {
+  font-size: 20rpx;
+  color: #10b981;
+  font-weight: 600;
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.actionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 10rpx 20rpx;
+  border-radius: 28rpx;
   font-size: 22rpx;
-  color: #ef4444;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  user-select: none;
   cursor: pointer;
-  padding: 8rpx 14rpx;
 }
 
+.actionChip.syncChip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1rpx solid rgba(255, 255, 255, 0.09);
+  color: #94a3b8;
+}
+
+.actionChip.syncChip:active {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(0.96);
+}
+
+.actionChip.clearChip {
+  background: rgba(239, 68, 68, 0.09);
+  border: 1rpx solid rgba(239, 68, 68, 0.24);
+  color: #f87171;
+}
+
+.actionChip.clearChip:active {
+  background: rgba(239, 68, 68, 0.18);
+  transform: scale(0.96);
+}
+
+.chipText {
+  font-size: 22rpx;
+  color: #94a3b8;
+}
+
+.chipText.danger {
+  color: #f87171;
+}
+
+.spinIcon {
+  animation: spin-loop 0.8s linear infinite;
+}
+
+@keyframes spin-loop {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================================ */
+/* 区域 2：任务列表与微光渐变卡片                                               */
+/* ============================================================================ */
 .historyListWrap {
   display: flex;
   flex-direction: column;
@@ -419,24 +563,55 @@ export default {
   display: flex;
   align-items: center;
   gap: 18rpx;
-  padding: 20rpx;
-  background: #191b20;
-  border: 1rpx solid #282e39;
-  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  background: linear-gradient(145deg, #181a21 0%, #12141a 100%);
+  border: 1rpx solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.25);
+  border-radius: 18rpx;
+  transition: all 0.2s ease;
+}
+
+.historyItem:active {
+  transform: scale(0.99);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.thumbWrap {
+  position: relative;
+  width: 136rpx;
+  height: 94rpx;
+  border-radius: 12rpx;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #0f1115;
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
 }
 
 .historyThumb {
-  width: 100rpx;
-  height: 100rpx;
-  border-radius: 12rpx;
-  flex-shrink: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.channelBadge {
+  position: absolute;
+  bottom: 4rpx;
+  right: 4rpx;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(4px);
+  color: #94a3b8;
+  font-size: 16rpx;
+  font-weight: 600;
+  padding: 1rpx 6rpx;
+  border-radius: 4rpx;
+  line-height: 1.2;
 }
 
 .historyBody {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8rpx;
+  gap: 6rpx;
   overflow: hidden;
 }
 
@@ -447,126 +622,136 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.3;
 }
 
 .historyOriginalTitle {
-  font-size: 20rpx;
-  color: #828a99;
+  font-size: 19rpx;
+  color: #64748b;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .historyMeta {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12rpx;
+  gap: 8rpx;
+  font-size: 20rpx;
+  color: #64748b;
+  line-height: 1.2;
 }
 
 .historyGame {
-  font-size: 20rpx;
-  color: #d4a373;
+  color: #f59e0b;
+  font-weight: 600;
+  max-width: 220rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.historyChannelTag {
-  font-size: 18rpx;
-  background: #232731;
-  color: #9ca3af;
-  padding: 2rpx 10rpx;
-  border-radius: 6rpx;
+.metaDivider {
+  color: #475569;
 }
 
 .historyTime {
-  font-size: 20rpx;
   color: #64748b;
+  font-size: 19rpx;
 }
 
-.statusBadge {
+.statusMessageRow {
+  margin-top: 2rpx;
+}
+
+.statusMessageText {
+  font-size: 18rpx;
+  color: #94a3b8;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+/* ============================================================================ */
+/* 区域 3：右侧精致微胶囊状态与操作 (告别粗笨大方块按钮)                           */
+/* ============================================================================ */
+.historyActionCol {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.statusPill {
   display: inline-flex;
   align-items: center;
   gap: 6rpx;
-  padding: 2rpx 10rpx;
-  border-radius: 6rpx;
-  font-size: 18rpx;
+  height: 44rpx;
+  padding: 0 16rpx;
+  border-radius: 22rpx;
+  box-sizing: border-box;
+  font-size: 20rpx;
   font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
 }
 
-.statusBadge.completed {
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1rpx solid rgba(16, 185, 129, 0.3);
+.statusPill:active {
+  transform: scale(0.94);
 }
 
-.statusBadge.downloading {
-  background: rgba(56, 189, 248, 0.15);
+.statusPill.isCompleted {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1rpx solid rgba(16, 185, 129, 0.28);
+}
+
+.statusPill.isDownloading {
+  background: rgba(56, 189, 248, 0.12);
   color: #38bdf8;
-  border: 1rpx solid rgba(56, 189, 248, 0.3);
+  border: 1rpx solid rgba(56, 189, 248, 0.28);
 }
 
-.statusBadge.failed {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+.downloadPulse {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8rpx #38bdf8;
+  animation: download-dot-glow 1.4s infinite ease-in-out;
+}
+
+@keyframes download-dot-glow {
+  0%, 100% { opacity: 0.4; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.25); box-shadow: 0 0 12rpx #38bdf8; }
+}
+
+.statusPill.isFailed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
   border: 1rpx solid rgba(239, 68, 68, 0.3);
 }
 
-.statusBadge.pushed {
-  background: rgba(218, 107, 23, 0.15);
-  color: #da6b17;
-  border: 1rpx solid rgba(218, 107, 23, 0.3);
+.statusPill.isPushed {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border: 1rpx solid rgba(245, 158, 11, 0.28);
 }
 
-.statusDot {
-  font-size: 14rpx;
+.statusPillText {
+  font-size: 20rpx;
+  font-weight: 600;
+  line-height: 1;
 }
 
-.statusText {
-  font-size: 18rpx;
-}
-
-.rePushBtn {
-  background: rgba(218, 107, 23, 0.15);
-  border: 1rpx solid rgba(218, 107, 23, 0.4);
-  color: #da6b17;
-  border-radius: 10rpx;
-  padding: 12rpx 24rpx;
-  margin: 0;
-  transition: all 0.2s ease;
-}
-
-.rePushBtn.completedBtn {
-  background: rgba(16, 185, 129, 0.15);
-  border: 1rpx solid rgba(16, 185, 129, 0.4);
-}
-
-.rePushBtn.completedBtn .rePushText {
-  color: #10b981;
-}
-
-.rePushBtn.downloadingBtn {
-  background: rgba(56, 189, 248, 0.15);
-  border: 1rpx solid rgba(56, 189, 248, 0.4);
-}
-
-.rePushBtn.downloadingBtn .rePushText {
-  color: #38bdf8;
-}
-
-.rePushBtn.failedBtn {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1rpx solid rgba(239, 68, 68, 0.4);
-}
-
-.rePushBtn.failedBtn .rePushText {
-  color: #ef4444;
-}
-
-.rePushText {
-  font-size: 22rpx;
-  font-weight: 700;
-  color: #da6b17;
-}
-
+/* ============================================================================ */
+/* 区域 4：空状态提示                                                           */
+/* ============================================================================ */
 .emptyHistoryBox {
   display: flex;
   flex-direction: column;
@@ -574,10 +759,6 @@ export default {
   justify-content: center;
   padding: 120rpx 40rpx;
   gap: 20rpx;
-}
-
-.emptyIcon {
-  font-size: 80rpx;
 }
 
 .emptyTitle {
@@ -595,10 +776,11 @@ export default {
 
 .goExploreBtn {
   margin-top: 20rpx;
-  background: #da6b17;
-  border-radius: 12rpx;
-  padding: 16rpx 40rpx;
+  background: linear-gradient(135deg, #da6b17 0%, #b8540c 100%);
+  border-radius: 30rpx;
+  padding: 16rpx 48rpx;
   border: none;
+  box-shadow: 0 4rpx 12rpx rgba(218, 107, 23, 0.3);
 }
 
 .goExploreBtnText {

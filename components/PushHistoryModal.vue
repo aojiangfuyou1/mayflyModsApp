@@ -7,11 +7,17 @@
       <!-- 抽屉顶栏 -->
       <view class="drawerHeader">
         <view class="drawerTitleBox">
-          <text class="drawerTitle">📋 推送任务清单</text>
+          <view class="drawerTitleRow">
+            <NexusIcon name="task" size="26rpx" color="#38bdf8" />
+            <text class="drawerTitle">推送任务清单 ({{ historyList.length }})</text>
+          </view>
           <text class="drawerSub">已推送到电脑 Mayfly 的模组</text>
         </view>
         <view class="drawerActions">
-          <text class="clearHistoryText" v-if="historyList.length > 0" @click="handleClearHistory">清空</text>
+          <view class="modalClearChip" v-if="historyList.length > 0" @click="handleClearHistory">
+            <NexusIcon name="trash" size="20rpx" color="#f87171" />
+            <text class="modalClearText">清空</text>
+          </view>
           <view class="modalCloseBtn" @click="close">✕</view>
         </view>
       </view>
@@ -19,51 +25,77 @@
       <!-- 历史清单滚动列表 -->
       <scroll-view scroll-y class="historyScrollList">
         <view class="historyEmpty" v-if="historyList.length === 0">
-          <text class="emptyTipIcon">📦</text>
+          <NexusIcon name="task" size="64rpx" color="#475569" style="margin-bottom: 8rpx;" />
           <text class="emptyTipText">暂无推送记录，挑选心仪的 Mod 体验一键推送吧！</text>
         </view>
 
         <view class="historyItem" v-for="item in historyList" :key="item.id">
-          <image class="historyThumb" :src="item.coverImageUrl || '/static/logo.png'" mode="aspectFill" />
+          <!-- 黄金宽屏封面容器 -->
+          <view class="thumbWrap">
+            <image class="historyThumb" :src="item.coverImageUrl || '/static/logo.png'" mode="aspectFill" />
+            <text class="channelBadge">{{ item.channel === 'LAN_HTTP' ? '局域网' : '云通道' }}</text>
+          </view>
+
+          <!-- 详情信息体 -->
           <view class="historyBody">
             <text class="historyTitle">{{ item.zhTitle || item.title }}</text>
             <text class="historyOriginalTitle" v-if="item.zhTitle && item.zhTitle !== item.title">{{ item.title }}</text>
+
             <view class="historyMeta">
-              <text class="historyGame">{{ item.gameName }}</text>
-              <text class="historyChannelTag">{{ item.channel === 'LAN_HTTP' ? '局域网' : '云通道' }}</text>
-              <view class="statusBadge completed" v-if="item.status === 'completed'">
-                <text class="statusDot">●</text>
-                <text class="statusText">已完成下载</text>
-              </view>
-              <view class="statusBadge downloading" v-else-if="item.status === 'downloading'">
-                <text class="statusDot">●</text>
-                <text class="statusText">下载中</text>
-              </view>
-              <view class="statusBadge failed" v-else-if="item.status === 'failed'">
-                <text class="statusDot">●</text>
-                <text class="statusText">失败</text>
-              </view>
-              <view class="statusBadge pushed" v-else>
-                <text class="statusDot">●</text>
-                <text class="statusText">已推送</text>
-              </view>
+              <text class="historyGame">{{ item.gameName || '通用游戏' }}</text>
+              <text class="metaDivider">·</text>
               <text class="historyTime">{{ formatHistoryTime(item.timestamp) }}</text>
             </view>
+
+            <!-- 详细状态回执提示 -->
+            <view class="statusMessageRow" v-if="item.statusMessage">
+              <text class="statusMessageText">{{ item.statusMessage }}</text>
+            </view>
           </view>
-          <button
-            class="rePushBtn"
-            :class="{
-              completedBtn: item.status === 'completed',
-              downloadingBtn: item.status === 'downloading',
-              failedBtn: item.status === 'failed'
-            }"
-            @click="rePushItem(item)"
-          >
-            <text class="rePushText" v-if="item.status === 'completed'">✅ 已完成</text>
-            <text class="rePushText" v-else-if="item.status === 'downloading'">下载中</text>
-            <text class="rePushText" v-else-if="item.status === 'failed'">重试</text>
-            <text class="rePushText" v-else>重推</text>
-          </button>
+
+          <!-- 右侧轻量状态与操作胶囊 (告别粗笨大方块按钮) -->
+          <view class="historyActionCol">
+            <!-- 状态 A: 已完成 -->
+            <view
+              class="statusPill isCompleted"
+              v-if="item.status === 'completed'"
+              @click.stop="rePushItem(item)"
+              title="已下载完成，点击可重新投递"
+            >
+              <NexusIcon name="check" size="20rpx" color="#34d399" />
+              <text class="statusPillText">已完成</text>
+            </view>
+
+            <!-- 状态 B: 电脑下载中 (流光青蓝 + 呼吸光点) -->
+            <view
+              class="statusPill isDownloading"
+              v-else-if="item.status === 'downloading'"
+            >
+              <view class="downloadPulse"></view>
+              <text class="statusPillText">下载中</text>
+            </view>
+
+            <!-- 状态 C: 失败 (绯红醒目 + 点击重试) -->
+            <view
+              class="statusPill isFailed"
+              v-else-if="item.status === 'failed'"
+              @click.stop="rePushItem(item)"
+              title="点击重试投递"
+            >
+              <NexusIcon name="refresh" size="18rpx" color="#f87171" />
+              <text class="statusPillText">重试</text>
+            </view>
+
+            <!-- 状态 D: 已推送 (暖橙色) -->
+            <view
+              class="statusPill isPushed"
+              v-else
+              @click.stop="rePushItem(item)"
+              title="点击再次投递"
+            >
+              <text class="statusPillText">重推</text>
+            </view>
+          </view>
         </view>
       </scroll-view>
     </view>
@@ -79,9 +111,13 @@ import {
   autoTranslateHistoryList
 } from '../services/history.js';
 import { getDesktopConfig } from '../services/nexus.js';
+import NexusIcon from './NexusIcon.vue';
 
 export default {
   name: 'PushHistoryModal',
+  components: {
+    NexusIcon
+  },
   props: {
     visible: {
       type: Boolean,
