@@ -29,6 +29,23 @@
 
       <!-- 头部内容层 -->
       <view class="heroContentBox">
+        <!-- 模组所属游戏与书签标记行 (100% 对标 N网游戏详情页顶栏与书签 🔖) -->
+        <view class="modGameBadgeRow" v-if="modInfo.game && (modInfo.game.name || modInfo.game.domainName)">
+          <view class="modGameBadge" @click="goToGameHome">
+            <text class="modGameBadgeIcon">🎮</text>
+            <text class="modGameBadgeName">{{ modInfo.game.shortZhName || modInfo.game.name }}</text>
+          </view>
+          <view
+            class="modGameBookmarkBtn"
+            :class="{ isBookmarked: isCurrentGameBookmarked }"
+            @click.stop="handleToggleCurrentGameBookmark"
+            title="标记为我的游戏"
+          >
+            <text class="modGameBookmarkIcon">🔖</text>
+            <text class="modGameBookmarkText">{{ isCurrentGameBookmarked ? '已在我的游戏' : '标记为我的游戏' }}</text>
+          </view>
+        </view>
+
         <!-- 模组大标题 (白字加粗) -->
         <text class="modMainTitle">
           {{ isChineseMode && modZhTitle ? modZhTitle : modInfo.title }}
@@ -402,6 +419,7 @@ import {
   getCategoryZhName
 } from '../../services/translate.js';
 import { isFavorited, toggleFavorite } from '../../services/favorites.js';
+import { isGameBookmarked, toggleGameBookmark } from '../../services/games.js';
 import NexusHeader from '../../components/NexusHeader.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
@@ -510,6 +528,15 @@ export default {
   },
 
   computed: {
+    /**
+     * 判断当前模组所属游戏是否已被标记为「我的游戏」
+     */
+    isCurrentGameBookmarked() {
+      if (!this.modInfo || !this.modInfo.game) return false;
+      const g = this.modInfo.game;
+      return isGameBookmarked(g.id || g.domainName || g.name);
+    },
+
     /**
      * 当前板块选项名称 (纯正中文板块规范)
      */
@@ -652,6 +679,39 @@ export default {
       if (this.isChineseMode) {
         this.autoTranslateBasicInfo();
       }
+    },
+
+    /**
+     * 切换当前模组所属游戏的「我的游戏」书签标记 (100% 对标 N网顶栏书签 🔖)
+     */
+    async handleToggleCurrentGameBookmark() {
+      if (!this.modInfo || !this.modInfo.game) return;
+      const g = this.modInfo.game;
+      const gameItem = {
+        id: g.id,
+        name: g.name,
+        domain: g.domainName || g.domain,
+        modCount: g.modCount || 0,
+        downloadCount: g.downloadCount || 0,
+        collectionCount: g.collectionCount || 0
+      };
+      const res = await toggleGameBookmark(gameItem, this.nexusApiKey);
+      this.$forceUpdate();
+      uni.showToast({
+        title: res.message,
+        icon: res.bookmarked ? 'success' : 'none'
+      });
+    },
+
+    /**
+     * 点击所属游戏直达该游戏的首页模组流
+     */
+    goToGameHome() {
+      if (!this.modInfo || !this.modInfo.game) return;
+      const g = this.modInfo.game;
+      uni.reLaunch({
+        url: `/pages/index/index?domain=${g.domainName || ''}&name=${encodeURIComponent(g.name || '')}&zhName=${encodeURIComponent(g.shortZhName || g.name || '')}`
+      });
     },
 
     /**
@@ -1242,6 +1302,70 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 20rpx;
+}
+
+/* 所属游戏徽标与书签标记行 */
+.modGameBadgeRow {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  flex-wrap: wrap;
+}
+
+.modGameBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1rpx solid rgba(255, 255, 255, 0.16);
+  border-radius: 24rpx;
+  padding: 6rpx 18rpx;
+  cursor: pointer;
+}
+
+.modGameBadgeIcon {
+  font-size: 24rpx;
+}
+
+.modGameBadgeName {
+  font-size: 22rpx;
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.modGameBookmarkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1rpx solid rgba(255, 255, 255, 0.16);
+  border-radius: 24rpx;
+  padding: 6rpx 18rpx;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modGameBookmarkBtn.isBookmarked {
+  background: linear-gradient(135deg, rgba(218, 107, 23, 0.92), rgba(245, 158, 11, 0.92));
+  border-color: #fbbf24;
+  box-shadow: 0 2rpx 12rpx rgba(218, 107, 23, 0.45);
+}
+
+.modGameBookmarkIcon {
+  font-size: 22rpx;
+  line-height: 1;
+}
+
+.modGameBookmarkText {
+  font-size: 20rpx;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.modGameBookmarkBtn.isBookmarked .modGameBookmarkText {
+  color: #ffffff;
 }
 
 .modMainTitle {
