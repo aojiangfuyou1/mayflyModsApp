@@ -42,14 +42,20 @@
 
         <!-- 紧凑工具操作行 (排序筛选 + 同步 + 多选切换) -->
         <view class="favFilterBar">
-          <!-- 排序维度切换 -->
-          <picker :range="sortOptions" :value="sortIndex" @change="onSortChange">
+          <!-- 排序维度切换 (自研暗黑风格下拉选择器，告别原生丑陋白色滚轮) -->
+          <NexusSelect
+            :options="sortOptions"
+            :value="sortIndex"
+            title="选择排序方式"
+            mode="dropdown"
+            @change="onSortChange"
+          >
             <view class="favSortSelect">
               <NexusIcon name="trending" size="24rpx" color="#cbd5e1" style="margin-right: 6rpx;" />
               <text class="favSortLabel">{{ sortOptions[sortIndex] }}</text>
               <text class="favSortArrow">⌄</text>
             </view>
-          </picker>
+          </NexusSelect>
 
           <!-- 右侧极简按钮组 -->
           <view class="favBarRightActions">
@@ -211,6 +217,7 @@ import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
 import NexusIcon from '../../components/NexusIcon.vue';
+import NexusSelect from '../../components/NexusSelect.vue';
 
 export default {
   components: {
@@ -220,7 +227,8 @@ export default {
     DevicePairModal,
     NexusAuthModal,
     NexusTabBar,
-    NexusIcon
+    NexusIcon,
+    NexusSelect
   },
 
   data() {

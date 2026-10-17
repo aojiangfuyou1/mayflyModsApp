@@ -166,10 +166,11 @@
     <!-- ==================================================================== -->
     <view class="currentSectionArea">
       <text class="sectionHeaderTitle">当前板块</text>
-      <picker
-        mode="selector"
-        :range="currentSectionOptions"
+      <NexusSelect
+        :options="currentSectionOptions"
         :value="currentSectionIndex"
+        title="选择查看板块"
+        mode="sheet"
         @change="onSectionChange"
       >
         <view class="sectionSelectCard">
@@ -177,7 +178,7 @@
           <text class="viewingValue">{{ currentSectionOptions[currentSectionIndex] }}</text>
           <text class="selectArrow">⌄</text>
         </view>
-      </picker>
+      </NexusSelect>
     </view>
 
     <!-- ==================================================================== -->
@@ -387,12 +388,14 @@ import { isFavorited, toggleFavorite } from '../../services/favorites.js';
 import NexusHeader from '../../components/NexusHeader.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
+import NexusSelect from '../../components/NexusSelect.vue';
 
 export default {
   components: {
     NexusHeader,
     DevicePairModal,
-    NexusAuthModal
+    NexusAuthModal,
+    NexusSelect
   },
 
   data() {

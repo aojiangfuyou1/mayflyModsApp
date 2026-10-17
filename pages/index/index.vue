@@ -214,14 +214,20 @@
         </view>
       </scroll-view>
 
-      <!-- 时间范围下拉筛选行 (对标图 2: All time ↕) -->
+      <!-- 时间范围下拉筛选行 (自研暗黑风格选择器) -->
       <view class="timeFilterRow">
-        <picker :range="currentTimeFilterOptions" :value="timeFilterIndex" @change="onTimeFilterChange">
+        <NexusSelect
+          :options="currentTimeFilterOptions"
+          :value="timeFilterIndex"
+          title="选择时间范围"
+          mode="dropdown"
+          @change="onTimeFilterChange"
+        >
           <view class="timeSelectBox">
             <text class="timeSelectLabel">{{ currentTimeFilterOptions[timeFilterIndex] }}</text>
             <text class="timeSelectArrow">↕</text>
           </view>
-        </picker>
+        </NexusSelect>
       </view>
 
       <!-- 心愿单模式批量操作工具条 (支持按当前选中游戏过滤，杜绝跨游戏乱跑) -->
@@ -405,6 +411,7 @@ import PushHistoryModal from '../../components/PushHistoryModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
 import NexusIcon from '../../components/NexusIcon.vue';
+import NexusSelect from '../../components/NexusSelect.vue';
 
 export default {
   components: {
@@ -415,7 +422,8 @@ export default {
     PushHistoryModal,
     NexusAuthModal,
     NexusTabBar,
-    NexusIcon
+    NexusIcon,
+    NexusSelect
   },
 
   data() {
