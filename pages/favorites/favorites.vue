@@ -187,6 +187,21 @@
       :nexus-user="nexusUser"
       @tab-refresh="refreshFavorites"
     />
+
+    <!-- 7. 自研暗黑对话框 / 确认弹窗组件 (完全替代原生白色 uni.showModal) -->
+    <NexusModal
+      :visible="confirmModal.visible"
+      :title="confirmModal.title"
+      :content="confirmModal.content"
+      :type="confirmModal.type"
+      :icon="confirmModal.icon"
+      :confirm-text="confirmModal.confirmText"
+      :cancel-text="confirmModal.cancelText"
+      :show-cancel="confirmModal.showCancel"
+      @confirm="onConfirmModalAction"
+      @cancel="confirmModal.visible = false"
+      @close="confirmModal.visible = false"
+    />
   </view>
 </template>
 
@@ -218,6 +233,7 @@ import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
 import NexusIcon from '../../components/NexusIcon.vue';
 import NexusSelect from '../../components/NexusSelect.vue';
+import NexusModal from '../../components/NexusModal.vue';
 
 export default {
   components: {
@@ -228,7 +244,8 @@ export default {
     NexusAuthModal,
     NexusTabBar,
     NexusIcon,
-    NexusSelect
+    NexusSelect,
+    NexusModal
   },
 
   data() {
@@ -251,7 +268,18 @@ export default {
       desktopConfig: { host: '10.204.160.22', port: 28888, connected: false },
       nexusUser: null,
       nexusApiKey: '',
-      historyCount: 0
+      historyCount: 0,
+      confirmModal: {
+        visible: false,
+        title: '提示',
+        content: '',
+        type: 'info',
+        icon: '',
+        confirmText: '确定',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: null
+      }
     };
   },
 
@@ -347,6 +375,16 @@ export default {
   },
 
   methods: {
+    /**
+     * 自研暗黑对话框操作确认响应
+     */
+    onConfirmModalAction() {
+      this.confirmModal.visible = false;
+      if (typeof this.confirmModal.onConfirm === 'function') {
+        this.confirmModal.onConfirm();
+      }
+    },
+
     refreshFavorites() {
       this.favoritesList = getFavorites();
     },
@@ -359,17 +397,19 @@ export default {
       if (this.isSyncingTracked) return;
       if (!this.nexusApiKey) {
         if (showToast) {
-          uni.showModal({
+          this.confirmModal = {
+            visible: true,
             title: '需要登录 NexusMods',
             content: '心愿单模组与您的 N网 官方账号“追踪历史 (Tracked Mods)”直接云端同步。请先登录 N网 账号。',
+            type: 'info',
+            icon: 'user',
             confirmText: '去登录',
             cancelText: '取消',
-            success: (m) => {
-              if (m.confirm) {
-                this.openNexusAuth();
-              }
+            showCancel: true,
+            onConfirm: () => {
+              this.openNexusAuth();
             }
-          });
+          };
         }
         return;
       }
@@ -402,17 +442,19 @@ export default {
     async toggleCardFavorite(modItem) {
       const res = await toggleFavorite(modItem);
       if (res && res.needLogin) {
-        uni.showModal({
+        this.confirmModal = {
+          visible: true,
           title: '需要登录 NexusMods',
           content: '加入或移出心愿单将直接与您的 N网 官方“追踪历史 (Tracked Mods)”云端双向同步，请先登录 N网 账号。',
+          type: 'info',
+          icon: 'user',
           confirmText: '去登录',
           cancelText: '取消',
-          success: (m) => {
-            if (m.confirm) {
-              this.openNexusAuth();
-            }
+          showCancel: true,
+          onConfirm: () => {
+            this.openNexusAuth();
           }
-        });
+        };
         return;
       }
       this.refreshFavorites();
@@ -442,7 +484,17 @@ export default {
           uni.showToast({ title: '已推送到电脑端安装', icon: 'success' });
           this.historyCount = getPushHistory().length;
         } else {
-          uni.showModal({ title: '推送失败', content: res.message, showCancel: false });
+          this.confirmModal = {
+            visible: true,
+            title: '推送未成功',
+            content: res.message || '电脑端未能成功响应本次投递，请检查电脑端连接状态。',
+            type: 'warning',
+            icon: 'warning',
+            confirmText: '我知道了',
+            cancelText: '',
+            showCancel: false,
+            onConfirm: null
+          };
         }
       } catch (err) {
         uni.showToast({ title: '网络异常', icon: 'none' });
@@ -513,15 +565,20 @@ export default {
       this.isBatchPushing = false;
       this.historyCount = getPushHistory().length;
 
-      uni.showModal({
+      this.confirmModal = {
+        visible: true,
         title: '批量推送完成',
         content: `成功投递 ${successCount}/${selectedItems.length} 个模组到电脑端 Mayfly。`,
+        type: 'success',
+        icon: 'check',
+        confirmText: '太棒了',
+        cancelText: '',
         showCancel: false,
-        success: () => {
+        onConfirm: () => {
           this.isMultiSelectMode = false;
           this.selectedModIdMap = {};
         }
-      });
+      };
     },
 
     exportFavoritesList() {

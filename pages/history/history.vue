@@ -171,6 +171,23 @@
       :nexus-user="nexusUser"
       @tab-refresh="refreshHistory"
     />
+
+    <!-- ==================================================================== -->
+    <!-- 7. 自研暗黑高定对话框 / 确认弹窗组件 (完全替代原生白色 uni.showModal)-->
+    <!-- ==================================================================== -->
+    <NexusModal
+      :visible="confirmModal.visible"
+      :title="confirmModal.title"
+      :content="confirmModal.content"
+      :type="confirmModal.type"
+      :icon="confirmModal.icon"
+      :confirm-text="confirmModal.confirmText"
+      :cancel-text="confirmModal.cancelText"
+      :show-cancel="confirmModal.showCancel"
+      @confirm="onConfirmModalAction"
+      @cancel="confirmModal.visible = false"
+      @close="confirmModal.visible = false"
+    />
   </view>
 </template>
 
@@ -199,6 +216,7 @@ import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
 import NexusIcon from '../../components/NexusIcon.vue';
+import NexusModal from '../../components/NexusModal.vue';
 
 export default {
   components: {
@@ -207,7 +225,8 @@ export default {
     DevicePairModal,
     NexusAuthModal,
     NexusTabBar,
-    NexusIcon
+    NexusIcon,
+    NexusModal
   },
 
   data() {
@@ -221,7 +240,19 @@ export default {
       nexusApiKey: '',
       favoritesCount: 0,
       statusTimer: null,
-      isSyncing: false
+      isSyncing: false,
+      // 自研暗黑弹窗配置状态
+      confirmModal: {
+        visible: false,
+        title: '提示',
+        content: '',
+        type: 'danger',
+        icon: '',
+        confirmText: '确定',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: null
+      }
     };
   },
 
@@ -308,6 +339,16 @@ export default {
       }
     },
 
+    /**
+     * 自研暗黑对话框操作确认响应
+     */
+    onConfirmModalAction() {
+      this.confirmModal.visible = false;
+      if (typeof this.confirmModal.onConfirm === 'function') {
+        this.confirmModal.onConfirm();
+      }
+    },
+
     async rePushItem(item) {
       uni.showLoading({ title: '正在重新投递...' });
       try {
@@ -322,7 +363,17 @@ export default {
           this.refreshHistory();
           this.syncAndTranslateHistory();
         } else {
-          uni.showModal({ title: '重推未成功', content: res.message, showCancel: false });
+          this.confirmModal = {
+            visible: true,
+            title: '重推未成功',
+            content: res.message || '电脑端未能成功响应本次投递，请检查电脑端连接状态。',
+            type: 'warning',
+            icon: 'warning',
+            confirmText: '我知道了',
+            cancelText: '',
+            showCancel: false,
+            onConfirm: null
+          };
         }
       } catch (err) {
         uni.hideLoading();
@@ -330,19 +381,25 @@ export default {
       }
     },
 
+    /**
+     * 触发清空历史记录确认 (使用高颜值暗黑自研 NexusModal 组件)
+     */
     handleClearHistory() {
-      uni.showModal({
+      this.confirmModal = {
+        visible: true,
         title: '清空历史任务？',
         content: '确定要清空手机端记录吗？不会影响电脑端已下载落盘的文件。',
-        confirmColor: '#ef4444',
-        success: (res) => {
-          if (res.confirm) {
-            clearPushHistory();
-            this.refreshHistory();
-            uni.showToast({ title: '记录已清空', icon: 'none' });
-          }
+        type: 'danger',
+        icon: 'trash',
+        confirmText: '清空记录',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: () => {
+          clearPushHistory();
+          this.refreshHistory();
+          uni.showToast({ title: '记录已清空', icon: 'none' });
         }
-      });
+      };
     },
 
     formatHistoryTime(ts) {

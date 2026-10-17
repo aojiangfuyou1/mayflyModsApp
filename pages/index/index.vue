@@ -378,6 +378,23 @@
       :nexus-user="nexusUser"
       @tab-refresh="resetAndLoad"
     />
+
+    <!-- ==================================================================== -->
+    <!-- 区域 9：自研暗黑对话框 / 确认弹窗组件 (完全替代原生白色 uni.showModal)-->
+    <!-- ==================================================================== -->
+    <NexusModal
+      :visible="confirmModal.visible"
+      :title="confirmModal.title"
+      :content="confirmModal.content"
+      :type="confirmModal.type"
+      :icon="confirmModal.icon"
+      :confirm-text="confirmModal.confirmText"
+      :cancel-text="confirmModal.cancelText"
+      :show-cancel="confirmModal.showCancel"
+      @confirm="onConfirmModalAction"
+      @cancel="confirmModal.visible = false"
+      @close="confirmModal.visible = false"
+    />
   </view>
 </template>
 
@@ -412,6 +429,7 @@ import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusTabBar from '../../components/NexusTabBar.vue';
 import NexusIcon from '../../components/NexusIcon.vue';
 import NexusSelect from '../../components/NexusSelect.vue';
+import NexusModal from '../../components/NexusModal.vue';
 
 export default {
   components: {
@@ -423,11 +441,23 @@ export default {
     NexusAuthModal,
     NexusTabBar,
     NexusIcon,
-    NexusSelect
+    NexusSelect,
+    NexusModal
   },
 
   data() {
     return {
+      confirmModal: {
+        visible: false,
+        title: '提示',
+        content: '',
+        type: 'info',
+        icon: '',
+        confirmText: '确定',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: null
+      },
       // 当前主视角: 默认优先展示全部游戏专区 ('games')，点击后进入对应游戏模组流 ('mods')
       currentView: 'games',
 
@@ -1035,6 +1065,16 @@ export default {
       this.favoriteIdMap = map;
     },
 
+    /**
+     * 自研暗黑对话框操作确认响应
+     */
+    onConfirmModalAction() {
+      this.confirmModal.visible = false;
+      if (typeof this.confirmModal.onConfirm === 'function') {
+        this.confirmModal.onConfirm();
+      }
+    },
+
     async toggleCardFavorite(item) {
       if (!item || !item.id) return;
       // 补齐游戏元数据，杜绝无归属模组导致跨游戏乱跑
@@ -1045,17 +1085,19 @@ export default {
       }
       const res = await toggleFavorite(item);
       if (res && res.needLogin) {
-        uni.showModal({
+        this.confirmModal = {
+          visible: true,
           title: '需要登录 NexusMods',
           content: '收藏模组将直接与您的 N网 官方账号“追踪历史 (Tracked Mods)”实时云端同步。请先登录您的 N网 账号。',
+          type: 'info',
+          icon: 'user',
           confirmText: '去登录',
           cancelText: '取消',
-          success: (m) => {
-            if (m.confirm) {
-              this.openNexusAuthModal();
-            }
+          showCancel: true,
+          onConfirm: () => {
+            this.openNexusAuthModal();
           }
-        });
+        };
         return;
       }
       this.refreshFavorites();
@@ -1101,11 +1143,17 @@ export default {
         }
       }
       this.isBatchPushing = false;
-      uni.showModal({
+      this.confirmModal = {
+        visible: true,
         title: '批量推送完成',
         content: `成功投递 ${okCount} / ${targetList.length} 个模组到电脑端 Mayfly。`,
-        showCancel: false
-      });
+        type: 'success',
+        icon: 'check',
+        confirmText: '太棒了',
+        cancelText: '',
+        showCancel: false,
+        onConfirm: null
+      };
       this.refreshHistory();
     },
 
@@ -1159,17 +1207,19 @@ export default {
             duration: 2500
           });
         } else {
-          uni.showModal({
+          this.confirmModal = {
+            visible: true,
             title: '推送未完成',
             content: res.message || '电脑端连接超时，请确认电脑已开启 Mayfly 并连接同一局域网。',
+            type: 'warning',
+            icon: 'warning',
             confirmText: '去配对',
             cancelText: '取消',
-            success: (mRes) => {
-              if (mRes.confirm) {
-                this.openDeviceModal();
-              }
+            showCancel: true,
+            onConfirm: () => {
+              this.openDeviceModal();
             }
-          });
+          };
         }
       } catch (err) {
         uni.hideLoading();
@@ -1413,16 +1463,20 @@ export default {
     },
 
     handleClearHistory() {
-      uni.showModal({
-        title: '提示',
-        content: '确定清空所有推送历史任务记录吗？',
-        success: (res) => {
-          if (res.confirm) {
-            clearPushHistory();
-            this.refreshHistory();
-          }
+      this.confirmModal = {
+        visible: true,
+        title: '清空历史任务？',
+        content: '确定清空所有推送历史任务记录吗？不会影响电脑端已下载落盘的文件。',
+        type: 'danger',
+        icon: 'trash',
+        confirmText: '清空',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: () => {
+          clearPushHistory();
+          this.refreshHistory();
         }
-      });
+      };
     },
 
     async rePushItem(item) {

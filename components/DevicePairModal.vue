@@ -135,6 +135,21 @@
         </view>
       </view>
     </view>
+
+    <!-- 自研暗黑对话框 / 确认弹窗组件 (完全替代原生白色 uni.showModal) -->
+    <NexusModal
+      :visible="confirmModal.visible"
+      :title="confirmModal.title"
+      :content="confirmModal.content"
+      :type="confirmModal.type"
+      :icon="confirmModal.icon"
+      :confirm-text="confirmModal.confirmText"
+      :cancel-text="confirmModal.cancelText"
+      :show-cancel="confirmModal.showCancel"
+      @confirm="onConfirmModalAction"
+      @cancel="confirmModal.visible = false"
+      @close="confirmModal.visible = false"
+    />
   </view>
 </template>
 
@@ -150,9 +165,13 @@ import {
   getDesktopConfig,
   DEFAULT_DESKTOP_CONFIG
 } from '../services/nexus.js';
+import NexusModal from './NexusModal.vue';
 
 export default {
   name: 'DevicePairModal',
+  components: {
+    NexusModal
+  },
   props: {
     visible: {
       type: Boolean,
@@ -166,6 +185,17 @@ export default {
 
   data() {
     return {
+      confirmModal: {
+        visible: false,
+        title: '提示',
+        content: '',
+        type: 'warning',
+        icon: '',
+        confirmText: '我知道了',
+        cancelText: '',
+        showCancel: false,
+        onConfirm: null
+      },
       form: {
         host: '10.204.160.22',
         port: 28888,
@@ -213,6 +243,16 @@ export default {
   },
 
   methods: {
+    /**
+     * 自研暗黑对话框操作确认响应
+     */
+    onConfirmModalAction() {
+      this.confirmModal.visible = false;
+      if (typeof this.confirmModal.onConfirm === 'function') {
+        this.confirmModal.onConfirm();
+      }
+    },
+
     /**
      * 关闭弹窗
      */
@@ -350,11 +390,17 @@ export default {
             this.close();
           }, 800);
         } else {
-          uni.showModal({
+          this.confirmModal = {
+            visible: true,
             title: '配对未成功',
             content: verifyRes.message || 'PIN 码不正确或连接超时，请确认电脑端弹窗显示的 6 位 PIN 码',
-            showCancel: false
-          });
+            type: 'warning',
+            icon: 'warning',
+            confirmText: '我知道了',
+            cancelText: '',
+            showCancel: false,
+            onConfirm: null
+          };
         }
       } catch (err) {
         uni.showToast({
@@ -396,15 +442,10 @@ export default {
       }
       // #endif
       // #ifndef H5
-      uni.showModal({
-        title: '粘贴访问链接',
-        editable: true,
-        placeholderText: 'http://10.204.160.22:28888/?token=...',
-        success: (modalRes) => {
-          if (modalRes.confirm && modalRes.content) {
-            this.parseAndApplyUrl(modalRes.content);
-          }
-        }
+      uni.showToast({
+        title: '请在电脑端 Mayfly 复制局域网访问链接后再点击识别',
+        icon: 'none',
+        duration: 3000
       });
       // #endif
     },
@@ -465,11 +506,17 @@ export default {
      */
     handleScanCodePair() {
       // #ifdef H5
-      uni.showModal({
-        title: '提示',
+      this.confirmModal = {
+        visible: true,
+        title: '扫码提示',
         content: '网页端暂不支持摄像头扫码，建议在上方直接输入电脑端显示的 6 位 PIN 码配对，或点击「粘贴电脑链接识别」。',
-        showCancel: false
-      });
+        type: 'info',
+        icon: 'info',
+        confirmText: '我知道了',
+        cancelText: '',
+        showCancel: false,
+        onConfirm: null
+      };
       // #endif
       // #ifndef H5
       uni.scanCode({
@@ -515,11 +562,17 @@ export default {
           });
         } else {
           this.desktopOnline = false;
-          uni.showModal({
+          this.confirmModal = {
+            visible: true,
             title: '连接未成功',
             content: `无法连接到 ${host}:${port}。\n请确保：\n1. 手机与电脑连接同一 Wi-Fi\n2. 电脑端 Mayfly 保持运行\n3. 端口无防火墙拦截`,
-            showCancel: false
-          });
+            type: 'warning',
+            icon: 'warning',
+            confirmText: '我知道了',
+            cancelText: '',
+            showCancel: false,
+            onConfirm: null
+          };
         }
       } catch (err) {
         uni.showToast({

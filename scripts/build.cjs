@@ -31,6 +31,7 @@ const requiredFiles = [
   'components/PushHistoryModal.vue',
   'components/ModCard.vue',
   'components/NexusSelect.vue',
+  'components/NexusModal.vue',
   'services/nexus.js',
   'services/translate.js',
   'services/remote-channel.js',
@@ -84,7 +85,8 @@ const vueFiles = [
   'components/DevicePairModal.vue',
   'components/PushHistoryModal.vue',
   'components/ModCard.vue',
-  'components/NexusSelect.vue'
+  'components/NexusSelect.vue',
+  'components/NexusModal.vue'
 ];
 for (const vFile of vueFiles) {
   try {

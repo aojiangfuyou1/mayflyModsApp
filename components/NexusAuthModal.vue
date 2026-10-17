@@ -119,6 +119,21 @@
         </button>
       </view>
     </view>
+
+    <!-- 自研暗黑对话框 / 确认弹窗组件 (完全替代原生白色 uni.showModal) -->
+    <NexusModal
+      :visible="confirmModal.visible"
+      :title="confirmModal.title"
+      :content="confirmModal.content"
+      :type="confirmModal.type"
+      :icon="confirmModal.icon"
+      :confirm-text="confirmModal.confirmText"
+      :cancel-text="confirmModal.cancelText"
+      :show-cancel="confirmModal.showCancel"
+      @confirm="onConfirmModalAction"
+      @cancel="confirmModal.visible = false"
+      @close="confirmModal.visible = false"
+    />
   </view>
 </template>
 
@@ -131,9 +146,13 @@ import {
   validateNexusApiKey,
   syncNexusFromDesktop
 } from '../services/nexus.js';
+import NexusModal from './NexusModal.vue';
 
 export default {
   name: 'NexusAuthModal',
+  components: {
+    NexusModal
+  },
   props: {
     // 弹窗可见性
     visible: {
@@ -162,7 +181,18 @@ export default {
         text: '',
         type: 'info'
       },
-      noticeTimer: null
+      noticeTimer: null,
+      confirmModal: {
+        visible: false,
+        title: '提示',
+        content: '',
+        type: 'danger',
+        icon: '',
+        confirmText: '确定',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: null
+      }
     };
   },
 
@@ -371,20 +401,32 @@ export default {
         } else {
           const errMsg = (res && res.message) || '请检查密钥是否正确，或登录 Nexus 官网重新申请';
           this.setNotice(`❌ 校验未通过: ${errMsg}`, 'error', 5000);
-          uni.showModal({
+          this.confirmModal = {
+            visible: true,
             title: 'API Key 校验未通过',
             content: errMsg,
-            showCancel: false
-          });
+            type: 'warning',
+            icon: 'warning',
+            confirmText: '我知道了',
+            cancelText: '',
+            showCancel: false,
+            onConfirm: null
+          };
         }
       } catch (err) {
         const errMsg = err.message || '网络连接超时，请确认能够正常访问 NexusMods 官方服务';
         this.setNotice(`❌ 校验异常: ${errMsg}`, 'error', 5000);
-        uni.showModal({
+        this.confirmModal = {
+          visible: true,
           title: 'API Key 校验未通过',
           content: errMsg,
-          showCancel: false
-        });
+          type: 'warning',
+          icon: 'warning',
+          confirmText: '我知道了',
+          cancelText: '',
+          showCancel: false,
+          onConfirm: null
+        };
       } finally {
         this.isVerifyingNexusKey = false;
       }
@@ -401,24 +443,38 @@ export default {
     },
 
     /**
-     * 登出 Nexus 账户
+     * 自研暗黑对话框操作确认响应
+     */
+    onConfirmModalAction() {
+      this.confirmModal.visible = false;
+      if (typeof this.confirmModal.onConfirm === 'function') {
+        this.confirmModal.onConfirm();
+      }
+    },
+
+    /**
+     * 登出 Nexus 账户 (使用自研高颜值暗黑微光 NexusModal 组件)
      */
     handleLogoutNexus() {
-      uni.showModal({
+      this.confirmModal = {
+        visible: true,
         title: '确认退出登录？',
         content: '退出后将清除手机本地缓存的 N网 凭据，不会影响已推送到电脑端的模组。',
-        success: (res) => {
-          if (res.confirm) {
-            logoutNexus();
-            this.apiKeyInput = '';
-            this.$emit('logout');
-            uni.showToast({
-              title: '已退出登录',
-              icon: 'none'
-            });
-          }
+        type: 'danger',
+        icon: 'trash',
+        confirmText: '退出登录',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: () => {
+          logoutNexus();
+          this.apiKeyInput = '';
+          this.$emit('logout');
+          uni.showToast({
+            title: '已退出登录',
+            icon: 'none'
+          });
         }
-      });
+      };
     },
 
     /**
@@ -443,20 +499,32 @@ export default {
         } else {
           const msg = (syncResult && syncResult.message) || '电脑端 Mayfly 暂未登录 Nexus 账户，或当前未连接电脑端。';
           this.setNotice(`⚠️ ${msg}`, 'error', 5000);
-          uni.showModal({
+          this.confirmModal = {
+            visible: true,
             title: '未同步到有效账号',
             content: msg,
-            showCancel: false
-          });
+            type: 'warning',
+            icon: 'warning',
+            confirmText: '我知道了',
+            cancelText: '',
+            showCancel: false,
+            onConfirm: null
+          };
         }
       } catch (err) {
         const msg = err.message || '请确保电脑端 Mayfly 处于运行状态且在同一局域网';
         this.setNotice(`⚠️ ${msg}`, 'error', 5000);
-        uni.showModal({
+        this.confirmModal = {
+          visible: true,
           title: '同步请求异常',
           content: msg,
-          showCancel: false
-        });
+          type: 'warning',
+          icon: 'warning',
+          confirmText: '我知道了',
+          cancelText: '',
+          showCancel: false,
+          onConfirm: null
+        };
       } finally {
         this.isSyncingFromPc = false;
       }

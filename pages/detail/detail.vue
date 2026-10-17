@@ -357,6 +357,23 @@
       @login-success="onNexusLoginSuccess"
       @logout="onNexusLogout"
     />
+
+    <!-- ==================================================================== -->
+    <!-- 区域 10：自研暗黑对话框 / 确认弹窗组件 (完全替代原生白色 uni.showModal)-->
+    <!-- ==================================================================== -->
+    <NexusModal
+      :visible="confirmModal.visible"
+      :title="confirmModal.title"
+      :content="confirmModal.content"
+      :type="confirmModal.type"
+      :icon="confirmModal.icon"
+      :confirm-text="confirmModal.confirmText"
+      :cancel-text="confirmModal.cancelText"
+      :show-cancel="confirmModal.showCancel"
+      @confirm="onConfirmModalAction"
+      @cancel="confirmModal.visible = false"
+      @close="confirmModal.visible = false"
+    />
   </view>
 </template>
 
@@ -389,17 +406,30 @@ import NexusHeader from '../../components/NexusHeader.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
 import NexusSelect from '../../components/NexusSelect.vue';
+import NexusModal from '../../components/NexusModal.vue';
 
 export default {
   components: {
     NexusHeader,
     DevicePairModal,
     NexusAuthModal,
-    NexusSelect
+    NexusSelect,
+    NexusModal
   },
 
   data() {
     return {
+      confirmModal: {
+        visible: false,
+        title: '提示',
+        content: '',
+        type: 'info',
+        icon: '',
+        confirmText: '确定',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: null
+      },
       // 模组核心元数据 (100% 动态，来自 Nexus 官方 GraphQL，零硬编码)
       modInfo: {
         id: '',
@@ -897,17 +927,19 @@ export default {
       }
       const res = await toggleFavorite(this.modInfo);
       if (res && res.needLogin) {
-        uni.showModal({
+        this.confirmModal = {
+          visible: true,
           title: '需要登录 NexusMods',
           content: '收藏模组将直接与您的 N网 官方账号“追踪历史 (Tracked Mods)”实时云端同步。请先登录您的 N网 账号。',
+          type: 'info',
+          icon: 'user',
           confirmText: '去登录',
           cancelText: '取消',
-          success: (m) => {
-            if (m.confirm) {
-              this.nexusAuthModalVisible = true;
-            }
+          showCancel: true,
+          onConfirm: () => {
+            this.nexusAuthModalVisible = true;
           }
-        });
+        };
         return;
       }
       this.favorited = res.favorited;
@@ -915,6 +947,16 @@ export default {
         title: res.message || (res.favorited ? '已加入 N网追踪 ❤️' : '已取消 N网追踪'),
         icon: 'none'
       });
+    },
+
+    /**
+     * 自研暗黑对话框操作确认响应
+     */
+    onConfirmModalAction() {
+      this.confirmModal.visible = false;
+      if (typeof this.confirmModal.onConfirm === 'function') {
+        this.confirmModal.onConfirm();
+      }
     },
 
     /**
@@ -937,23 +979,31 @@ export default {
         uni.hideLoading();
 
         if (res.success) {
-          uni.showModal({
+          this.confirmModal = {
+            visible: true,
             title: '推送成功 🚀',
             content: `已成功投递到电脑端 Mayfly！\n模组【${zhTitle || this.modInfo.title}】正在电脑端后台高速下载并安装。`,
-            showCancel: false
-          });
+            type: 'success',
+            icon: 'check',
+            confirmText: '太棒了',
+            cancelText: '',
+            showCancel: false,
+            onConfirm: null
+          };
         } else {
-          uni.showModal({
+          this.confirmModal = {
+            visible: true,
             title: '推送提示',
             content: res.message || '电脑端连接超时，请检查电脑端 Mayfly 是否已启动。',
+            type: 'warning',
+            icon: 'warning',
             confirmText: '设备配对',
             cancelText: '知道了',
-            success: (m) => {
-              if (m.confirm) {
-                this.openDeviceModal();
-              }
+            showCancel: true,
+            onConfirm: () => {
+              this.openDeviceModal();
             }
-          });
+          };
         }
       } catch (err) {
         uni.hideLoading();

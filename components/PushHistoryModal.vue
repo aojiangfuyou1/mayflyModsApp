@@ -99,6 +99,21 @@
         </view>
       </scroll-view>
     </view>
+
+    <!-- 自研暗黑对话框 / 确认弹窗组件 (替代原生 uni.showModal) -->
+    <NexusModal
+      :visible="confirmModal.visible"
+      :title="confirmModal.title"
+      :content="confirmModal.content"
+      :type="confirmModal.type"
+      :icon="confirmModal.icon"
+      :confirm-text="confirmModal.confirmText"
+      :cancel-text="confirmModal.cancelText"
+      :show-cancel="confirmModal.showCancel"
+      @confirm="onConfirmModalAction"
+      @cancel="confirmModal.visible = false"
+      @close="confirmModal.visible = false"
+    />
   </view>
 </template>
 
@@ -112,11 +127,13 @@ import {
 } from '../services/history.js';
 import { getDesktopConfig } from '../services/nexus.js';
 import NexusIcon from './NexusIcon.vue';
+import NexusModal from './NexusModal.vue';
 
 export default {
   name: 'PushHistoryModal',
   components: {
-    NexusIcon
+    NexusIcon,
+    NexusModal
   },
   props: {
     visible: {
@@ -131,7 +148,18 @@ export default {
 
   data() {
     return {
-      statusTimer: null
+      statusTimer: null,
+      confirmModal: {
+        visible: false,
+        title: '清空历史任务？',
+        content: '',
+        type: 'danger',
+        icon: 'trash',
+        confirmText: '清空',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: null
+      }
     };
   },
 
@@ -201,18 +229,32 @@ export default {
     },
 
     /**
-     * 清空历史记录
+     * 自研暗黑对话框确认操作
+     */
+    onConfirmModalAction() {
+      this.confirmModal.visible = false;
+      if (typeof this.confirmModal.onConfirm === 'function') {
+        this.confirmModal.onConfirm();
+      }
+    },
+
+    /**
+     * 清空历史记录 (使用自研暗黑微光 NexusModal 组件)
      */
     handleClearHistory() {
-      uni.showModal({
+      this.confirmModal = {
+        visible: true,
         title: '清空历史任务？',
         content: '确定要清空当前的推送记录吗？不会影响电脑端已下载的模组。',
-        success: (res) => {
-          if (res.confirm) {
-            this.$emit('clear');
-          }
+        type: 'danger',
+        icon: 'trash',
+        confirmText: '清空',
+        cancelText: '取消',
+        showCancel: true,
+        onConfirm: () => {
+          this.$emit('clear');
         }
-      });
+      };
     },
 
     /**
