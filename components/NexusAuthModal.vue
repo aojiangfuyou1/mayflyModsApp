@@ -137,7 +137,6 @@
             class="ssoDirectLink"
             :href="currentSsoUrl"
             target="_blank"
-            rel="noopener noreferrer"
           >
             如未自动打开窗口，点此直接在新标签页打开授权页面 ›
           </a>
@@ -437,14 +436,14 @@ export default {
       // ----------------------------------------------------------------------
       // #ifdef H5
       try {
-        const win = window.open(url, '_blank', 'noopener,noreferrer');
+        // 打开新标签页（不携带 noreferrer，确保保留 Referer 和登录态 Cookie，避免触发 Cloudflare 验证失败）
+        const win = window.open(url, '_blank');
         // 检测是否被浏览器拦截弹窗
         if (!win || win.closed || typeof win.closed === 'undefined') {
           // 降级策略：创建动态 a 标签模拟用户真实点击
           const a = document.createElement('a');
           a.href = url;
           a.target = '_blank';
-          a.rel = 'noopener noreferrer';
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
