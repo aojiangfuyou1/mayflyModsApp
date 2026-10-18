@@ -142,9 +142,9 @@
           </view>
         </view>
 
-        <!-- 翻译加载指示微条 (mayflymods 专属流光徽标) -->
+        <!-- 翻译加载指示微条 -->
         <view class="translatingNoticeBar" v-if="isChineseMode && isTranslatingDescription && !modZhDescription">
-          <image class="loadingMiniLogo" src="/static/logo.png" mode="aspectFit" />
+          <text class="translatingNoticeIcon">⚡</text>
           <text class="translatingNoticeText">正在为您无缝转译中文图鉴...</text>
         </view>
 
@@ -1259,19 +1259,6 @@ export default {
   padding: 12rpx 20rpx;
   border-radius: 10rpx;
   margin-bottom: 20rpx;
-}
-
-.loadingMiniLogo {
-  width: 28rpx;
-  height: 28rpx;
-  border-radius: 6rpx;
-  animation: spin 1.2s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .translatingNoticeIcon {
