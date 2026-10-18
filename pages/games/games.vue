@@ -155,9 +155,12 @@
           <text class="gamesViewAllLink" @click="goToModsStream">浏览精选模组 ›</text>
         </view>
 
-        <!-- 加载动画 -->
+        <!-- 加载动画 (mayflymods 专属品牌呼吸徽标与光环) -->
         <view class="loadingBox" v-if="loadingAllGames && allGamesList.length === 0">
-          <view class="loadingSpinner"></view>
+          <view class="brandLoadingBox">
+            <image class="brandLoadingLogo" src="/static/logo.png" mode="aspectFit" />
+            <view class="brandLoadingRing"></view>
+          </view>
           <text class="loadingText">正在从 NexusMods 动态抓取热门游戏数据...</text>
         </view>
 
@@ -1099,7 +1102,7 @@ export default {
   font-weight: 600;
 }
 
-/* 加载动画 */
+/* 加载动画 (mayflymods 专属呼吸徽标与流光光环) */
 .loadingBox {
   display: flex;
   flex-direction: column;
@@ -1107,6 +1110,47 @@ export default {
   justify-content: center;
   padding: 80rpx 0;
   gap: 20rpx;
+}
+
+.brandLoadingBox {
+  position: relative;
+  width: 72rpx;
+  height: 72rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brandLoadingLogo {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+  animation: brandLogoPulse 1.5s ease-in-out infinite;
+}
+
+.brandLoadingRing {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 4rpx solid rgba(218, 107, 23, 0.2);
+  border-top-color: #da6b17;
+  border-radius: 50%;
+  box-sizing: border-box;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes brandLogoPulse {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+    filter: drop-shadow(0 0 12rpx rgba(218, 107, 23, 0.6));
+  }
 }
 
 .loadingSpinner {
