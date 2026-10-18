@@ -81,49 +81,12 @@
     <!-- 区域 2B：Mods 视角 (100% 对标用户截图 2 的模组流风格，动态拉取) -->
     <!-- ==================================================================== -->
     <view class="modsContainer" v-else>
-      <!-- 当前选中游戏横幅栏 (100% 对标图 2 风格，直观清晰呈现当前游戏与取消按钮) -->
-      <view class="activeGameNavRow" v-if="selectedGameDomain">
-        <view class="activeGameLeftBox">
-          <image
-            class="activeGameMiniThumb"
-            :src="activeGameTileUrl || '/static/logo.png'"
-            mode="aspectFill"
-          />
-          <view class="activeGameTitleWrap">
-            <text class="activeGameTitleText">{{ activeGameDisplayName }}</text>
-            <text class="activeGameOriginalText" v-if="activeGameOriginalName && activeGameOriginalName !== activeGameDisplayName">
-              {{ activeGameOriginalName }}
-            </text>
-          </view>
-        </view>
-        <view class="clearGamePillBtn" @click="clearGameFilterAndBack">
-          <text class="clearGamePillIcon">✕</text>
-          <text class="clearGamePillText">全部游戏</text>
-        </view>
-      </view>
-      <view class="activeGameNavRow globalRow" v-else>
-        <view class="activeGameLeftBox">
-          <NexusIcon name="globe" size="34rpx" color="#818cf8" style="margin-right: 10rpx;" />
-          <text class="activeGameTitleText">全网热门模组流</text>
-        </view>
-        <view class="pickGamePillBtn" @click="switchView('games')">
-          <text class="pickGamePillText">选择专区 ›</text>
-        </view>
-      </view>
-
-      <!-- 模组区块标题行 (100% 对标图 2: ◆ Mods   View all) -->
-      <view class="modsHeaderRow">
-        <view class="modsHeaderLeft">
-          <NexusIcon name="mods" size="30rpx" color="#da6b17" style="margin-right: 8rpx;" />
-          <text class="modsTitle">{{ enableAutoTranslate ? '精选模组' : 'Mods' }}</text>
-        </view>
-        <text class="modsViewAllLink" @click="clearGameFilterAndBack">{{ enableAutoTranslate ? '全部游戏专区 ›' : 'View all games' }}</text>
-      </view>
-
       <!-- ==================================================================== -->
-      <!-- 智能搜索栏 (中英文智能互转 + 快捷词 + 自定义英文纠偏)                   -->
+      <!-- 区域 2B-1：顶部吸顶固定控制台 (搜索框 + 排序分类时间下拉，吸顶固定不随列表滚走) -->
       <!-- ==================================================================== -->
-      <view class="smartSearchBarCard">
+      <view class="stickySearchBarSection">
+        <!-- 智能搜索栏 (中英文智能互转 + 自定义英文纠偏) -->
+        <view class="smartSearchBarCard">
         <view class="smartSearchInputBox">
           <NexusIcon name="search" size="30rpx" color="#da6b17" style="margin-right: 12rpx; flex-shrink: 0;" />
           <input
@@ -218,6 +181,8 @@
             </view>
           </NexusSelect>
         </view>
+      </view>
+      <!-- 吸顶控制台结束 -->
       </view>
 
       <!-- 心愿单模式批量操作工具条 (支持按当前选中游戏过滤，杜绝跨游戏乱跑) -->
@@ -2134,7 +2099,7 @@ export default {
 /* 区域 3B：Mods 视角 (100% 对标图 2) */
 /* ---------------------------------------------------------------------------- */
 .modsContainer {
-  padding: 24rpx;
+  padding: 0 24rpx 24rpx 24rpx;
 }
 
 .activeGameNavRow {
@@ -2402,6 +2367,29 @@ export default {
 .filterPill.active .pillLabel {
   color: #121212;
   font-weight: 800;
+}
+
+/* ============================================================================ */
+/* 区域 2B-1：顶部吸顶固定控制台 (搜索框 + 排序分类时间下拉，吸顶固定不随列表滚走) */
+/* ============================================================================ */
+.stickySearchBarSection {
+  position: sticky;
+  top: var(--status-bar-height, 0px);
+  top: calc(var(--status-bar-height, 0px) + env(safe-area-inset-top, 0px));
+  z-index: 95;
+  background-color: #121212;
+  padding: 16rpx 24rpx 14rpx 24rpx;
+  margin: 0 -24rpx 20rpx -24rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.6);
+}
+
+.stickySearchBarSection .smartSearchBarCard {
+  margin-bottom: 14rpx;
+}
+
+.stickySearchBarSection .filtersDropdownBar {
+  margin-bottom: 0;
 }
 
 /* ============================================================================ */
