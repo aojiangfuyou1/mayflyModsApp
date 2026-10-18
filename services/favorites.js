@@ -18,10 +18,20 @@ export const STORAGE_KEY_TRACKED_RAW = 'mayfly_nexus_tracked_raw';
 // ----------------------------------------------------------------------------
 
 /**
- * 获取本地缓存的已追踪模组列表
+ * 获取已追踪模组列表
+ * 未登录 Nexus 账号时不展示任何伪造本地缓存，纯净返回空数组
  * @returns {Array<Object>} 模组数组
  */
 export function getFavorites() {
+  const key = getNexusApiKey();
+  if (!key) {
+    try {
+      uni.removeStorageSync(STORAGE_KEY_FAVORITES);
+      uni.removeStorageSync(STORAGE_KEY_TRACKED_RAW);
+    } catch (e) {}
+    return [];
+  }
+
   try {
     const list = uni.getStorageSync(STORAGE_KEY_FAVORITES);
     if (Array.isArray(list)) {

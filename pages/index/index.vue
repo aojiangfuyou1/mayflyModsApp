@@ -1607,6 +1607,10 @@ export default {
         return;
       }
       const res = await toggleGameBookmark(game, this.nexusApiKey);
+      if (res.needLogin) {
+        this.openNexusAuthModal();
+        return;
+      }
       this.refreshMyGames();
       uni.showToast({
         title: res.message,

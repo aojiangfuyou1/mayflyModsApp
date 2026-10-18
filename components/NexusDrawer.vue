@@ -104,7 +104,6 @@
             <text class="itemText">我的模组收藏 (Favorites)</text>
           </view>
           <view class="navItemRight">
-            <text class="itemBadge" v-if="favoritesCount > 0">{{ favoritesCount }}</text>
             <text class="drawerNavArrow">›</text>
           </view>
         </view>

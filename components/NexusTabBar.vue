@@ -37,10 +37,6 @@
             size="38rpx"
             :color="activeTab === 'favorites' ? '#f43f5e' : '#94a3b8'"
           />
-          <!-- 收藏数量角标 Badge -->
-          <view class="tabBadge" v-if="favoritesCount > 0">
-            <text class="tabBadgeText">{{ favoritesCount > 99 ? '99+' : favoritesCount }}</text>
-          </view>
         </view>
         <text class="tabLabelText">收藏</text>
         <view class="tabActiveBar" v-if="activeTab === 'favorites'"></view>

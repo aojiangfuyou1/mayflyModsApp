@@ -144,17 +144,16 @@
             </view>
           </view>
 
-          <!-- 收藏快速入口 -->
+          <!-- 收藏快速入口 (已移除数量角标展示) -->
           <view class="prefItemRow" @click="goToFavorites">
             <view class="prefItemLeft">
               <NexusIcon name="heart-fill" size="34rpx" color="#f43f5e" />
               <view class="prefTextCol">
                 <text class="prefTitle">我的模组收藏</text>
-                <text class="prefSub">本地离线与云端收藏的模组集合</text>
+                <text class="prefSub">已对接 Nexus 官方云端追踪</text>
               </view>
             </view>
             <view class="prefRightMeta">
-              <text class="countPill" v-if="favoritesCount > 0">{{ favoritesCount }} 项</text>
               <text class="cardArrow">›</text>
             </view>
           </view>
@@ -170,6 +169,20 @@
             </view>
             <view class="prefRightMeta">
               <text class="countPill" v-if="historyCount > 0">{{ historyCount }} 项</text>
+              <text class="cardArrow">›</text>
+            </view>
+          </view>
+
+          <!-- 清理本地缓存 -->
+          <view class="prefItemRow" @click="handleClearCache">
+            <view class="prefItemLeft">
+              <NexusIcon name="trash" size="34rpx" color="#94a3b8" />
+              <view class="prefTextCol">
+                <text class="prefTitle">清理本地缓存</text>
+                <text class="prefSub">重置本地临时数据与未授权缓存</text>
+              </view>
+            </view>
+            <view class="prefRightMeta">
               <text class="cardArrow">›</text>
             </view>
           </view>
@@ -430,6 +443,31 @@ export default {
     onTabRefresh() {
       this.refreshAllData();
       uni.showToast({ title: '已刷新设置', icon: 'none' });
+    },
+
+    /**
+     * 清理本地缓存
+     */
+    handleClearCache() {
+      uni.showModal({
+        title: '清理本地缓存',
+        content: '确定要清除所有本地临时数据吗？这将重置未同步的本地记录。',
+        confirmText: '确定清理',
+        confirmColor: '#ef4444',
+        cancelText: '取消',
+        success: (res) => {
+          if (res.confirm) {
+            try {
+              uni.removeStorageSync('mayfly_my_games');
+              uni.removeStorageSync('mayfly_mod_favorites');
+              uni.removeStorageSync('mayfly_nexus_tracked_raw');
+              this.favoritesCount = 0;
+            } catch (e) {}
+            uni.showToast({ title: '本地缓存已清空', icon: 'success' });
+            this.refreshAllData();
+          }
+        }
+      });
     }
   }
 };

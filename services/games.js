@@ -16,90 +16,9 @@ import {
 export const STORAGE_KEY_MY_GAMES = 'mayfly_my_games';
 
 /**
- * N网常见经典大作预置库 (对标图 1 与图 3，保障初次离线也能拥有充实体验)
+ * 预置库（已停用，不使用任何假数据）
  */
-export const DEFAULT_MY_GAMES_PRESETS = [
-  {
-    id: 3474,
-    name: "Baldur's Gate 3",
-    domain: 'baldursgate3',
-    modCount: 15200,
-    downloadCount: 228000000,
-    collectionCount: 18000
-  },
-  {
-    id: 6132,
-    name: 'Black Myth: Wukong',
-    domain: 'blackmythwukong',
-    modCount: 3200,
-    downloadCount: 35000000,
-    collectionCount: 4200
-  },
-  {
-    id: 4333,
-    name: 'Elden Ring',
-    domain: 'eldenring',
-    modCount: 7800,
-    downloadCount: 88000000,
-    collectionCount: 9500
-  },
-  {
-    id: 3333,
-    name: 'Cyberpunk 2077',
-    domain: 'cyberpunk2077',
-    modCount: 24900,
-    downloadCount: 290000000,
-    collectionCount: 28000
-  },
-  {
-    id: 1151,
-    name: 'Fallout 4',
-    domain: 'fallout4',
-    modCount: 77400,
-    downloadCount: 2500000000,
-    collectionCount: 32000
-  },
-  {
-    id: 1704,
-    name: 'Skyrim Special Edition',
-    domain: 'skyrimspecialedition',
-    modCount: 142200,
-    downloadCount: 13500000000,
-    collectionCount: 48000
-  },
-  {
-    id: 2531,
-    name: 'Monster Hunter: World',
-    domain: 'monsterhunterworld',
-    modCount: 8200,
-    downloadCount: 98000000,
-    collectionCount: 7600
-  },
-  {
-    id: 5120,
-    name: 'Hogwarts Legacy',
-    domain: 'hogwartslegacy',
-    modCount: 3500,
-    downloadCount: 42000000,
-    collectionCount: 3800
-  },
-  {
-    id: 2763,
-    name: 'Sekiro: Shadows Die Twice',
-    domain: 'sekiro',
-    modCount: 2400,
-    downloadCount: 28000000,
-    collectionCount: 2900
-  },
-  {
-    id: 1303,
-    name: 'Stardew Valley',
-    domain: 'stardewvalley',
-    modCount: 18400,
-    downloadCount: 190000000,
-    collectionCount: 12000
-  }
-];
+export const DEFAULT_MY_GAMES_PRESETS = [];
 
 /**
  * 格式化单个原始 Game 节点为标准化应用模型
@@ -138,23 +57,30 @@ export function formatGameItem(node) {
 // ----------------------------------------------------------------------------
 
 /**
- * 获取本地缓存的「我的游戏」列表
+ * 获取「我的游戏」列表
+ * 未登录或未标记时返回空数组，不填充任何假数据
  * @returns {Array<Object>} 游戏对象数组
  */
 export function getMyGames() {
+  const key = getNexusApiKey();
+  if (!key) {
+    // 未登录 Nexus 账号时，不使用任何假数据与本地伪缓存，清理残留并返回空数组
+    try {
+      uni.removeStorageSync(STORAGE_KEY_MY_GAMES);
+    } catch (e) {}
+    return [];
+  }
+
   try {
     const cached = uni.getStorageSync(STORAGE_KEY_MY_GAMES);
-    if (Array.isArray(cached) && cached.length > 0) {
+    if (Array.isArray(cached)) {
       return cached;
     }
   } catch (e) {
     console.warn('[MayflyGames] 读取我的游戏失败:', e);
   }
 
-  // 若为空，使用预置库初始化，保证用户初次进入就有丰富的体验
-  const initial = DEFAULT_MY_GAMES_PRESETS.map((p) => formatGameItem(p)).filter(Boolean);
-  saveMyGames(initial);
-  return initial;
+  return [];
 }
 
 /**
@@ -209,6 +135,15 @@ export async function toggleGameBookmark(gameItem, apiKey = '') {
   );
 
   const key = apiKey || getNexusApiKey();
+  if (!key) {
+    return {
+      bookmarked: false,
+      needLogin: true,
+      myGames: [],
+      message: '请先登录 NexusMods 账号以同步「我的游戏」'
+    };
+  }
+
   let bookmarked = false;
   let message = '';
 
@@ -254,7 +189,7 @@ export async function toggleGameBookmark(gameItem, apiKey = '') {
 export async function fetchNexusFavouriteGames(apiKey = '') {
   const key = apiKey || getNexusApiKey();
   if (!key) {
-    return getMyGames();
+    return [];
   }
 
   const gqlQuery = `

@@ -1,7 +1,18 @@
 <script>
+import { getNexusApiKey } from './services/nexus.js';
+
 export default {
   onLaunch: function() {
     console.log('[Mayfly] App Launch');
+    // 净化机制：未登录 Nexus 账号时彻底清除旧版写入的 18 款假数据与本地残留测试收藏
+    try {
+      const key = getNexusApiKey();
+      if (!key) {
+        uni.removeStorageSync('mayfly_my_games');
+        uni.removeStorageSync('mayfly_mod_favorites');
+        uni.removeStorageSync('mayfly_nexus_tracked_raw');
+      }
+    } catch (e) {}
   },
   onShow: function() {
     console.log('[Mayfly] App Show');
