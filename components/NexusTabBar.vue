@@ -13,7 +13,11 @@
         @click="switchTab('home')"
       >
         <view class="tabIconBox">
-          <NexusIcon name="home" size="40rpx" />
+          <NexusIcon
+            name="home"
+            size="40rpx"
+            :color="activeTab === 'home' ? '#da6b17' : '#94a3b8'"
+          />
         </view>
         <text class="tabLabelText">首页</text>
         <view class="tabActiveBar" v-if="activeTab === 'home'"></view>
@@ -28,7 +32,11 @@
         @click="switchTab('games')"
       >
         <view class="tabIconBox">
-          <NexusIcon name="gamepad" size="40rpx" />
+          <NexusIcon
+            name="gamepad"
+            size="40rpx"
+            :color="activeTab === 'games' ? '#da6b17' : '#94a3b8'"
+          />
         </view>
         <text class="tabLabelText">游戏</text>
         <view class="tabActiveBar" v-if="activeTab === 'games'"></view>
@@ -43,7 +51,11 @@
         @click="switchTab('favorites')"
       >
         <view class="tabIconBox">
-          <NexusIcon :name="activeTab === 'favorites' ? 'heart-fill' : 'heart'" size="38rpx" />
+          <NexusIcon
+            :name="activeTab === 'favorites' ? 'heart-fill' : 'heart'"
+            size="38rpx"
+            :color="activeTab === 'favorites' ? '#f43f5e' : '#94a3b8'"
+          />
           <!-- 心愿单数量角标 Badge -->
           <view class="tabBadge" v-if="favoritesCount > 0">
             <text class="tabBadgeText">{{ favoritesCount > 99 ? '99+' : favoritesCount }}</text>
@@ -62,7 +74,11 @@
         @click="switchTab('history')"
       >
         <view class="tabIconBox">
-          <NexusIcon name="task" size="38rpx" />
+          <NexusIcon
+            name="task"
+            size="38rpx"
+            :color="activeTab === 'history' ? '#38bdf8' : '#94a3b8'"
+          />
           <!-- 任务历史数量角标 -->
           <view class="tabBadge grayBadge" v-if="historyCount > 0">
             <text class="tabBadgeText">{{ historyCount > 99 ? '99+' : historyCount }}</text>
@@ -88,7 +104,12 @@
             :src="nexusUser.avatar"
             mode="aspectFill"
           />
-          <NexusIcon v-else name="user" size="38rpx" />
+          <NexusIcon
+            v-else
+            name="user"
+            size="38rpx"
+            :color="activeTab === 'profile' ? '#da6b17' : '#94a3b8'"
+          />
           <!-- 会员皇冠微标 -->
           <text v-if="nexusUser && nexusUser.isPremium" class="tabCrownBadge">👑</text>
           <!-- 电脑端在线绿色指示灯微点 -->
