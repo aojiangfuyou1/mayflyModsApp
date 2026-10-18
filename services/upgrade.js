@@ -7,8 +7,8 @@
 // 区域 1：常量配置与默认更新服务端点
 // ----------------------------------------------------------------------------
 
-/** 默认的云端更新描述配置文件 URL (可自由配置为个人自建服务器、Gitee/GitHub Releases 或电脑宿主) */
-export const DEFAULT_UPDATE_CHECK_URL = 'https://raw.githubusercontent.com/mayfly-mod/mayflymods-app/master/version.json';
+/** 官方正式线上版本更新检测配置文件 URL */
+export const DEFAULT_UPDATE_CHECK_URL = 'https://version.mayflyspace.com/mayflyModsappVersion.json';
 
 /** 本地持久化更新配置 Key */
 export const STORAGE_KEY_UPGRADE_CONFIG = 'mayfly_upgrade_config';
