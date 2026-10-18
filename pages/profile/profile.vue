@@ -71,10 +71,6 @@
               <NexusIcon name="gear" size="28rpx" color="#ffffff" style="margin-right: 8rpx;" />
               <text class="btnText">配对设置</text>
             </button>
-            <button class="actionBtn outline" :loading="isTestingConnection" @click="runQuickTest">
-              <NexusIcon name="wifi" size="28rpx" color="#cbd5e1" style="margin-right: 8rpx;" />
-              <text class="btnText">测试连接</text>
-            </button>
             <button class="actionBtn downloadBtn" @click="openClientDownload">
               <NexusIcon name="download" size="28rpx" color="#38bdf8" style="margin-right: 8rpx;" />
               <text class="btnText">客户端下载</text>
@@ -254,7 +250,7 @@
     <DevicePairModal
       :visible="deviceModalVisible"
       :config="desktopConfig"
-      @close="deviceModalVisible = false"
+      @close="onDeviceModalClose"
       @saved="onDeviceSaved"
     />
 
@@ -473,6 +469,15 @@ export default {
       this.desktopConfig = { ...newCfg };
       this.deviceModalVisible = false;
       uni.showToast({ title: '设备配置已保存', icon: 'success' });
+      this.refreshAllData();
+    },
+
+    /**
+     * 电脑配对弹窗关闭回调 (自动同步最新连接状态)
+     */
+    onDeviceModalClose() {
+      this.deviceModalVisible = false;
+      this.refreshAllData();
     },
 
     /**
@@ -874,7 +879,7 @@ export default {
 
 .actionBtn {
   flex: 1;
-  height: 72rpx;
+  height: 76rpx;
   border-radius: 14rpx;
   display: flex;
   align-items: center;
@@ -882,18 +887,14 @@ export default {
   font-size: 26rpx;
   font-weight: 700;
   cursor: pointer;
+  padding: 0 16rpx;
+  box-sizing: border-box;
 }
 
 .actionBtn.primary {
   background-color: #da6b17;
   color: #ffffff;
   border: none;
-}
-
-.actionBtn.outline {
-  background-color: #1c202d;
-  color: #cbd5e1;
-  border: 1rpx solid #31384e;
 }
 
 .actionBtn.downloadBtn {
@@ -904,6 +905,7 @@ export default {
 
 .btnText {
   font-size: 26rpx;
+  white-space: nowrap;
 }
 
 /* ============================================================================ */

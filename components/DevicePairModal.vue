@@ -53,8 +53,13 @@
           <view class="connDescBox">
             <text class="connDescText">✅ 设备已完成安全配对。现在在手机上浏览模组，点击一键安装即可秒级投递到电脑端 Mayfly 自动下载与部署！</text>
           </view>
-          <view class="rePairTriggerRow" @click="showRePairBox = true">
-            <text class="rePairTriggerText">🔄 更换电脑或重新输入 6 位动态码配对 ›</text>
+          <view class="connActionsRow">
+            <button class="connTestBtn" :loading="testingConnection" @click="runTestConnection">
+              <text class="connTestText">{{ testingConnection ? '正在测试...' : '⚡ 测试当前连接' }}</text>
+            </button>
+            <view class="rePairTriggerBtn" @click="showRePairBox = true">
+              <text class="rePairTriggerText">🔄 重新配对</text>
+            </view>
           </view>
         </view>
 
@@ -94,14 +99,17 @@
         </view>
 
         <!-- ------------------------------------------------------------------ -->
-        <!-- 区域四：快捷方式 - 剪贴板链接智能识别与扫码                         -->
+        <!-- 区域四：快捷方式 - 测试连接、剪贴板识别与扫码                         -->
         <!-- ------------------------------------------------------------------ -->
         <view class="quickToolsRow">
+          <button class="quickToolBtn primaryTool" :disabled="testingConnection" @click="runTestConnection">
+            <text class="quickToolText">{{ testingConnection ? '⚡ 测试中...' : '⚡ 测试连接' }}</text>
+          </button>
           <button class="quickToolBtn" @click="handlePasteLink">
-            <text class="quickToolText">📋 粘贴电脑链接识别</text>
+            <text class="quickToolText">📋 粘贴链接</text>
           </button>
           <button class="quickToolBtn" @click="handleScanCodePair">
-            <text class="quickToolText">📷 扫一扫二维码</text>
+            <text class="quickToolText">📷 扫码</text>
           </button>
         </view>
 
@@ -323,7 +331,7 @@ export default {
             this.pinInput = scanRes.pin;
           }
 
-          // 同步落盘保存探测到的真实可用电脑 IP 与连接态
+          // 同步落盘保存探测到的真实可用电脑 IP 与连接态 (保持弹窗常驻打开，严禁在此自动触发 saved 关闭弹窗)
           const isConnected = Boolean(this.form.deviceToken);
           const newCfg = {
             host: this.form.host,
@@ -333,9 +341,6 @@ export default {
             connected: isConnected
           };
           saveDesktopConfig(newCfg);
-          if (isConnected) {
-            this.$emit('saved', newCfg);
-          }
         } else {
           // 单独尝试一次当前指定的主机
           const singleRes = await testDesktopConnection(this.form.host, this.form.port, this.form.deviceToken);
@@ -567,7 +572,7 @@ export default {
     },
 
     /**
-     * 测试局域网连通性
+     * 测试局域网连通性 (测试完成后更新配置与状态，弹窗常驻不退出)
      */
     async runTestConnection() {
       const host = (this.form.host || '').trim();
@@ -584,26 +589,30 @@ export default {
       this.testingConnection = true;
       try {
         const res = await testDesktopConnection(host, port, this.form.deviceToken);
-        if (res && (res.online || res === true)) {
+        const isOk = Boolean(res && (res.online || res === true));
+        if (isOk) {
           this.desktopOnline = true;
-          this.detectedHostname = res.hostname || '';
+          if (res && typeof res === 'object') {
+            if (res.hostname) this.detectedHostname = res.hostname;
+            if (res.token && !this.form.deviceToken) this.form.deviceToken = res.token;
+          }
+          saveDesktopConfig({
+            host: this.form.host,
+            port: this.form.port,
+            deviceToken: this.form.deviceToken,
+            hostname: this.detectedHostname,
+            connected: Boolean(this.form.deviceToken)
+          });
           uni.showToast({
-            title: '连接成功！电脑在线',
+            title: '🎉 电脑端连接正常，通信畅通！',
             icon: 'success'
           });
         } else {
           this.desktopOnline = false;
-          this.confirmModal = {
-            visible: true,
-            title: '连接未成功',
-            content: `无法连接到 ${host}:${port}。\n请确保：\n1. 手机与电脑连接同一 Wi-Fi\n2. 电脑端 Mayfly 保持运行\n3. 端口无防火墙拦截`,
-            type: 'warning',
-            icon: 'warning',
-            confirmText: '我知道了',
-            cancelText: '',
-            showCancel: false,
-            onConfirm: null
-          };
+          uni.showToast({
+            title: '未连通，请确认电脑端 Mayfly 保持开启',
+            icon: 'none'
+          });
         }
       } catch (err) {
         uni.showToast({
@@ -1018,18 +1027,62 @@ export default {
   line-height: 1.5;
 }
 
-.rePairTriggerRow {
+.connActionsRow {
   display: flex;
-  justify-content: center;
   align-items: center;
-  padding-top: 6rpx;
+  gap: 16rpx;
+  margin-top: 6rpx;
+}
+
+.connTestBtn {
+  flex: 1;
+  height: 68rpx !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+  border: 1rpx solid rgba(56, 189, 248, 0.4) !important;
+  border-radius: 12rpx !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.connTestBtn:active {
+  background: rgba(56, 189, 248, 0.28) !important;
+}
+
+.connTestText {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.rePairTriggerBtn {
+  padding: 12rpx 16rpx;
+  background: #20242e;
+  border: 1rpx solid #373f50;
+  border-radius: 12rpx;
   cursor: pointer;
+}
+
+.rePairTriggerBtn:active {
+  background: #282e3b;
 }
 
 .rePairTriggerText {
   font-size: 22rpx;
-  color: #60a5fa;
+  color: #94a3b8;
   font-weight: 500;
+}
+
+.quickToolBtn.primaryTool {
+  background: rgba(56, 189, 248, 0.15) !important;
+  border-color: rgba(56, 189, 248, 0.45) !important;
+}
+
+.quickToolBtn.primaryTool .quickToolText {
+  color: #38bdf8;
+  font-weight: 700;
 }
 
 /* ============================================================================ */
