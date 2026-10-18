@@ -8,47 +8,49 @@
     <view class="safeStatusBarSpacer"></view>
 
     <view class="favContainer">
-      <!-- 2. 紧凑型筛选与操作控制区 (节省垂直空间，支持游戏与热度/时间筛选) -->
+      <!-- 2. 紧凑型筛选与操作控制区 (双下拉筛选组合：所属游戏 + 排序方式) -->
       <view class="favControlsArea">
-        <!-- 游戏专区横向滚动胶囊 (动态提取全部追踪模组归属游戏) -->
-        <scroll-view
-          class="favGameScroll"
-          scroll-x
-          show-scrollbar="false"
-          v-if="gameFilterList.length > 2"
-        >
-          <view class="favGamePillsList">
-            <view
-              class="favGamePill"
-              v-for="g in gameFilterList"
-              :key="g.domain"
-              :class="{ active: currentSelectedGameDomain === g.domain }"
-              @click="selectGameFilter(g.domain)"
-            >
-              <text class="favGamePillText">{{ g.name }}</text>
-              <text class="favGamePillCount">{{ g.count }}</text>
-            </view>
-          </view>
-        </scroll-view>
-
-        <!-- 紧凑工具操作行 (排序筛选 + 同步 + 多选切换) -->
+        <!-- 紧凑工具操作行 (游戏筛选下拉 + 排序筛选下拉 + 同步 + 多选切换) -->
         <view class="favFilterBar">
-          <!-- 排序维度切换 (自研暗黑风格下拉选择器，告别原生丑陋白色滚轮) -->
-          <NexusSelect
-            :options="sortOptions"
-            :value="sortIndex"
-            title="选择排序方式"
-            mode="dropdown"
-            @change="onSortChange"
-          >
-            <view class="favSortSelect">
-              <NexusIcon name="trending" size="24rpx" color="#cbd5e1" style="margin-right: 6rpx;" />
-              <text class="favSortLabel">{{ sortOptions[sortIndex] }}</text>
-              <text class="favSortArrow">⌄</text>
-            </view>
-          </NexusSelect>
+          <!-- 左侧双下拉选择器组合 (游戏专区 + 排序方式) -->
+          <view class="favBarLeftSelects">
+            <!-- 1. 所属游戏专区下拉筛选 (替代原本粗笨的横向胶囊) -->
+            <NexusSelect
+              :options="gameSelectOptions"
+              :value="currentSelectedGameDomain"
+              title="按游戏筛选"
+              mode="dropdown"
+              dropdown-width="320rpx"
+              @change="onGameFilterChange"
+            >
+              <view class="favSortSelect gameSelect" :class="{ active: currentSelectedGameDomain !== 'all' }">
+                <NexusIcon name="game" size="24rpx" :color="currentSelectedGameDomain !== 'all' ? '#da6b17' : '#94a3b8'" style="margin-right: 6rpx;" />
+                <text class="favSortLabel favGameSelectLabel">{{ currentSelectedGameLabel }}</text>
+                <text class="favSortArrow">⌄</text>
+              </view>
+            </NexusSelect>
 
-          <!-- 右侧极简按钮组 -->
+            <!-- 中间极简细分割线 -->
+            <view class="favFilterDivider"></view>
+
+            <!-- 2. 排序维度切换 (自研暗黑风格下拉选择器) -->
+            <NexusSelect
+              :options="sortOptions"
+              :value="sortIndex"
+              title="选择排序方式"
+              mode="dropdown"
+              dropdown-width="260rpx"
+              @change="onSortChange"
+            >
+              <view class="favSortSelect sortSelect" :class="{ active: sortIndex !== 0 }">
+                <NexusIcon name="trending" size="24rpx" :color="sortIndex !== 0 ? '#da6b17' : '#cbd5e1'" style="margin-right: 6rpx;" />
+                <text class="favSortLabel">{{ sortOptions[sortIndex] }}</text>
+                <text class="favSortArrow">⌄</text>
+              </view>
+            </NexusSelect>
+          </view>
+
+          <!-- 右侧极简按钮组 (同步 + 多选) -->
           <view class="favBarRightActions">
             <!-- 极简同步按钮 -->
             <view class="miniSyncBtn" @click="syncTrackedFromNexus(true)" title="同步 N网">
@@ -275,6 +277,10 @@ export default {
   },
 
   computed: {
+    /**
+     * 动态聚合已收藏模组归属的所有游戏分类
+     * 按拥有模组数量从高到低排序，首项固定为“全部游戏”
+     */
     gameFilterList() {
       const counts = {};
       const names = {};
@@ -287,16 +293,38 @@ export default {
       const list = [
         { domain: 'all', name: '全部游戏', count: this.favoritesList.length }
       ];
-      Object.keys(counts).forEach((d) => {
-        if (d !== 'unknown' && counts[d] > 0) {
-          list.push({
-            domain: d,
-            name: names[d],
-            count: counts[d]
-          });
-        }
-      });
-      return list;
+      const gameEntries = Object.keys(counts)
+        .filter((d) => d !== 'unknown' && counts[d] > 0)
+        .map((d) => ({
+          domain: d,
+          name: names[d] || d,
+          count: counts[d]
+        }))
+        .sort((a, b) => b.count - a.count);
+
+      return list.concat(gameEntries);
+    },
+
+    /**
+     * 游戏下拉选择器规格化选项清单
+     */
+    gameSelectOptions() {
+      return this.gameFilterList.map((g) => ({
+        label: `${g.name} (${g.count})`,
+        value: g.domain,
+        icon: g.domain === 'all' ? 'mods' : 'game'
+      }));
+    },
+
+    /**
+     * 当前选中的游戏展示标签
+     */
+    currentSelectedGameLabel() {
+      const target = this.gameFilterList.find((g) => g.domain === this.currentSelectedGameDomain);
+      if (target) {
+        return target.domain === 'all' ? `全部游戏 (${target.count})` : `${target.name} (${target.count})`;
+      }
+      return '全部游戏';
     },
 
     processedFavoritesList() {
@@ -494,13 +522,30 @@ export default {
       }
     },
 
+    /**
+     * 设置当前选中的游戏筛选专区
+     * @param {string} domain - 游戏域名标识 ('all' 为全部)
+     */
     selectGameFilter(domain) {
       this.currentSelectedGameDomain = domain;
       this.selectedModIdMap = {};
     },
 
+    /**
+     * 响应所属游戏下拉选择事件
+     * @param {Object} e - NexusSelect 抛出的选项数据
+     */
+    onGameFilterChange(e) {
+      const domain = e.value !== undefined ? e.value : (this.gameSelectOptions[e.detail?.value]?.value || 'all');
+      this.selectGameFilter(domain);
+    },
+
+    /**
+     * 响应排序方式下拉选择事件
+     * @param {Object} e - NexusSelect 抛出的排序变更事件
+     */
     onSortChange(e) {
-      this.sortIndex = Number(e.detail?.value) || 0;
+      this.sortIndex = Number(e.detail?.value !== undefined ? e.detail.value : e.index) || 0;
     },
 
     toggleMultiSelectMode() {
@@ -681,61 +726,7 @@ export default {
   gap: 12rpx;
 }
 
-/* 游戏专区横向滚动胶囊条 */
-.favGameScroll {
-  width: 100%;
-  white-space: nowrap;
-}
-
-.favGamePillsList {
-  display: inline-flex;
-  align-items: center;
-  gap: 12rpx;
-  padding: 4rpx 0;
-}
-
-.favGamePill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8rpx;
-  background: #181a20;
-  border: 1rpx solid #272d3b;
-  border-radius: 30rpx;
-  padding: 8rpx 20rpx;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.favGamePill.active {
-  background: #252c3d;
-  border-color: #da6b17;
-}
-
-.favGamePillText {
-  font-size: 22rpx;
-  color: #94a3b8;
-  font-weight: 500;
-}
-
-.favGamePill.active .favGamePillText {
-  color: #ffffff;
-  font-weight: 700;
-}
-
-.favGamePillCount {
-  font-size: 18rpx;
-  background: rgba(255, 255, 255, 0.08);
-  color: #94a3b8;
-  padding: 2rpx 8rpx;
-  border-radius: 12rpx;
-}
-
-.favGamePill.active .favGamePillCount {
-  background: #da6b17;
-  color: #ffffff;
-}
-
-/* 紧凑工具操作行 */
+/* 紧凑工具操作行 (游戏筛选 + 排序维度 + 同步/多选) */
 .favFilterBar {
   display: flex;
   align-items: center;
@@ -746,22 +737,61 @@ export default {
   padding: 10rpx 16rpx;
 }
 
+/* 左侧双下拉选择器组合 (游戏分类 + 排序方式) */
+.favBarLeftSelects {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex: 1;
+  min-width: 0;
+}
+
 .favSortSelect {
   display: flex;
   align-items: center;
   cursor: pointer;
+  padding: 4rpx 6rpx;
+  border-radius: 8rpx;
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+
+.favSortSelect:active {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.favSortSelect.active .favSortLabel {
+  color: #da6b17;
+  font-weight: 700;
 }
 
 .favSortLabel {
   font-size: 22rpx;
   color: #cbd5e1;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.favGameSelectLabel {
+  max-width: 170rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .favSortArrow {
   font-size: 20rpx;
   color: #94a3b8;
-  margin-left: 6rpx;
+  margin-left: 4rpx;
+  flex-shrink: 0;
+}
+
+/* 中间极简细分割线 */
+.favFilterDivider {
+  width: 1rpx;
+  height: 24rpx;
+  background-color: #2b3345;
+  flex-shrink: 0;
 }
 
 .favBarRightActions {
