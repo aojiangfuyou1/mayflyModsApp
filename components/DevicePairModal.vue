@@ -17,114 +17,80 @@
 
       <view class="deviceModalBody">
         <!-- ------------------------------------------------------------------ -->
-        <!-- 区域二：局域网雷达探测状态卡片                                     -->
+        <!-- 状态一：已连接就绪卡片 (纯净极简，仅展示核心状态、测试与重新配对)     -->
         <!-- ------------------------------------------------------------------ -->
-        <view class="radarCard" :class="{ isOnline: desktopOnline }">
-          <view class="radarStatusRow">
-            <view class="radarDot" :class="{ pulse: testingConnection, online: desktopOnline }"></view>
-            <text class="radarStatusText">
-              {{ testingConnection ? '正在探测局域网电脑端...' : (desktopOnline ? (isPairedAndOnline ? `电脑已连接 (${detectedHostname || form.host})` : `已发现电脑 (${detectedHostname || form.host}) · 待安全验证`) : '未检测到电脑端 (请确保在同 WiFi 下)') }}
-            </text>
-          </view>
-          <view class="radarActionRow">
-            <view class="radarHostRow">
-              <text class="radarSubText">端口: {{ form.port }} · {{ form.host }}</text>
-              <view v-if="form.host !== '10.204.160.22'" class="quickSwitchHostBtn" @click="useDirectHost('10.204.160.22')">
-                <text class="quickSwitchHostText">👉 填入电脑IP 10.204.160.22</text>
-              </view>
-            </view>
-            <view class="radarRefreshBtn" @click="runAutoRadarProbe">
-              <text class="radarRefreshText">🔄 重新探测</text>
-            </view>
-          </view>
-        </view>
-
-        <!-- ------------------------------------------------------------------ -->
-        <!-- 区域三：分支 A - 已配对成功状态卡片 (连接成功无需重复输动态码)       -->
-        <!-- ------------------------------------------------------------------ -->
-        <view class="connectedStatusCard" v-if="isPairedAndOnline && !showRePairBox">
-          <view class="connHeaderRow">
-            <view class="connTitleCol">
-              <text class="connTitle">已安全连接至电脑</text>
-              <text class="connSub">主机：{{ detectedHostname || 'Mayfly-PC' }} ({{ form.host }}:{{ form.port }})</text>
+        <view class="connectedUnifiedCard" v-if="isPairedAndOnline && !showRePairBox">
+          <view class="connStatusRow">
+            <view class="connStatusLeft">
+              <view class="radarDot online"></view>
+              <text class="connTitle">电脑已连接</text>
             </view>
             <text class="connBadge">已就绪</text>
           </view>
-          <view class="connDescBox">
-            <text class="connDescText">✅ 设备已完成安全配对。现在在手机上浏览模组，点击一键安装即可秒级投递到电脑端 Mayfly 自动下载与部署！</text>
+
+          <view class="connDetailRow">
+            <text class="connHostname">主机: {{ detectedHostname || form.host }}</text>
+            <text class="connHostPort">{{ form.host }}:{{ form.port }}</text>
           </view>
+
           <view class="connActionsRow">
             <button class="connTestBtn" :loading="testingConnection" @click="runTestConnection">
-              <text class="connTestText">{{ testingConnection ? '正在测试...' : '⚡ 测试当前连接' }}</text>
+              <text class="connTestText">{{ testingConnection ? '正在测试...' : '⚡ 测试连接' }}</text>
             </button>
-            <view class="rePairTriggerBtn" @click="showRePairBox = true">
-              <text class="rePairTriggerText">🔄 重新配对</text>
-            </view>
+            <button class="connRePairBtn" @click="showRePairBox = true">
+              <text class="connRePairText">🔄 重新配对</text>
+            </button>
           </view>
         </view>
 
         <!-- ------------------------------------------------------------------ -->
-        <!-- 区域三：分支 B - 首次安全验证码 (PIN) 输入卡片 (解释防骚扰机制)       -->
+        <!-- 状态二：未连接 / 重新配对卡片 (仅需输入 6 位动态码)                 -->
         <!-- ------------------------------------------------------------------ -->
-        <view class="pinPairCard" v-else>
-          <view class="pinHeaderRow">
-            <view class="pinTitleCol">
+        <view class="pairingSection" v-else>
+          <!-- 探测状态通知条 -->
+          <view class="probeNoticeBar">
+            <view class="radarDot" :class="{ pulse: testingConnection, online: desktopOnline }"></view>
+            <text class="probeNoticeText">
+              {{ testingConnection ? '正在探测局域网电脑端...' : (desktopOnline ? `已发现电脑: ${detectedHostname || form.host}` : '未检测到电脑端 (请确保在同 WiFi 下)') }}
+            </text>
+            <text class="probeNoticeAction" @click="runAutoRadarProbe">{{ testingConnection ? '探测中' : '🔄 刷新' }}</text>
+          </view>
+
+          <!-- 6 位 PIN 码输入卡片 -->
+          <view class="pinPairCard">
+            <view class="pinHeaderRow">
               <text class="pinCardTitle">🔑 电脑 6 位配对动态码 (PIN)</text>
-              <text class="pinCardTip">安全验证机制 · 仅需首次配对一次</text>
+              <text class="cancelRePairBtn" v-if="isPairedAndOnline && showRePairBox" @click="showRePairBox = false">✕ 取消</text>
             </view>
-            <text class="cancelRePairBtn" v-if="isPairedAndOnline && showRePairBox" @click="showRePairBox = false">取消</text>
-          </view>
-          <view class="pinExplainBox">
-            <text class="pinExplainText">💡 为防止局域网内其他人向您的电脑推送文件，请在电脑端 Mayfly 弹出的窗口中查看 6 位动态码，输入一次即可永久免密直连：</text>
-          </view>
-          <view class="pinInputBox">
-            <input
-              class="pinInputField"
-              type="number"
-              maxlength="6"
-              v-model="pinInput"
-              placeholder="请输入电脑显示的 6 位动态码"
-              placeholder-class="pinPlaceholder"
-              @confirm="handlePinPair"
-            />
-          </view>
-          <!-- 一键配对主按钮 -->
-          <button
-            class="primaryPairBtn"
-            :disabled="pairingWithPin || !pinInput.trim()"
-            @click="handlePinPair"
-          >
-            <text class="primaryBtnText">{{ pairingWithPin ? '正在验证配对...' : '✨ 一键配对并连接电脑' }}</text>
-          </button>
-        </view>
-
-        <!-- ------------------------------------------------------------------ -->
-        <!-- 区域四：快捷方式 - 测试连接、剪贴板识别与扫码                         -->
-        <!-- ------------------------------------------------------------------ -->
-        <view class="quickToolsRow">
-          <button class="quickToolBtn primaryTool" :disabled="testingConnection" @click="runTestConnection">
-            <text class="quickToolText">{{ testingConnection ? '⚡ 测试中...' : '⚡ 测试连接' }}</text>
-          </button>
-          <button class="quickToolBtn" @click="handlePasteLink">
-            <text class="quickToolText">📋 粘贴链接</text>
-          </button>
-          <button class="quickToolBtn" @click="handleScanCodePair">
-            <text class="quickToolText">📷 扫码</text>
-          </button>
-        </view>
-
-        <!-- ------------------------------------------------------------------ -->
-        <!-- 区域五：电脑端 Mayfly 客户端官方下载 (夸克网盘官方通道)              -->
-        <!-- ------------------------------------------------------------------ -->
-        <view class="clientDownloadBanner" @click="openClientDownload">
-          <view class="downloadBannerLeft">
-            <text class="downloadBannerIcon">💻</text>
-            <view class="downloadBannerMeta">
-              <text class="downloadBannerTitle">还没有电脑端 Mayfly？</text>
-              <text class="downloadBannerSub">夸克网盘官方通道 · 点击唤起浏览器下载安装</text>
+            <view class="pinInputBox">
+              <input
+                class="pinInputField"
+                type="number"
+                maxlength="6"
+                v-model="pinInput"
+                placeholder="查看电脑弹出的 6 位动态码"
+                placeholder-class="pinPlaceholder"
+                @confirm="handlePinPair"
+              />
             </view>
+            <button
+              class="primaryPairBtn"
+              :disabled="pairingWithPin || !pinInput.trim()"
+              @click="handlePinPair"
+            >
+              <text class="primaryBtnText">{{ pairingWithPin ? '正在验证配对...' : '✨ 一键配对并连接电脑' }}</text>
+            </button>
           </view>
-          <text class="downloadBannerAction">前往下载 ›</text>
+
+          <!-- 快捷方式行 (粘贴链接与扫码) -->
+          <view class="quickToolsRow">
+            <button class="quickToolBtn" @click="handlePasteLink">
+              <text class="quickToolText">📋 粘贴电脑访问链接</text>
+            </button>
+            <button class="quickToolBtn" @click="handleScanCodePair">
+              <text class="quickToolText">📷 扫一扫二维码</text>
+            </button>
+          </view>
         </view>
       </view>
     </view>
@@ -969,82 +935,84 @@ export default {
 }
 
 /* ============================================================================ */
-/* 已连接就绪状态卡片样式                                                       */
+/* 状态一：已连接就绪卡片样式 (单卡片、双操作、纯净无重复)                     */
 /* ============================================================================ */
-.connectedStatusCard {
+.connectedUnifiedCard {
   background: rgba(16, 185, 129, 0.08);
   border: 1rpx solid rgba(52, 211, 153, 0.35);
   border-radius: 20rpx;
-  padding: 24rpx 20rpx;
+  padding: 28rpx 24rpx;
   display: flex;
   flex-direction: column;
+  gap: 20rpx;
+}
+
+.connStatusRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.connStatusLeft {
+  display: flex;
+  align-items: center;
   gap: 14rpx;
 }
 
-.connHeaderRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.connTitleCol {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
 .connTitle {
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 700;
   color: #34d399;
 }
 
-.connSub {
-  font-size: 20rpx;
-  color: #94a3b8;
-  font-family: monospace;
-}
-
 .connBadge {
-  font-size: 18rpx;
+  font-size: 20rpx;
   font-weight: 700;
   color: #10b981;
   background: rgba(16, 185, 129, 0.18);
   border: 1rpx solid rgba(52, 211, 153, 0.4);
-  padding: 2rpx 10rpx;
-  border-radius: 6rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
 }
 
-.connDescBox {
+.connDetailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   background: rgba(0, 0, 0, 0.25);
   border-radius: 12rpx;
-  padding: 14rpx 16rpx;
+  padding: 16rpx 20rpx;
 }
 
-.connDescText {
+.connHostname {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.connHostPort {
   font-size: 22rpx;
-  color: #cbd5e1;
-  line-height: 1.5;
+  color: #94a3b8;
+  font-family: monospace;
 }
 
 .connActionsRow {
   display: flex;
   align-items: center;
   gap: 16rpx;
-  margin-top: 6rpx;
 }
 
 .connTestBtn {
   flex: 1;
-  height: 68rpx !important;
+  height: 76rpx !important;
   background: rgba(56, 189, 248, 0.15) !important;
   border: 1rpx solid rgba(56, 189, 248, 0.4) !important;
-  border-radius: 12rpx !important;
+  border-radius: 14rpx !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 0 !important;
   margin: 0 !important;
+  padding: 0 !important;
 }
 
 .connTestBtn:active {
@@ -1052,63 +1020,68 @@ export default {
 }
 
 .connTestText {
-  font-size: 24rpx;
+  font-size: 26rpx;
   font-weight: 700;
   color: #38bdf8;
 }
 
-.rePairTriggerBtn {
-  padding: 12rpx 16rpx;
-  background: #20242e;
-  border: 1rpx solid #373f50;
-  border-radius: 12rpx;
-  cursor: pointer;
+.connRePairBtn {
+  flex: 1;
+  height: 76rpx !important;
+  background: #20242e !important;
+  border: 1rpx solid #373f50 !important;
+  border-radius: 14rpx !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-.rePairTriggerBtn:active {
-  background: #282e3b;
+.connRePairBtn:active {
+  background: #282e3b !important;
 }
 
-.rePairTriggerText {
-  font-size: 22rpx;
-  color: #94a3b8;
-  font-weight: 500;
-}
-
-.quickToolBtn.primaryTool {
-  background: rgba(56, 189, 248, 0.15) !important;
-  border-color: rgba(56, 189, 248, 0.45) !important;
-}
-
-.quickToolBtn.primaryTool .quickToolText {
-  color: #38bdf8;
-  font-weight: 700;
+.connRePairText {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #cbd5e1;
 }
 
 /* ============================================================================ */
-/* PIN 码辅助说明与取消切换                                                     */
+/* 状态二：未连接 / 重新配对卡片样式                                            */
 /* ============================================================================ */
-.pinTitleCol {
+.pairingSection {
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  gap: 20rpx;
 }
 
-.pinCardSub {
-  font-size: 20rpx;
-  color: #9ca3af;
+.probeNoticeBar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid #282d38;
+  border-radius: 14rpx;
+  padding: 14rpx 18rpx;
 }
 
-.pinExplainBox {
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: 12rpx;
-  padding: 12rpx 14rpx;
-}
-
-.pinExplainText {
-  font-size: 21rpx;
+.probeNoticeText {
+  flex: 1;
+  font-size: 22rpx;
   color: #cbd5e1;
-  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.probeNoticeAction {
+  font-size: 20rpx;
+  color: #60a5fa;
+  cursor: pointer;
+  padding: 4rpx 8rpx;
+  flex-shrink: 0;
 }
 
 .cancelRePairBtn {
@@ -1116,61 +1089,5 @@ export default {
   color: #94a3b8;
   padding: 4rpx 10rpx;
   cursor: pointer;
-}
-
-/* ============================================================================ */
-/* 电脑端 Mayfly 客户端官方网盘下载横幅                                         */
-/* ============================================================================ */
-.clientDownloadBanner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #171a22;
-  border: 1rpx solid #2a3140;
-  border-radius: 16rpx;
-  padding: 18rpx 20rpx;
-  cursor: pointer;
-  margin-top: 4rpx;
-  transition: all 0.2s;
-}
-
-.clientDownloadBanner:active {
-  background: #1f232e;
-  border-color: #38bdf8;
-}
-
-.downloadBannerLeft {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  flex: 1;
-}
-
-.downloadBannerIcon {
-  font-size: 36rpx;
-}
-
-.downloadBannerMeta {
-  display: flex;
-  flex-direction: column;
-  gap: 2rpx;
-}
-
-.downloadBannerTitle {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #f1f5f9;
-}
-
-.downloadBannerSub {
-  font-size: 19rpx;
-  color: #64748b;
-}
-
-.downloadBannerAction {
-  font-size: 22rpx;
-  font-weight: 700;
-  color: #38bdf8;
-  flex-shrink: 0;
 }
 </style>
