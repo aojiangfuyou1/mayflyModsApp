@@ -1004,7 +1004,8 @@ export default {
         this.refreshMyGames();
         uni.stopPullDownRefresh();
       } else {
-        this.loadAllGames(() => {
+        this.loadGames(() => {
+          this.refreshMyGames();
           uni.stopPullDownRefresh();
         });
       }
@@ -1210,6 +1211,9 @@ export default {
           sort: 'downloads'
         });
         this.gamesList = res.games || [];
+        if (res.totalCount) {
+          this.gamesTotalCount = res.totalCount;
+        }
         if (this.enableAutoTranslate) {
           this.autoTranslateGameNames(this.gamesList);
         }
@@ -1226,6 +1230,7 @@ export default {
      */
     async loadMoreGames() {
       if (this.gamesLoading) return;
+      if (this.gamesTotalCount && this.gamesList.length >= this.gamesTotalCount) return;
       this.gamesLoading = true;
       try {
         const res = await fetchNexusGames({
@@ -1235,6 +1240,9 @@ export default {
         });
         if (res.games && res.games.length > 0) {
           this.gamesList = [...this.gamesList, ...res.games];
+          if (res.totalCount) {
+            this.gamesTotalCount = res.totalCount;
+          }
           if (this.enableAutoTranslate) {
             this.autoTranslateGameNames(res.games);
           }
@@ -1610,15 +1618,15 @@ export default {
     },
 
     /**
-     * 唤起移出「我的游戏」确认弹窗
+     * 唤起移出「我的收藏」确认弹窗
      */
     promptRemoveBookmark(game) {
       if (!game) return;
       const title = this.getGameDisplayTitle(game);
       this.confirmModal = {
         visible: true,
-        title: '移出「我的游戏」',
-        content: `确定将《${title}》从「我的游戏」中移除吗？移除后仍可在「发现全网游戏」中重新添加。`,
+        title: '移出「我的收藏」',
+        content: `确定将《${title}》从「我的收藏」中移除吗？移除后仍可在「全网热门榜」中重新添加。`,
         type: 'warning',
         icon: 'alert',
         confirmText: '确认移出',
@@ -1628,7 +1636,7 @@ export default {
           const res = await toggleGameBookmark(game, this.nexusApiKey);
           this.refreshMyGames();
           uni.showToast({
-            title: '已移出「我的游戏」',
+            title: '已移出「我的收藏」',
             icon: 'none'
           });
         }
@@ -1652,10 +1660,11 @@ export default {
       } else {
         if (this.gamesActiveTab === 'my') {
           this.refreshMyGames();
-          uni.showToast({ title: '已刷新我的游戏', icon: 'none' });
+          uni.showToast({ title: '已刷新我的收藏', icon: 'none' });
         } else {
-          this.loadAllGames(() => {
-            uni.showToast({ title: '已刷新全网游戏', icon: 'none' });
+          this.loadGames(() => {
+            this.refreshMyGames();
+            uni.showToast({ title: '已刷新全网热门榜', icon: 'none' });
           });
         }
       }
@@ -2384,91 +2393,206 @@ export default {
 }
 
 /* ---------------------------------------------------------------------------- */
-/* 区域 2A：Games 视角 (100% 对标 N网官方游戏库、双 Tab、海报网格与书签)          */
+/* 区域 2A：Games 视角 (100% 对标 N网官方游戏库、一体化吸顶控制台、海报网格与书签) */
 /* ---------------------------------------------------------------------------- */
 .gamesContainer {
-  padding: 24rpx 24rpx 160rpx 24rpx;
+  padding: 0 0 160rpx 0;
   box-sizing: border-box;
 }
 
-/* 双 Segment Tab 控制栏 (我的游戏 vs 发现全网游戏) */
-.gamesSegmentTabs {
-  display: flex;
-  align-items: center;
-  background: #181a1f;
-  border-radius: 16rpx;
-  padding: 8rpx;
-  margin-bottom: 24rpx;
-  border: 1rpx solid #282c35;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.4);
+/* 顶部吸顶控制台 (状态栏安全区 + 搜索胶囊 + 双 Tab 胶囊) */
+.gamesStickyHeader {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(18, 18, 18, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.08);
+  padding-top: calc(var(--status-bar-height, 0px) + 12rpx);
+  padding-left: 24rpx;
+  padding-right: 24rpx;
+  padding-bottom: 16rpx;
+  box-sizing: border-box;
 }
 
-.segmentTab {
-  flex: 1;
+/* 模式切换与快捷流入口 */
+.gamesFilterNavRow {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 14rpx 0;
-  border-radius: 12rpx;
-  gap: 12rpx;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  justify-content: space-between;
+  margin-top: 14rpx;
+  gap: 16rpx;
+}
+
+.gamesTabPills {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 36rpx;
+  padding: 4rpx;
+  gap: 6rpx;
+}
+
+.gameTabPill {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 10rpx 20rpx;
+  border-radius: 32rpx;
   cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.segmentTab.active {
-  background: linear-gradient(135deg, #262933, #1f222b);
-  border: 1rpx solid #3a3f4d;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.45);
+.gameTabPill.active {
+  background: linear-gradient(135deg, rgba(218, 107, 23, 0.25), rgba(218, 107, 23, 0.12));
+  border: 1rpx solid rgba(218, 107, 23, 0.5);
+  box-shadow: 0 2rpx 10rpx rgba(218, 107, 23, 0.25);
 }
 
-.segmentTabText {
-  font-size: 26rpx;
+.gameTabPillText {
+  font-size: 24rpx;
   font-weight: 600;
   color: #94a3b8;
 }
 
-.segmentTab.active .segmentTabText {
+.gameTabPill.active .gameTabPillText {
   color: #ffffff;
   font-weight: 700;
 }
 
-.segmentCountBadge {
-  padding: 2rpx 12rpx;
-  border-radius: 20rpx;
-  background: #2a2e38;
+.gameTabCountBadge {
   font-size: 20rpx;
-  color: #9ca3af;
+  font-weight: 700;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2rpx 10rpx;
+  border-radius: 16rpx;
+}
+
+.gameTabPill.active .gameTabCountBadge {
+  color: #fbbf24;
+  background: rgba(218, 107, 23, 0.22);
+}
+
+.gamesStreamLinkBtn {
+  display: flex;
+  align-items: center;
+  padding: 10rpx 18rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gamesStreamLinkBtn:active {
+  background: rgba(218, 107, 23, 0.15);
+  border-color: rgba(218, 107, 23, 0.4);
+}
+
+.gamesStreamLinkText {
+  font-size: 22rpx;
+  color: #da6b17;
   font-weight: 600;
 }
 
-.segmentTab.active .segmentCountBadge {
-  background: #da6b17;
-  color: #ffffff;
-  font-weight: 700;
+/* 主内容区 */
+.gamesMainContent {
+  padding: 20rpx 24rpx 40rpx 24rpx;
+  box-sizing: border-box;
 }
 
-.segmentSearchBtn {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 12rpx;
+/* 快捷横向滑轨 (我的收藏快捷通道) */
+.myFavoritesShelf {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  border-radius: 20rpx;
+  padding: 18rpx 18rpx 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.shelfHeaderRow {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-left: 8rpx;
+  justify-content: space-between;
+  margin-bottom: 14rpx;
+}
+
+.shelfHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.shelfBadgeIcon {
+  font-size: 26rpx;
+}
+
+.shelfTitle {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.shelfCount {
+  font-size: 20rpx;
+  color: #64748b;
+}
+
+.shelfViewAllBtn {
+  font-size: 22rpx;
+  color: #da6b17;
+  font-weight: 600;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1rpx solid rgba(255, 255, 255, 0.06);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
 }
 
-.segmentSearchBtn:active {
-  transform: scale(0.96);
+.shelfScrollView {
+  white-space: nowrap;
+  width: 100%;
 }
 
-.segmentSearchBtn.active {
-  background: rgba(218, 107, 23, 0.15);
-  border-color: rgba(218, 107, 23, 0.5);
+.shelfItemCard {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: 140rpx;
+  margin-right: 18rpx;
+  cursor: pointer;
+}
+
+.shelfCoverBox {
+  width: 140rpx;
+  height: 210rpx;
+  border-radius: 12rpx;
+  overflow: hidden;
+  background-color: #1a1c22;
+  border: 1rpx solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.4);
+}
+
+.shelfCoverImg {
+  width: 100%;
+  height: 100%;
+}
+
+.shelfGameTitle {
+  width: 140rpx;
+  font-size: 20rpx;
+  color: #cbd5e1;
+  text-align: center;
+  margin-top: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 热门榜单统计指示 */
+.gamesMetaCountSub {
+  font-size: 22rpx;
+  color: #64748b;
+  font-weight: 500;
 }
 
 /* 标题统计与快捷操作行 */
@@ -2527,62 +2651,6 @@ export default {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20rpx;
-}
-
-/* 「+ 添加新游戏」虚线导流卡片 */
-.addGameCard {
-  background: rgba(25, 27, 31, 0.6);
-  border: 2rpx dashed #3a3f4e;
-  border-radius: 16rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 480rpx;
-  padding: 30rpx 20rpx;
-  box-sizing: border-box;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.addGameCard:active {
-  border-color: #da6b17;
-  background: rgba(218, 107, 23, 0.08);
-  transform: scale(0.98);
-}
-
-.addGamePlusBox {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  background: #252830;
-  border: 2rpx solid #474d5d;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20rpx;
-}
-
-.addGamePlusIcon {
-  font-size: 48rpx;
-  line-height: 1;
-  color: #da6b17;
-  font-weight: 300;
-}
-
-.addGameCardTitle {
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 8rpx;
-}
-
-.addGameCardSub {
-  font-size: 20rpx;
-  color: #848d9a;
-  text-align: center;
-  line-height: 1.4;
-  padding: 0 10rpx;
 }
 
 /* 游戏海报卡片 */
