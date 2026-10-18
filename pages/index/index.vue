@@ -1,18 +1,9 @@
 <template>
   <view class="nexusPage">
     <!-- ==================================================================== -->
-    <!-- 区域 1：全局沉浸式标准顶栏 (已组件化)                               -->
+    <!-- 区域 1：手机沉浸式纯黑状态栏安全占位 (告别全屏叠加与挖孔遮挡)         -->
     <!-- ==================================================================== -->
-    <NexusHeader
-      :show-back="false"
-      :show-search="false"
-      :desktop-config="desktopConfig"
-      :nexus-user="nexusUser"
-      @drawer-click="toggleDrawer"
-      @pc-click="openDeviceModal"
-      @user-click="openNexusAuthModal"
-      @logo-click="clearGameFilterAndBack"
-    />
+    <view class="safeStatusBarSpacer"></view>
 
     <!-- ==================================================================== -->
     <!-- 区域 2A：Games 视角 (100% 对标用户截图 1 的双列竖版海报风格，动态拉取) -->
@@ -165,24 +156,6 @@
               <text class="translateActionBtnText">原词直搜</text>
             </view>
           </view>
-        </view>
-
-        <!-- 常用模组高频热搜快捷词标签 (点选秒搜，帮助用户快速找模组) -->
-        <view class="quickKeywordsRow" v-if="!actualSearchQuery">
-          <text class="quickKeywordLabel">快捷词:</text>
-          <scroll-view class="quickKeywordsScroll" scroll-x show-scrollbar="false">
-            <view class="quickKeywordsList">
-              <view
-                class="quickKeywordPill"
-                v-for="kw in quickKeywords"
-                :key="kw.zh"
-                @click="handleSelectQuickKeyword(kw)"
-              >
-                <text class="quickKeywordZh">{{ kw.zh }}</text>
-                <text class="quickKeywordEn">{{ kw.en }}</text>
-              </view>
-            </view>
-          </scroll-view>
         </view>
       </view>
 
@@ -1821,7 +1794,21 @@ export default {
 }
 
 /* ---------------------------------------------------------------------------- */
-/* 区域 1：Nexus 官方顶栏 (☰ + ❖ + 🔍 + 👤) */
+/* 区域 1：手机沉浸式纯黑状态栏安全占位 (告别全屏叠加与挖孔遮挡)             */
+/* ---------------------------------------------------------------------------- */
+.safeStatusBarSpacer {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  height: var(--status-bar-height, 0px);
+  padding-top: env(safe-area-inset-top);
+  background-color: #000000;
+  box-sizing: content-box;
+}
+
+/* ---------------------------------------------------------------------------- */
+/* 区域 1B：Nexus 官方顶栏 (保留备用)                                           */
 /* ---------------------------------------------------------------------------- */
 .nexusHeader {
   position: sticky;
@@ -2544,58 +2531,6 @@ export default {
   font-size: 19rpx;
   color: #e2e8f0;
   font-weight: 600;
-}
-
-/* 快捷模组关键词条 */
-.quickKeywordsRow {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-  overflow: hidden;
-}
-
-.quickKeywordLabel {
-  font-size: 20rpx;
-  color: #64748b;
-  flex-shrink: 0;
-}
-
-.quickKeywordsScroll {
-  flex: 1;
-  white-space: nowrap;
-}
-
-.quickKeywordsList {
-  display: inline-flex;
-  gap: 10rpx;
-  align-items: center;
-}
-
-.quickKeywordPill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4rpx;
-  background-color: #1f232c;
-  border: 1rpx solid #2e3544;
-  border-radius: 20rpx;
-  padding: 4rpx 14rpx;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.quickKeywordPill:active {
-  background-color: rgba(218, 107, 23, 0.2);
-  border-color: #da6b17;
-}
-
-.quickKeywordZh {
-  font-size: 20rpx;
-  color: #cbd5e1;
-}
-
-.quickKeywordEn {
-  font-size: 18rpx;
-  color: #64748b;
 }
 
 /* ============================================================================ */
