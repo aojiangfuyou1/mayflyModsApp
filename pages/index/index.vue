@@ -27,23 +27,8 @@
           </view>
         </view>
 
-        <!-- 2. 高定无缝分段切换滑块 (左侧发现全网游戏，右侧我的游戏) -->
+        <!-- 2. 高定无缝分段切换滑块 (左侧我的游戏，右侧发现全网游戏) -->
         <view class="gamesSegmentBar">
-          <view
-            class="gamesSegmentItem"
-            :class="{ active: gamesActiveTab === 'all' }"
-            @click="switchToAllGamesTab"
-          >
-            <NexusIcon
-              name="globe"
-              size="28rpx"
-              :color="gamesActiveTab === 'all' ? '#da6b17' : '#94a3b8'"
-              style="margin-right: 8rpx;"
-            />
-            <text class="gamesSegmentText">发现全网游戏</text>
-            <text class="gamesSegmentCountBadge allBadge">{{ allGamesTotalCount || allGamesList.length || '5500+' }}</text>
-          </view>
-
           <view
             class="gamesSegmentItem"
             :class="{ active: gamesActiveTab === 'my' }"
@@ -58,92 +43,28 @@
             <text class="gamesSegmentText">我的游戏</text>
             <text class="gamesSegmentCountBadge myBadge" v-if="myGamesList.length > 0">{{ myGamesList.length }}</text>
           </view>
-        </view>
-      </view>
 
-      <!-- ------------------------------------------------------------------ -->
-      <!-- 视窗 A：发现全网游戏 (默认展示，按 N网 官方热度总榜从高到低排序)    -->
-      <!-- ------------------------------------------------------------------ -->
-      <view class="allGamesSection" v-if="gamesActiveTab === 'all'">
-        <!-- 精巧副提示与快速直达模组流 -->
-        <view class="gamesSubBar">
-          <text class="gamesSubHint">按 N网 官方热度与总下载量排序</text>
-          <text class="gamesQuickJumpMods" @click="switchView('mods')">浏览精选模组流 ›</text>
-        </view>
-
-        <!-- 加载动画 -->
-        <view class="loadingBox" v-if="loadingAllGames && allGamesList.length === 0">
-          <view class="loadingSpinner"></view>
-          <text class="loadingText">正在从 NexusMods 动态抓取热门游戏数据...</text>
-        </view>
-
-        <!-- 全网游戏海报网格 (支持点击书签直接加入「我的游戏」) -->
-        <view class="gamesGrid" v-else>
           <view
-            class="gamePosterCard"
-            v-for="game in filteredAllGames"
-            :key="game.id || game.domain"
-            @click="selectGameAndJumpMods(game)"
+            class="gamesSegmentItem"
+            :class="{ active: gamesActiveTab === 'all' }"
+            @click="switchToAllGamesTab"
           >
-            <!-- 竖版封面 (2:3比例) + 动态书签角标 -->
-            <view class="gameCoverBox">
-              <image
-                class="gameCoverImg"
-                :src="game.tileUrl"
-                mode="aspectFill"
-                lazy-load
-              />
-              <view
-                class="gameBookmarkBadge"
-                :class="{ isBookmarked: isGameBookmarked(game) }"
-                :title="isGameBookmarked(game) ? '已在我的游戏' : '点击标记为我的游戏'"
-                @click.stop="handleToggleBookmark(game)"
-              >
-                <text class="bookmarkIcon">🔖</text>
-              </view>
-            </view>
-
-            <!-- 游戏主标题 (中文名优先) -->
-            <text class="gameTitleText">{{ getGameDisplayTitle(game) }}</text>
-            <!-- 英文原名副标 -->
-            <text class="gameOriginalNameText" v-if="getGameDisplayTitle(game) !== game.name">{{ game.name }}</text>
-
-            <!-- 统计指标行 -->
-            <view class="gameStatsRow">
-              <view class="statMetricItem">
-                <text class="statGlyph">◆</text>
-                <text class="statMetricVal">{{ game.stats ? game.stats.mods : formatCount(game.modCount) }}</text>
-              </view>
-              <view class="statMetricItem">
-                <text class="statGlyph">▤</text>
-                <text class="statMetricVal">{{ game.stats ? game.stats.tracking : formatCount(game.collectionCount) }}</text>
-              </view>
-              <view class="statMetricItem">
-                <text class="statGlyph">⬇</text>
-                <text class="statMetricVal">{{ game.stats ? game.stats.downloads : formatCount(game.downloadCount) }}</text>
-              </view>
-            </view>
+            <NexusIcon
+              name="globe"
+              size="28rpx"
+              :color="gamesActiveTab === 'all' ? '#da6b17' : '#94a3b8'"
+              style="margin-right: 8rpx;"
+            />
+            <text class="gamesSegmentText">发现全网游戏</text>
+            <text class="gamesSegmentCountBadge allBadge">{{ allGamesTotalCount || allGamesList.length || '5500+' }}</text>
           </view>
         </view>
-
-        <!-- 触底加载更多状态 -->
-        <view class="bottomNotice" v-if="allGamesList.length > 0 && !gameSearchText">
-          <text class="bottomText" v-if="loadingAllGames">正在加载更多游戏...</text>
-          <text class="bottomText" v-else-if="allGamesList.length >= allGamesTotalCount">已载入全部 {{ allGamesTotalCount }} 款热门游戏</text>
-        </view>
-
-        <!-- 空态提示：全网未检索到 -->
-        <view class="emptyBox" v-if="!loadingAllGames && filteredAllGames.length === 0">
-          <text class="emptyEmoji">🎮</text>
-          <text class="emptyTitle">未找到匹配游戏</text>
-          <text class="emptySub">换个中英文关键词再试试吧</text>
-        </view>
       </view>
 
       <!-- ------------------------------------------------------------------ -->
-      <!-- 视窗 B：我的游戏 (My Games 已标记大作专区)                        -->
+      <!-- 视窗 A：我的游戏 (默认展示，个人已收藏大作专区)                     -->
       <!-- ------------------------------------------------------------------ -->
-      <view class="myGamesSection" v-else>
+      <view class="myGamesSection" v-if="gamesActiveTab === 'my'">
         <!-- 统计与操作行 -->
         <view class="myGamesSubBar" v-if="filteredMyGames.length > 0">
           <text class="myGamesSubHint">已标记 {{ filteredMyGames.length }} 款收藏游戏</text>
@@ -230,6 +151,85 @@
               </view>
             </view>
           </view>
+        </view>
+      </view>
+
+      <!-- ------------------------------------------------------------------ -->
+      <!-- 视窗 B：发现全网游戏 (按 N网 官方热度总榜从高到低排序)              -->
+      <!-- ------------------------------------------------------------------ -->
+      <view class="allGamesSection" v-else>
+        <!-- 精巧副提示与快速直达模组流 -->
+        <view class="gamesSubBar">
+          <text class="gamesSubHint">按 N网 官方热度与总下载量排序</text>
+          <text class="gamesQuickJumpMods" @click="switchView('mods')">浏览精选模组流 ›</text>
+        </view>
+
+        <!-- 加载动画 -->
+        <view class="loadingBox" v-if="loadingAllGames && allGamesList.length === 0">
+          <view class="loadingSpinner"></view>
+          <text class="loadingText">正在从 NexusMods 动态抓取热门游戏数据...</text>
+        </view>
+
+        <!-- 全网游戏海报网格 (支持点击书签直接加入「我的游戏」) -->
+        <view class="gamesGrid" v-else>
+          <view
+            class="gamePosterCard"
+            v-for="game in filteredAllGames"
+            :key="game.id || game.domain"
+            @click="selectGameAndJumpMods(game)"
+          >
+            <!-- 竖版封面 (2:3比例) + 动态书签角标 -->
+            <view class="gameCoverBox">
+              <image
+                class="gameCoverImg"
+                :src="game.tileUrl"
+                mode="aspectFill"
+                lazy-load
+              />
+              <view
+                class="gameBookmarkBadge"
+                :class="{ isBookmarked: isGameBookmarked(game) }"
+                :title="isGameBookmarked(game) ? '已在我的游戏' : '点击标记为我的游戏'"
+                @click.stop="handleToggleBookmark(game)"
+              >
+                <text class="bookmarkIcon">🔖</text>
+              </view>
+            </view>
+
+            <!-- 游戏主标题 (中文名优先) -->
+            <text class="gameTitleText">{{ getGameDisplayTitle(game) }}</text>
+            <!-- 英文原名副标 -->
+            <text class="gameOriginalNameText" v-if="getGameDisplayTitle(game) !== game.name">{{ game.name }}</text>
+
+            <!-- 统计指标行 -->
+            <view class="gameStatsRow">
+              <view class="statMetricItem">
+                <text class="statGlyph">◆</text>
+                <text class="statMetricVal">{{ game.stats ? game.stats.mods : formatCount(game.modCount) }}</text>
+              </view>
+              <view class="statMetricItem">
+                <text class="statGlyph">▤</text>
+                <text class="statMetricVal">{{ game.stats ? game.stats.tracking : formatCount(game.collectionCount) }}</text>
+              </view>
+              <view class="statMetricItem">
+                <text class="statGlyph">⬇</text>
+                <text class="statMetricVal">{{ game.stats ? game.stats.downloads : formatCount(game.downloadCount) }}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 触底加载更多状态 -->
+        <view class="bottomNotice" v-if="allGamesList.length > 0 && !gameSearchText">
+          <text class="bottomText" v-if="loadingAllGames">正在加载更多游戏...</text>
+          <text class="bottomText" v-else-if="allGamesList.length >= allGamesTotalCount">已载入全部 {{ allGamesTotalCount }} 款热门游戏</text>
+        </view>
+
+        <!-- 空态提示：全网未检索到 -->
+        <view class="emptyBox" v-if="!loadingAllGames && filteredAllGames.length === 0">
+          <text class="emptyEmoji">🎮</text>
+          <text class="emptyTitle">未找到匹配游戏</text>
+          <text class="emptySub">换个中英文关键词再试试吧</text>
         </view>
       </view>
     </view>
@@ -596,8 +596,8 @@ export default {
       // 当前主视角: 默认优先展示全部游戏专区 ('games')，点击后进入对应游戏模组流 ('mods')
       currentView: 'games',
 
-      // 游戏库控制台与状态 (默认优先展示发现全网游戏，从高到低排序)
-      gamesActiveTab: 'all',
+      // 游戏库控制台与状态 (默认优先展示我的游戏)
+      gamesActiveTab: 'my',
       gameSearchExpanded: false,
       gameSearchText: '',
       syncingCloud: false,
@@ -947,7 +947,7 @@ export default {
     } else {
       // 方案 A 核心规范：默认打开首页即展示游戏库大厅 ('games')
       this.currentView = 'games';
-      this.gamesActiveTab = 'all';
+      this.gamesActiveTab = 'my';
       // 预先恢复上次激活游戏元数据备用，但保持在游戏库大厅
       try {
         const savedGame = uni.getStorageSync('mayfly_active_game');
