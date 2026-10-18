@@ -899,6 +899,11 @@ export async function testDesktopConnection(hostOrConfig, port = 28888, token = 
     const res = await uni.request({
       url: statusUrl,
       method: 'GET',
+      header: {
+        'Content-Type': 'application/json',
+        'x-client-id': 'mayflymods-mobile-app',
+        'x-lan-token': targetToken || ''
+      },
       timeout: 2500
     });
     if (res.statusCode === 200 && res.data) {
@@ -981,6 +986,10 @@ export async function verifyDesktopPin(host, port = 28888, pinOrToken = '') {
     const res = await uni.request({
       url: verifyUrl,
       method: 'GET',
+      header: {
+        'Content-Type': 'application/json',
+        'x-client-id': 'mayflymods-mobile-app'
+      },
       timeout: 3000
     });
     if (res.statusCode === 200 && res.data?.success) {

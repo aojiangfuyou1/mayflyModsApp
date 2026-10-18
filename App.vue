@@ -1,5 +1,10 @@
 <script>
-import { getNexusApiKey } from './services/nexus.js';
+import {
+  getNexusApiKey,
+  getDesktopConfig,
+  saveDesktopConfig,
+  testDesktopConnection
+} from './services/nexus.js';
 import { checkAppUpgrade } from './services/upgrade.js';
 
 export default {
@@ -27,6 +32,19 @@ export default {
   },
   onShow: function() {
     console.log('[Mayfly] App Show');
+    // App 切到前台时，自动向电脑端发送连通性心跳，校准在线状态并通知电脑端
+    try {
+      const cfg = getDesktopConfig();
+      if (cfg && cfg.host) {
+        testDesktopConnection(cfg).then((res) => {
+          const isOnline = Boolean(res && (res.online || res === true));
+          if (cfg.connected !== isOnline) {
+            cfg.connected = isOnline;
+            saveDesktopConfig(cfg);
+          }
+        }).catch(() => {});
+      }
+    } catch (e) {}
   },
   onHide: function() {
     console.log('[Mayfly] App Hide');

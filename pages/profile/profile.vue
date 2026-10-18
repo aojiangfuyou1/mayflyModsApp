@@ -352,12 +352,21 @@ export default {
       appVersionCode: 100,
       isCheckingUpdate: false,
       upgradeModalVisible: false,
-      upgradeInfo: {}
+      upgradeInfo: {},
+
+      // 局域网电脑端保活心跳定时器
+      heartbeatTimer: null
     };
   },
 
   onShow() {
     this.refreshAllData();
+    this.pingDesktopHeartbeat();
+    this.startHeartbeatTimer();
+  },
+
+  onHide() {
+    this.stopHeartbeatTimer();
   },
 
   methods: {
@@ -512,6 +521,46 @@ export default {
         uni.showToast({ title: '测试发生异常', icon: 'none' });
       } finally {
         this.isTestingConnection = false;
+      }
+    },
+
+    /**
+     * 向电脑端发送静默保活心跳并实时校准连接状态
+     */
+    async pingDesktopHeartbeat() {
+      if (!this.desktopConfig || !this.desktopConfig.host) return;
+      try {
+        const res = await testDesktopConnection(this.desktopConfig);
+        const isOnline = Boolean(res && (res.online || res === true));
+        if (this.desktopConfig.connected !== isOnline) {
+          this.desktopConfig.connected = isOnline;
+          saveDesktopConfig(this.desktopConfig);
+        }
+      } catch (err) {
+        if (this.desktopConfig.connected) {
+          this.desktopConfig.connected = false;
+          saveDesktopConfig(this.desktopConfig);
+        }
+      }
+    },
+
+    /**
+     * 启动页面前台周期性保活心跳 (每 15 秒同步一次，让电脑端实时感知手机在线)
+     */
+    startHeartbeatTimer() {
+      if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = setInterval(() => {
+        this.pingDesktopHeartbeat();
+      }, 15000);
+    },
+
+    /**
+     * 停止心跳定时器
+     */
+    stopHeartbeatTimer() {
+      if (this.heartbeatTimer) {
+        clearInterval(this.heartbeatTimer);
+        this.heartbeatTimer = null;
       }
     },
 
