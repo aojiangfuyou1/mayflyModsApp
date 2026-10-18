@@ -334,6 +334,11 @@
             </NexusSelect>
           </view>
         </view>
+
+        <!-- 呼吸流光加载进度条 (点击任何分类/排序或搜索时即刻亮起流转，消除等待卡顿感) -->
+        <view class="loadingProgressBar" v-if="loading">
+          <view class="loadingProgressGlow"></view>
+        </view>
         <!-- 吸顶控制台结束 -->
       </view>
 
@@ -383,8 +388,16 @@
         </view>
       </view>
 
+      <!-- 重新筛选与加载时的浮动磨砂加载指示胶囊 (消除等待卡顿感) -->
+      <view class="modsGridLoadingMask" v-if="loading && streamModList.length > 0">
+        <view class="modsGridLoadingPill">
+          <view class="loadingSpinnerSmall"></view>
+          <text class="modsGridLoadingText">正在检索模组...</text>
+        </view>
+      </view>
+
       <!-- 双列模组卡片网格 (100% 对标图 2，已组件化) -->
-      <view class="modsGrid" v-if="streamModList.length > 0">
+      <view class="modsGrid" :class="{ 'is-loading-dim': loading && streamModList.length > 0 }" v-if="streamModList.length > 0">
         <ModCard
           v-for="item in streamModList"
           :key="item.id"
@@ -401,7 +414,7 @@
         />
       </view>
 
-      <!-- 加载与空结果提示 -->
+      <!-- 首次加载与空结果提示 -->
       <view class="loadingBox" v-if="loading && modList.length === 0">
         <view class="loadingSpinner"></view>
         <text class="loadingText">正在从 NexusMods 检索模组...</text>
@@ -413,8 +426,12 @@
         <button class="retryBtn" @click="resetAndLoad">刷新重试</button>
       </view>
 
+      <!-- 触底加载更多状态 (带动态旋转指示器) -->
       <view class="bottomNotice" v-if="modList.length > 0">
-        <text class="bottomText" v-if="loadingMore">正在加载更多 Nexus 模组...</text>
+        <view class="loadingMoreRow" v-if="loadingMore">
+          <view class="loadingSpinnerSmall"></view>
+          <text class="bottomText">正在载入更多热门模组...</text>
+        </view>
         <text class="bottomText" v-else-if="!hasMore">已加载全部热门 Nexus 模组</text>
       </view>
     </view>
@@ -954,10 +971,13 @@ export default {
     } else if (query && query.view) {
       this.currentView = query.view;
     } else {
-      // 方案 A 核心规范：默认打开首页即展示游戏库大厅 ('games')
-      this.currentView = 'games';
-      this.gamesActiveTab = 'my';
-      // 预先恢复上次激活游戏元数据备用，但保持在游戏库大厅
+      // 检查上次用户停留的视角状态 (在 mods 模组流离开时自动保持上下文)
+      let lastView = 'games';
+      try {
+        lastView = uni.getStorageSync('mayfly_current_view') || 'games';
+      } catch (e) {}
+
+      // 预先恢复上次激活游戏元数据备用
       try {
         const savedGame = uni.getStorageSync('mayfly_active_game');
         if (savedGame && savedGame.domain) {
@@ -967,6 +987,15 @@ export default {
           this.selectedGameTileUrl = savedGame.tileUrl || '';
         }
       } catch (e) {}
+
+      // 若上次停留在模组流且有激活游戏，则无缝恢复到模组流！否则默认进入游戏库大厅
+      if (lastView === 'mods' && this.selectedGameDomain) {
+        this.currentView = 'mods';
+        this.favoritesScope = 'current';
+      } else {
+        this.currentView = 'games';
+        this.gamesActiveTab = 'my';
+      }
     }
 
     // 首次进入动态加载游戏列表与模组列表
@@ -1068,6 +1097,35 @@ export default {
     uni.$off('setting-adult-changed');
   },
 
+  /**
+   * 监听 Android 手机物理返回键与全面屏侧滑手势返回
+   * 规范：在模组卡片列表视角时拦截返回行为，丝滑退回游戏大厅，防止误退应用
+   */
+  onBackPress(options) {
+    // 1. 若当前有弹层抽屉处于打开状态，优先关闭抽屉/弹窗并拦截退出
+    if (this.drawerVisible) {
+      this.closeDrawer();
+      return true;
+    }
+    if (this.confirmModal && this.confirmModal.visible) {
+      this.confirmModal.visible = false;
+      return true;
+    }
+    if (this.upgradeModalVisible) {
+      this.upgradeModalVisible = false;
+      return true;
+    }
+
+    // 2. 核心：若当前处于模组列表视角 (mods)，拦截物理返回，退回游戏选择大厅 (games)
+    if (this.currentView === 'mods') {
+      this.returnToGamesView();
+      return true; // 返回 true 拦截系统默认退出/返回栈行为
+    }
+
+    // 3. 若已在游戏库大厅，则不拦截，交由系统原生处理
+    return false;
+  },
+
   methods: {
     // ------------------------------------------------------------------------
     // 视角切换与抽屉交互
@@ -1130,10 +1188,7 @@ export default {
     },
 
     /**
-     * 从 Games 视角选中某游戏并进入 Mods 列表筛选 (并持久化当前激活游戏)
-     */
-    /**
-     * 从 Games 视角选中某游戏并进入 Mods 列表筛选 (并持久化当前激活游戏)
+     * 从 Games 视角选中某游戏并进入 Mods 列表筛选 (并持久化当前激活游戏与当前视角)
      */
     selectGameAndJumpMods(game) {
       if (!game) return;
@@ -1144,6 +1199,14 @@ export default {
       this.selectedCategory = '';
       this.currentView = 'mods';
       this.favoritesScope = 'current';
+
+      // 1. 持久化当前处于模组流状态 (切 Tab 回来后无缝保持在当前游戏模组流)
+      try {
+        uni.setStorageSync('mayfly_current_view', 'mods');
+      } catch (e) {}
+
+      // 2. 彻底隔离滚动距离：进入模组流时瞬时回到顶部，绝不串位！
+      uni.pageScrollTo({ scrollTop: 0, duration: 0 });
 
       // 预先载入已缓存的当前游戏全量分类，避免界面分类闪烁或空白
       const cached = this.gameCategoriesCache[game.domain];
@@ -1175,6 +1238,14 @@ export default {
       this.currentView = 'games';
       this.favoritesScope = 'all';
 
+      // 1. 持久化当前处于游戏库大厅状态
+      try {
+        uni.setStorageSync('mayfly_current_view', 'games');
+      } catch (e) {}
+
+      // 2. 彻底隔离滚动距离：返回游戏库大厅时复位为顶部
+      uni.pageScrollTo({ scrollTop: 0, duration: 0 });
+
       const cached = this.gameCategoriesCache['all_games'];
       this.dynamicCategories = cached && cached.length > 0 ? cached : [];
 
@@ -1192,6 +1263,7 @@ export default {
      */
     selectCategory(catName) {
       this.selectedCategory = catName === this.selectedCategory ? '' : catName;
+      uni.pageScrollTo({ scrollTop: 0, duration: 200 });
       this.resetAndLoad();
     },
 
@@ -1200,6 +1272,7 @@ export default {
      */
     onSortSelectChange(e) {
       const targetVal = e.value !== undefined ? e.value : (this.sortOptions[e.index]?.value || 'createdAt');
+      uni.pageScrollTo({ scrollTop: 0, duration: 200 });
       this.changeSort(targetVal);
     },
 
@@ -1208,6 +1281,7 @@ export default {
      */
     onCategorySelectChange(e) {
       const targetCat = e.value !== undefined ? e.value : (this.categoryOptions[e.index]?.value ?? '');
+      uni.pageScrollTo({ scrollTop: 0, duration: 200 });
       this.selectCategory(targetCat);
     },
 
@@ -1216,6 +1290,7 @@ export default {
      */
     onTimeFilterChange(e) {
       this.timeFilterIndex = Number(e.detail?.value) || 0;
+      uni.pageScrollTo({ scrollTop: 0, duration: 200 });
       this.resetAndLoad();
     },
 
@@ -1402,11 +1477,12 @@ export default {
     },
 
     /**
-     * 重置状态并重新加载
+     * 重置状态并重新加载 (自动将列表视口平滑复位至最顶部)
      */
     async resetAndLoad(callback) {
       this.page = 1;
       this.hasMore = true;
+      uni.pageScrollTo({ scrollTop: 0, duration: 200 });
       await this.loadMods();
       if (typeof callback === 'function') {
         callback();
@@ -1711,11 +1787,14 @@ export default {
     },
 
     /**
-     * 一键从模组流返回游戏库大厅
+     * 一键从模组流返回游戏库大厅 (带视角持久化更新与滚动复位)
      */
     returnToGamesView() {
       this.currentView = 'games';
-      uni.pageScrollTo({ scrollTop: 0, duration: 200 });
+      try {
+        uni.setStorageSync('mayfly_current_view', 'games');
+      } catch (e) {}
+      uni.pageScrollTo({ scrollTop: 0, duration: 0 });
     },
 
     /**
@@ -3585,6 +3664,91 @@ export default {
   border-top-color: #da6b17;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+/* 顶部流光加载条 */
+.loadingProgressBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4rpx;
+  background: rgba(218, 107, 23, 0.15);
+  overflow: hidden;
+  z-index: 100;
+}
+
+.loadingProgressGlow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, #da6b17, #f59e0b, transparent);
+  border-radius: 4rpx;
+  animation: progressFlow 1.1s ease-in-out infinite;
+}
+
+@keyframes progressFlow {
+  0% {
+    left: -45%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* 模组列表刷新时的透明度与居中悬浮胶囊 */
+.modsGrid.is-loading-dim {
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.modsGridLoadingMask {
+  position: fixed;
+  top: 250rpx;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 800;
+  pointer-events: none;
+}
+
+.modsGridLoadingPill {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  background: rgba(18, 20, 26, 0.92);
+  backdrop-filter: blur(12px);
+  padding: 14rpx 28rpx;
+  border-radius: 40rpx;
+  border: 1rpx solid rgba(218, 107, 23, 0.4);
+  box-shadow: 0 8rpx 30rpx rgba(0, 0, 0, 0.65), 0 0 20rpx rgba(218, 107, 23, 0.25);
+}
+
+.modsGridLoadingText {
+  font-size: 24rpx;
+  color: #f1f3f7;
+  font-weight: 600;
+}
+
+.loadingSpinnerSmall {
+  width: 28rpx;
+  height: 28rpx;
+  border: 3rpx solid rgba(218, 107, 23, 0.25);
+  border-top-color: #da6b17;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+.loadingMoreRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
 }
 
 @keyframes spin {
