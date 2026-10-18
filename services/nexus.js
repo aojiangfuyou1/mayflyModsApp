@@ -200,30 +200,60 @@ export function formatNexusFullDate(dateStr, isZh = true) {
 export function parseNexusBbCode(text) {
   if (!text) return '';
   let s = String(text);
-  // 去除排版对齐标签包裹
-  s = s.replace(/\[\/?(left|center|right)\]/gi, '');
-  // 标题层级
-  s = s.replace(/\[size=5\]\[b\]([\s\S]*?)\[\/b\]\[\/size\]/gi, '<div style="font-size:20px;font-weight:800;color:#ffffff;margin:20px 0 10px;">$1</div>');
-  s = s.replace(/\[size=4\]\[b\]([\s\S]*?)\[\/b\]\[\/size\]/gi, '<div style="font-size:18px;font-weight:700;color:#ffffff;margin:16px 0 8px;">$1</div>');
-  s = s.replace(/\[size=[45]\]([\s\S]*?)\[\/size\]/gi, '<div style="font-size:18px;font-weight:700;color:#ffffff;margin:16px 0 8px;">$1</div>');
-  s = s.replace(/\[size=3\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size:15px;color:#d1d5db;">$1</span>');
-  s = s.replace(/\[size=[12]\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size:13px;color:#9ca3af;">$1</span>');
-  // 粗体、斜体、下划线
+
+  // 1. 去除排版对齐与无意义外层标签
+  s = s.replace(/\[\/?(left|center|right|align=[^\]]*)\]/gi, '');
+  s = s.replace(/\[\/?(中间|居中|靠左|靠右)\]/gi, '');
+
+  // 2. 容错修复被机器翻译污染的中文字符标签
+  s = s.replace(/\[图片\]/gi, '[img]');
+  s = s.replace(/\[\/图片\]/gi, '[/img]');
+  s = s.replace(/\[(?:尺寸|大小)=([0-9]+)\]/gi, '[size=$1]');
+  s = s.replace(/\[\/(?:尺寸|大小|体型)\]/gi, '[/size]');
+  s = s.replace(/\[(?:颜色|colour)=([^\]]+)\]/gi, '[color=$1]');
+  s = s.replace(/\[\/(?:颜色|colour)\]/gi, '[/color]');
+
+  // 3. 标题与层级 [heading] / [size=5/6] / [size=4]
+  s = s.replace(/\[heading\]([\s\S]*?)\[\/heading\]/gi, '<div style="font-size:19px;font-weight:800;color:#ffffff;margin:22px 0 10px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;">$1</div>');
+  s = s.replace(/\[size=[56789]\]\[b\]([\s\S]*?)\[\/b\]\[\/size\]/gi, '<div style="font-size:20px;font-weight:800;color:#ffffff;margin:20px 0 10px;">$1</div>');
+  s = s.replace(/\[size=[56789]\]([\s\S]*?)\[\/size\]/gi, '<div style="font-size:20px;font-weight:800;color:#ffffff;margin:20px 0 10px;">$1</div>');
+  s = s.replace(/\[size=4\]\[b\]([\s\S]*?)\[\/b\]\[\/size\]/gi, '<div style="font-size:17px;font-weight:700;color:#ffffff;margin:16px 0 8px;">$1</div>');
+  s = s.replace(/\[size=4\]([\s\S]*?)\[\/size\]/gi, '<div style="font-size:17px;font-weight:700;color:#ffffff;margin:16px 0 8px;">$1</div>');
+  s = s.replace(/\[size=3\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size:15px;color:#d1d5db;line-height:1.6;">$1</span>');
+  s = s.replace(/\[size=[12]\]([\s\S]*?)\[\/size\]/gi, '<span style="font-size:13px;color:#9ca3af;line-height:1.5;">$1</span>');
+
+  // 4. 颜色与字体
+  s = s.replace(/\[color=([^\]]+)\]([\s\S]*?)\[\/color\]/gi, '<span style="color:$1;">$2</span>');
+  s = s.replace(/\[font=[^\]]+\]([\s\S]*?)\[\/font\]/gi, '$1');
+
+  // 5. 粗体、斜体、下划线、删除线
   s = s.replace(/\[b\]([\s\S]*?)\[\/b\]/gi, '<strong style="color:#ffffff;font-weight:700;">$1</strong>');
-  s = s.replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em>$1</em>');
-  s = s.replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u>$1</u>');
-  // 链接 (Nexus 暖金配色 #d4a373)
-  s = s.replace(/\[url=([^\]]+)\]([\s\S]*?)\[\/url\]/gi, '<span style="color:#d4a373;text-decoration:underline;">$2</span>');
-  s = s.replace(/\[url\]([\s\S]*?)\[\/url\]/gi, '<span style="color:#d4a373;text-decoration:underline;word-break:break-all;">$1</span>');
-  // 图片
-  s = s.replace(/\[img\]([\s\S]*?)\[\/img\]/gi, '<img src="$1" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;" />');
-  // 列表处理
+  s = s.replace(/\[i\]([\s\S]*?)\[\/i\]/gi, '<em style="color:#e2e8f0;">$1</em>');
+  s = s.replace(/\[u\]([\s\S]*?)\[\/u\]/gi, '<u style="text-decoration:underline;">$1</u>');
+  s = s.replace(/\[s\]([\s\S]*?)\[\/s\]/gi, '<del style="color:#94a3b8;">$1</del>');
+
+  // 6. 链接与引用与剧透
+  s = s.replace(/\[quote\]([\s\S]*?)\[\/quote\]/gi, '<blockquote style="border-left:3px solid #da6b17;padding:6px 12px;margin:10px 0;background:rgba(218,107,23,0.08);color:#cbd5e1;border-radius:0 6px 6px 0;">$1</blockquote>');
+  s = s.replace(/\[spoiler\]([\s\S]*?)\[\/spoiler\]/gi, '<div style="background:rgba(255,255,255,0.05);border:1px dashed rgba(255,255,255,0.15);padding:8px 12px;border-radius:6px;margin:8px 0;color:#cbd5e1;">$1</div>');
+  s = s.replace(/\[url=([^\]]+)\]([\s\S]*?)\[\/url\]/gi, '<span style="color:#da6b17;text-decoration:underline;font-weight:500;">$2</span>');
+  s = s.replace(/\[url\]([\s\S]*?)\[\/url\]/gi, '<span style="color:#da6b17;text-decoration:underline;word-break:break-all;">$1</span>');
+
+  // 7. 图片原生防盗链与优雅降级隐藏 (防范第三方不可达图库导致破碎图标)
+  s = s.replace(/\[img\]([\s\S]*?)\[\/img\]/gi, '<img src="$1" referrerpolicy="no-referrer" loading="lazy" onerror="this.style.display=\'none\'" style="max-width:100%;border-radius:8px;margin:10px 0;display:block;" />');
+
+  // 8. 列表处理
   s = s.replace(/\[list\]([\s\S]*?)\[\/list\]/gi, (m, inner) => {
     const rawClean = inner.replace(/<br\s*\/?>/gi, '');
-    const items = rawClean.split(/\[\*\]/).map(x => x.replace(/\[\/\*\]/g, '').trim()).filter(x => x.length > 0);
-    return '<ul style="padding-left:18px;margin:8px 0;">' + items.map(it => '<li style="color:#d1d5db;margin-bottom:6px;line-height:1.5;">' + it + '</li>').join('') + '</ul>';
+    const items = rawClean.split(/\[\*\]/).map((x) => x.replace(/\[\/\*\]/g, '').trim()).filter((x) => x.length > 0);
+    return '<ul style="padding-left:18px;margin:8px 0;">' + items.map((it) => '<li style="color:#d1d5db;margin-bottom:6px;line-height:1.6;">' + it + '</li>').join('') + '</ul>';
   });
-  // 换行清洗
+
+  // 9. 强力清理未匹配或遗留的所有孤立 BBCode 标签与中括号残留，绝对禁止代码泄漏到 UI！
+  s = s.replace(/\[\/?(?:size|color|colour|font|b|i|u|s|img|url|list|\*|heading|spoiler|quote|center|left|right|align|line|尺寸|大小|颜色|体型|图片)[^\]]*\]/gi, '');
+  s = s.replace(/\[(?:[a-zA-Z\u4e00-\u9fa50-9_#]+)(?:=[^\]]*)?\]/g, '');
+  s = s.replace(/\[\/(?:[a-zA-Z\u4e00-\u9fa50-9_#]+)\]/g, '');
+
+  // 10. 换行与段落清洗
   s = s.replace(/<br\s*\/?>/gi, '\n');
   s = s.replace(/\n\n+/g, '<br/><br/>');
   s = s.replace(/\n/g, '<br/>');

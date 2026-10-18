@@ -379,54 +379,112 @@ export async function translateZhToEn(text) {
 }
 
 /**
- * 翻译长篇富文本模组正文（保留 BBCode 结构、图片与换行段落排版）
+ * 翻译长篇富文本模组正文（保留 BBCode 结构、图片与换行段落排版，杜绝标签被误翻为中文）
  * @param {string} rawText - 原始带有 BBCode 或 HTML 的正文文本
  * @returns {Promise<string>} 翻译后的中文正文
  */
 export async function translateRichDescription(rawText) {
   if (!rawText || !rawText.trim()) return '';
 
+  // 检查内存缓存，如果缓存存在且不包含早期被污染的中文代码标签，直接复用
   if (memoryTranslationCache.has(rawText)) {
-    return memoryTranslationCache.get(rawText);
+    const cached = memoryTranslationCache.get(rawText);
+    if (!/\[(?:尺寸|大小|体型|颜色|图片)=/i.test(cached)) {
+      return cached;
+    }
+    // 发现早期被污染的损坏翻译，主动失效重新计算
+    memoryTranslationCache.delete(rawText);
   }
 
-  // 按行切分，保留排版骨架
+  // 1. 按行切分，保留原始行排版结构
   const lines = rawText.split('\n');
-  const textLinesToTranslate = [];
-  const lineIndices = [];
+  const lineTasks = []; // { lineIdx, originalLine, maskedLine, tokenMap }
 
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
-    // 过滤掉纯空行、纯标签（如 [img]...[/img]、纯 BBCode 闭合符）
-    if (
-      !trimmed ||
-      /^\[img\][\s\S]*?\[\/img\]$/i.test(trimmed) ||
-      /^\[\/?(center|left|right|list|\*|b|i|u|size=[0-9]+)\]$/i.test(trimmed)
-    ) {
+    if (!trimmed) return;
+
+    // 先测试剥离 HTML 标签、BBCode 标签以及 URL 后的纯文本内容
+    const stripped = trimmed
+      .replace(/\[img\][\s\S]*?\[\/img\]/gi, '')
+      .replace(/\[\/?(?:[a-zA-Z0-9_*#]+)(?:=[^\]]*)?\]/g, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/https?:\/\/[^\s\]<]+/g, '')
+      .trim();
+
+    // 如果剥离后没有英文字母（说明全是标签、标点、数字或已是纯中文），完全不需要翻译！直接放行原样保留
+    if (!/[a-zA-Z]/.test(stripped)) {
       return;
     }
-    // 纯中文跳过
-    if (/^[\u4e00-\u9fa50-9\s，。！？、]+$/.test(trimmed)) {
+
+    // 2. 对该行进行 BBCode、HTML 标签与 URL 的占位符掩码保护 (Tokenization)
+    const tokenMap = new Map();
+    let tokenIndex = 0;
+
+    // 优先完整保护 [img]...[/img] 资产块
+    let masked = trimmed.replace(/\[img\][\s\S]*?\[\/img\]/gi, (match) => {
+      const token = `⟦IMG_${tokenIndex++}⟧`;
+      tokenMap.set(token, match);
+      return token;
+    });
+
+    // 保护所有 BBCode 标签（如 [size=4]、[/size]、[color=#abc]、[b]、[url=...] 等）
+    masked = masked.replace(/\[\/?(?:[a-zA-Z0-9_*#]+)(?:=[^\]]*)?\]/g, (match) => {
+      const token = `⟦TAG_${tokenIndex++}⟧`;
+      tokenMap.set(token, match);
+      return token;
+    });
+
+    // 保护所有 HTML 标签（如 <br />、<img ... /> 等）
+    masked = masked.replace(/<[^>]+>/g, (match) => {
+      const token = `⟦HTML_${tokenIndex++}⟧`;
+      tokenMap.set(token, match);
+      return token;
+    });
+
+    // 保护裸 URL
+    masked = masked.replace(/https?:\/\/[^\s\]<]+/g, (match) => {
+      const token = `⟦URL_${tokenIndex++}⟧`;
+      tokenMap.set(token, match);
+      return token;
+    });
+
+    // 再次检查掩码后的文本，若除占位符外已无英文正文内容，直接跳过
+    const textOnly = masked.replace(/⟦[A-Z0-9_]+⟧/g, '').trim();
+    if (!/[a-zA-Z]/.test(textOnly)) {
       return;
     }
-    textLinesToTranslate.push(trimmed);
-    lineIndices.push(idx);
+
+    lineTasks.push({
+      lineIdx: idx,
+      originalLine: trimmed,
+      maskedLine: masked,
+      tokenMap
+    });
   });
 
-  if (textLinesToTranslate.length === 0) {
+  if (lineTasks.length === 0) {
     return rawText;
   }
 
-  // 批量并发翻译所有段落行
-  const transMap = await batchTranslateToZh(textLinesToTranslate);
+  // 3. 收集所有掩码后的文本行批量并发请求翻译
+  const maskedTexts = lineTasks.map((t) => t.maskedLine);
+  const transMap = await batchTranslateToZh(maskedTexts);
 
-  // 逐行替换还原富文本结构
+  // 4. 逐行还原占位符，拼接回原版富文本结构
   const translatedLines = [...lines];
-  lineIndices.forEach((lineIdx, i) => {
-    const original = textLinesToTranslate[i];
-    if (transMap.has(original)) {
-      translatedLines[lineIdx] = transMap.get(original);
-    }
+  lineTasks.forEach((task) => {
+    let trans = transMap.get(task.maskedLine) || task.maskedLine;
+    // 精准还原所有 Token 占位符
+    task.tokenMap.forEach((originalVal, token) => {
+      const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      trans = trans.replace(new RegExp(escapedToken, 'g'), originalVal);
+      // 容错防备机器翻译全角半角括号微调
+      const innerName = token.replace(/^⟦|⟧$/g, '');
+      const looseRegex = new RegExp(`[⟦\\[]\\s*${innerName}\\s*[\\]⟧]`, 'g');
+      trans = trans.replace(looseRegex, originalVal);
+    });
+    translatedLines[task.lineIdx] = trans;
   });
 
   const finalResult = translatedLines.join('\n');

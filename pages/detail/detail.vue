@@ -37,6 +37,7 @@
             :src="imgUrl"
             mode="aspectFill"
             lazy-load
+            @error="onSwiperImageError(imgUrl)"
           ></image>
         </swiper-item>
       </swiper>
@@ -315,8 +316,9 @@ export default {
       // 心愿单状态
       favorited: false,
 
-      // 图集相册
+      // 图集相册与加载失败过滤池
       imageGallery: [],
+      failedImageUrls: [],
 
       // 翻译模式与标签中文字典 (默认开启全中文图鉴)
       isChineseMode: true,
@@ -367,29 +369,30 @@ export default {
     },
 
     /**
-     * 聚合所有可用截图画廊 (自动去重并整合封面与正文提取的高清图)
+     * 聚合所有可用截图画廊 (自动去重并剔除加载失败项，整合封面与正文提取的高清图)
      */
     allGalleryImages() {
       const list = [];
       const cover = this.modInfo.coverImageUrl;
-      if (cover) {
+      if (cover && !this.failedImageUrls.includes(cover)) {
         list.push(cover);
       }
-      if (this.modInfo.thumbnailLargeUrl && !list.includes(this.modInfo.thumbnailLargeUrl)) {
+      if (this.modInfo.thumbnailLargeUrl && !list.includes(this.modInfo.thumbnailLargeUrl) && !this.failedImageUrls.includes(this.modInfo.thumbnailLargeUrl)) {
         list.push(this.modInfo.thumbnailLargeUrl);
       }
       if (Array.isArray(this.imageGallery)) {
         this.imageGallery.forEach((url) => {
-          if (url && !list.includes(url)) list.push(url);
+          if (url && !list.includes(url) && !this.failedImageUrls.includes(url)) list.push(url);
         });
       }
       // 从描述中提取真实游戏截图
       const rawDesc = this.modInfo.description || '';
       const extracted = this.extractImagesFromText(rawDesc);
       extracted.forEach((url) => {
-        if (url && !list.includes(url)) list.push(url);
+        if (url && !list.includes(url) && !this.failedImageUrls.includes(url)) list.push(url);
       });
-      return list.length > 0 ? list : (cover ? [cover] : ['/static/logo.png']);
+      if (list.length > 0) return list;
+      return (cover && !this.failedImageUrls.includes(cover)) ? [cover] : ['/static/logo.png'];
     },
 
     /**
@@ -599,6 +602,15 @@ export default {
     },
 
     /**
+     * 轮播画廊单张图片加载失败容错处理 (自动剔除损坏/不可达图片，杜绝黑屏死锁)
+     */
+    onSwiperImageError(url) {
+      if (url && !this.failedImageUrls.includes(url)) {
+        this.failedImageUrls.push(url);
+      }
+    },
+
+    /**
      * 切换当前模组所属游戏的「我的游戏」书签标记
      */
     async handleToggleCurrentGameBookmark() {
@@ -731,7 +743,8 @@ export default {
      */
     async autoTranslateAllDetail() {
       await this.autoTranslateBasicInfo();
-      if (this.modInfo.description && !this.modZhDescription) {
+      const needsRetranslate = !this.modZhDescription || /\[(?:尺寸|大小|体型|颜色)=/i.test(this.modZhDescription);
+      if (this.modInfo.description && needsRetranslate) {
         this.isTranslatingDescription = true;
         try {
           const zhRich = await translateRichDescription(this.modInfo.description);
