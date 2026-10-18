@@ -144,13 +144,13 @@
             </view>
           </view>
 
-          <!-- 心愿单快速入口 -->
+          <!-- 收藏快速入口 -->
           <view class="prefItemRow" @click="goToFavorites">
             <view class="prefItemLeft">
               <NexusIcon name="heart-fill" size="34rpx" color="#f43f5e" />
               <view class="prefTextCol">
-                <text class="prefTitle">装机心愿单</text>
-                <text class="prefSub">本地离线收藏的模组集合</text>
+                <text class="prefTitle">我的模组收藏</text>
+                <text class="prefSub">本地离线与云端收藏的模组集合</text>
               </view>
             </view>
             <view class="prefRightMeta">
@@ -159,13 +159,13 @@
             </view>
           </view>
 
-          <!-- 任务清单快速入口 -->
+          <!-- 下载记录快速入口 -->
           <view class="prefItemRow" @click="goToHistory">
             <view class="prefItemLeft">
-              <NexusIcon name="task" size="34rpx" color="#38bdf8" />
+              <NexusIcon name="download" size="34rpx" color="#38bdf8" />
               <view class="prefTextCol">
-                <text class="prefTitle">推送任务清单</text>
-                <text class="prefSub">推送到电脑端 Mayfly 的任务记录</text>
+                <text class="prefTitle">模组下载记录</text>
+                <text class="prefSub">推送到电脑端 Mayfly 的下载记录</text>
               </view>
             </view>
             <view class="prefRightMeta">
@@ -404,10 +404,10 @@ export default {
     },
 
     /**
-     * 跳转到游戏专区
+     * 跳转到游戏专区 (进入首页游戏库视角)
      */
     goToGamesPage() {
-      uni.reLaunch({ url: '/pages/games/games' });
+      uni.reLaunch({ url: '/pages/index/index?view=games' });
     },
 
     /**

@@ -400,6 +400,13 @@ export default {
     }
   },
 
+  onLoad(query) {
+    // 方案 A：游戏库与首页合二为一，统一重定向至首页游戏库流
+    uni.reLaunch({
+      url: '/pages/index/index?view=games'
+    });
+  },
+
   onShow() {
     this.refreshMeta();
     this.refreshMyGames();

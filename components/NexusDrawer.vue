@@ -101,7 +101,7 @@
         <view class="drawerNavItem" @click="handleNav('favorites')">
           <view class="navItemLeft">
             <NexusIcon name="heart-fill" size="34rpx" color="#f43f5e" />
-            <text class="itemText">N网云端追踪 / 心愿单</text>
+            <text class="itemText">我的模组收藏 (Favorites)</text>
           </view>
           <view class="navItemRight">
             <text class="itemBadge" v-if="favoritesCount > 0">{{ favoritesCount }}</text>
@@ -111,8 +111,8 @@
 
         <view class="drawerNavItem" @click="handleNav('history')">
           <view class="navItemLeft">
-            <NexusIcon name="task" size="34rpx" color="#38bdf8" />
-            <text class="itemText">推送任务清单 (History)</text>
+            <NexusIcon name="download" size="34rpx" color="#38bdf8" />
+            <text class="itemText">模组下载记录 (Downloads)</text>
           </view>
           <view class="navItemRight">
             <text class="itemBadge" v-if="historyCount > 0">{{ historyCount }}</text>
