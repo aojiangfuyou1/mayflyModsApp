@@ -660,16 +660,11 @@ export default {
   box-sizing: border-box;
 }
 
-/* 手机原生纯黑状态栏安全占位区 */
 .safeStatusBarSpacer {
-  position: sticky;
-  top: 0;
-  z-index: 100;
   width: 100%;
-  height: var(--status-bar-height, 0px);
-  padding-top: env(safe-area-inset-top);
-  background-color: #000000;
-  box-sizing: content-box;
+  height: var(--status-bar-height, 25px);
+  background-color: #121212;
+  box-sizing: border-box;
 }
 
 .favContainer {

@@ -1,9 +1,9 @@
 <template>
   <view class="nexusPage">
     <!-- ==================================================================== -->
-    <!-- 区域 1：手机沉浸式纯黑状态栏安全占位 (告别全屏叠加与挖孔遮挡)         -->
+    <!-- 区域 1：手机沉浸式状态栏安全占位 (仅 Games 视角需要，Mods 视角吸顶控制台自带状态栏安全区) -->
     <!-- ==================================================================== -->
-    <view class="safeStatusBarSpacer"></view>
+    <view class="safeStatusBarSpacer" v-if="currentView === 'games'"></view>
 
     <!-- ==================================================================== -->
     <!-- 区域 2A：Games 视角 (100% 对标用户截图 1 的双列竖版海报风格，动态拉取) -->
@@ -1762,14 +1762,10 @@ export default {
 /* 区域 1：手机沉浸式纯黑状态栏安全占位 (告别全屏叠加与挖孔遮挡)             */
 /* ---------------------------------------------------------------------------- */
 .safeStatusBarSpacer {
-  position: sticky;
-  top: 0;
-  z-index: 100;
   width: 100%;
-  height: var(--status-bar-height, 0px);
-  padding-top: env(safe-area-inset-top);
-  background-color: #000000;
-  box-sizing: content-box;
+  height: var(--status-bar-height, 25px);
+  background-color: #121212;
+  box-sizing: border-box;
 }
 
 /* ---------------------------------------------------------------------------- */
@@ -2374,15 +2370,14 @@ export default {
 /* ============================================================================ */
 .stickySearchBarSection {
   position: sticky;
-  top: var(--status-bar-height, 0px);
-  top: calc(var(--status-bar-height, 0px) + env(safe-area-inset-top, 0px));
+  top: 0;
   z-index: 95;
   background-color: rgba(18, 18, 18, 0.96);
   backdrop-filter: blur(20px);
-  padding: 16rpx 24rpx 14rpx 24rpx;
+  padding: calc(var(--status-bar-height, 0px) + 12rpx) 24rpx 14rpx 24rpx;
   margin: 0 -24rpx 20rpx -24rpx;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 10rpx 28rpx rgba(0, 0, 0, 0.6);
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.45);
 }
 
 /* ============================================================================ */

@@ -5,10 +5,10 @@
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "Mayfly Mods 伴侣",
-				"navigationBarBackgroundColor": "#000000",
+				"navigationBarBackgroundColor": "#121212",
 				"navigationBarTextStyle": "white",
 				"enablePullDownRefresh": true,
-				"backgroundColor": "#0b0e14"
+				"backgroundColor": "#121212"
 			}
 		},
 		{
