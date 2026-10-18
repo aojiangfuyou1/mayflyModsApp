@@ -1,245 +1,220 @@
 <template>
   <view class="nexusPage">
     <!-- ==================================================================== -->
-    <!-- 区域 1：Games 视角 (N网官方全库游戏流，默认按总下载量从高到低排序)    -->
+    <!-- 区域 1：手机沉浸式状态栏安全占位 (仅 Games 视角需要，Mods 视角吸顶控制台自带状态栏安全区) -->
+    <!-- ==================================================================== -->
+    <view class="safeStatusBarSpacer" v-if="currentView === 'games'"></view>
+
+    <!-- ==================================================================== -->
+    <!-- 区域 1.5：游戏搜索扩展栏 (支持中英文即时过滤游戏)                   -->
+    <!-- ==================================================================== -->
+    <view class="searchExpandSection" v-if="currentView === 'games' && (gameSearchExpanded || gameSearchText)">
+      <view class="searchBarBox">
+        <NexusIcon name="search" size="30rpx" color="#94a3b8" style="margin-right: 12rpx;" />
+        <input
+          class="searchInput"
+          v-model="gameSearchText"
+          placeholder="搜索游戏名称 (支持中英文)..."
+          placeholder-class="searchPlaceholder"
+        />
+        <text v-if="gameSearchText" class="clearIcon" @click="gameSearchText = ''">✕</text>
+      </view>
+    </view>
+
+    <!-- ==================================================================== -->
+    <!-- 区域 2A：游戏库视窗 (双 Tab：我的游戏 vs 发现全网游戏)                -->
     <!-- ==================================================================== -->
     <view class="gamesContainer" v-if="currentView === 'games'">
-      <!-- 区域 1A：顶部吸顶控制台 (状态栏安全区 + 搜索胶囊 + 双 Tab 胶囊) -->
-      <view class="gamesStickyHeader">
-        <!-- 现代高级一体化搜索胶囊舱 -->
-        <view class="modernSearchCapsule">
-          <NexusIcon name="search" size="32rpx" color="#da6b17" style="margin-right: 14rpx; flex-shrink: 0;" />
-          <input
-            class="modernSearchInput"
-            v-model="gameSearchText"
-            placeholder="搜索全网 5500+ 款游戏 (支持中英文双语)..."
-            placeholder-class="modernSearchPlaceholder"
-            confirm-type="search"
-          />
-          <view v-if="gameSearchText" class="modernClearBtn" @click="gameSearchText = ''">
-            <text class="modernClearIcon">✕</text>
-          </view>
+      <!-- 双 Tab 切换：我的游戏 (My Games) vs 发现全网游戏 (Explore All) -->
+      <view class="gamesSegmentTabs">
+        <view
+          class="segmentTab"
+          :class="{ active: gamesActiveTab === 'my' }"
+          @click="gamesActiveTab = 'my'"
+        >
+          <NexusIcon name="gamepad" size="30rpx" :color="gamesActiveTab === 'my' ? '#da6b17' : '#94a3b8'" />
+          <text class="segmentTabText">我的游戏</text>
+          <text class="segmentCountBadge">{{ myGamesList.length }}</text>
         </view>
 
-        <!-- 模式切换与快捷流入口 -->
-        <view class="gamesFilterNavRow">
-          <view class="gamesTabPills">
-            <view
-              class="gameTabPill"
-              :class="{ active: gamesActiveTab === 'all' }"
-              @click="gamesActiveTab = 'all'"
-            >
-              <NexusIcon name="fire" size="26rpx" :color="gamesActiveTab === 'all' ? '#da6b17' : '#94a3b8'" />
-              <text class="gameTabPillText">全网热门榜</text>
-              <text class="gameTabCountBadge">{{ gamesTotalCount ? `${gamesTotalCount}+` : '5500+' }}</text>
-            </view>
+        <view
+          class="segmentTab"
+          :class="{ active: gamesActiveTab === 'all' }"
+          @click="switchToAllGamesTab"
+        >
+          <NexusIcon name="globe" size="30rpx" :color="gamesActiveTab === 'all' ? '#da6b17' : '#94a3b8'" />
+          <text class="segmentTabText">发现全网游戏</text>
+          <text class="segmentCountBadge">{{ allGamesTotalCount || allGamesList.length || '5569' }}</text>
+        </view>
 
-            <view
-              class="gameTabPill"
-              :class="{ active: gamesActiveTab === 'my' }"
-              @click="gamesActiveTab = 'my'"
-            >
-              <NexusIcon name="heart-fill" size="26rpx" :color="gamesActiveTab === 'my' ? '#da6b17' : '#94a3b8'" />
-              <text class="gameTabPillText">我的收藏</text>
-              <text class="gameTabCountBadge" v-if="myGamesList.length > 0">{{ myGamesList.length }}</text>
-            </view>
-          </view>
-
-          <!-- 右侧跳转至全网模组瀑布流 -->
-          <view class="gamesStreamLinkBtn" @click="switchView('mods')">
-            <text class="gamesStreamLinkText">精选模组流 ›</text>
-          </view>
+        <!-- 搜索触发微按钮 -->
+        <view class="segmentSearchBtn" :class="{ active: gameSearchExpanded || gameSearchText }" @click="toggleGameSearch">
+          <NexusIcon name="search" size="28rpx" :color="gameSearchExpanded || gameSearchText ? '#da6b17' : '#94a3b8'" />
         </view>
       </view>
 
-      <!-- 区域 1B：内容展示区 -->
-      <view class="gamesMainContent">
-        <!-- ------------------------------------------------------------------ -->
-        <!-- 视窗 A：全网热门榜 (默认核心视窗，100% 对标 N网首屏，按总下载量从高到低) -->
-        <!-- ------------------------------------------------------------------ -->
-        <view class="allGamesSection" v-if="gamesActiveTab === 'all'">
-          <!-- 我的收藏快捷横向滑轨 (仅当有收藏且未处于搜索时展示，方便极速进入) -->
-          <view class="myFavoritesShelf" v-if="myGamesList.length > 0 && !gameSearchText">
-            <view class="shelfHeaderRow">
-              <view class="shelfHeaderLeft">
-                <text class="shelfBadgeIcon">🔖</text>
-                <text class="shelfTitle">我的收藏快捷通道</text>
-                <text class="shelfCount">({{ myGamesList.length }} 款已标记)</text>
-              </view>
-              <text class="shelfViewAllBtn" @click="gamesActiveTab = 'my'">查看全部 ›</text>
-            </view>
-            <scroll-view class="shelfScrollView" scroll-x enable-flex>
-              <view
-                class="shelfItemCard"
-                v-for="game in sortedMyGames"
-                :key="game.id || game.domain"
-                @click="selectGameAndJumpMods(game)"
-              >
-                <view class="shelfCoverBox">
-                  <image class="shelfCoverImg" :src="game.tileUrl" mode="aspectFill" lazy-load />
-                </view>
-                <text class="shelfGameTitle">{{ getGameDisplayTitle(game) }}</text>
-              </view>
-            </scroll-view>
+      <!-- ------------------------------------------------------------------ -->
+      <!-- 视窗 A：我的游戏 (My Games 核心板块，支持即时取消书签标记)         -->
+      <!-- ------------------------------------------------------------------ -->
+      <view class="myGamesSection" v-if="gamesActiveTab === 'my'">
+        <!-- 统计与操作标题行 -->
+        <view class="gamesHeaderRow">
+          <view class="gamesHeaderLeft">
+            <text class="sectionBadgeIcon">🔖</text>
+            <text class="gamesTitle">我的收藏游戏</text>
+            <text class="gamesCountSub">({{ filteredMyGames.length }} 款已标记)</text>
           </view>
-
-          <!-- 热门榜单标题栏 -->
-          <view class="gamesHeaderRow">
-            <view class="gamesHeaderLeft">
-              <text class="sectionBadgeIcon">🔥</text>
-              <text class="gamesTitle">全网热门游戏</text>
-              <text class="gamesCountSub">(按总下载量从高到低排序)</text>
-            </view>
-            <text class="gamesMetaCountSub">已载入 {{ filteredAllGames.length }} 款</text>
-          </view>
-
-          <!-- 加载动画 (初次载入) -->
-          <view class="loadingBox" v-if="gamesLoading && gamesList.length === 0">
-            <view class="loadingSpinner"></view>
-            <text class="loadingText">正在从 NexusMods 动态抓取热门游戏数据...</text>
-          </view>
-
-          <!-- 全网游戏海报网格 (对标图 2：Skyrim SE, Fallout 4, Skyrim, Cyberpunk...) -->
-          <view class="gamesGrid" v-else>
-            <view
-              class="gamePosterCard"
-              v-for="game in filteredAllGames"
-              :key="game.id || game.domain"
-              @click="selectGameAndJumpMods(game)"
-            >
-              <!-- 竖版封面 (2:3比例) + 动态书签角标 -->
-              <view class="gameCoverBox">
-                <image
-                  class="gameCoverImg"
-                  :src="game.tileUrl"
-                  mode="aspectFill"
-                  lazy-load
-                />
-                <view
-                  class="gameBookmarkBadge"
-                  :class="{ isBookmarked: isGameBookmarked(game) }"
-                  :title="isGameBookmarked(game) ? '已在我的收藏' : '点击加入收藏'"
-                  @click.stop="handleToggleBookmark(game)"
-                >
-                  <text class="bookmarkIcon">🔖</text>
-                </view>
-              </view>
-
-              <!-- 游戏主标题 (中文名优先) -->
-              <text class="gameTitleText">{{ getGameDisplayTitle(game) }}</text>
-              <!-- 英文原名副标 -->
-              <text class="gameOriginalNameText" v-if="getGameDisplayTitle(game) !== game.name">{{ game.name }}</text>
-
-              <!-- 统计指标行 (◆ 模组数  ▤ 关注数  ⬇ 下载量) -->
-              <view class="gameStatsRow">
-                <view class="statMetricItem">
-                  <text class="statGlyph">◆</text>
-                  <text class="statMetricVal">{{ game.stats ? game.stats.mods : formatCount(game.modCount) }}</text>
-                </view>
-                <view class="statMetricItem">
-                  <text class="statGlyph">▤</text>
-                  <text class="statMetricVal">{{ game.stats ? game.stats.tracking : formatCount(game.collectionCount) }}</text>
-                </view>
-                <view class="statMetricItem">
-                  <text class="statGlyph">⬇</text>
-                  <text class="statMetricVal">{{ game.stats ? game.stats.downloads : formatCount(game.downloadCount) }}</text>
-                </view>
-              </view>
-            </view>
-          </view>
-
-          <!-- 触底加载更多状态 -->
-          <view class="bottomNotice" v-if="gamesList.length > 0 && !gameSearchText">
-            <text class="bottomText" v-if="gamesLoading">正在加载更多热门游戏...</text>
-            <text class="bottomText" v-else-if="gamesList.length >= gamesTotalCount">已载入全部 {{ gamesTotalCount }} 款热门游戏</text>
-          </view>
-
-          <!-- 空态提示：全网未检索到 -->
-          <view class="emptyBox" v-if="!gamesLoading && filteredAllGames.length === 0">
-            <text class="emptyEmoji">🎮</text>
-            <text class="emptyTitle">未找到匹配游戏</text>
-            <text class="emptySub">换个中英文关键词再试试吧</text>
+          <view class="syncCloudBtn" v-if="nexusUser" @click="handleSyncCloud">
+            <text class="syncCloudText">{{ syncingCloud ? '同步中...' : '☁️ 云端同步' }}</text>
           </view>
         </view>
 
-        <!-- ------------------------------------------------------------------ -->
-        <!-- 视窗 B：我的收藏 (按总热度/下载量排序展示用户标记的游戏)            -->
-        <!-- ------------------------------------------------------------------ -->
-        <view class="myGamesSection" v-else>
-          <!-- 头部标题行 -->
-          <view class="gamesHeaderRow">
-            <view class="gamesHeaderLeft">
-              <text class="sectionBadgeIcon">🔖</text>
-              <text class="gamesTitle">我的收藏游戏</text>
-              <text class="gamesCountSub">({{ filteredMyGames.length }} 款)</text>
+        <!-- 我的游戏海报网格 (第 1 张为 "+ 添加新游戏" 卡片) -->
+        <view class="gamesGrid">
+          <!-- 「+ 添加新游戏」虚线导流卡片 -->
+          <view class="addGameCard" @click="switchToAllGamesTab">
+            <view class="addGamePlusBox">
+              <text class="addGamePlusIcon">+</text>
             </view>
-            <view class="syncCloudBtn" v-if="nexusUser" @click="handleSyncCloud">
-              <text class="syncCloudText">{{ syncingCloud ? '同步中...' : '☁️ 云端同步' }}</text>
-            </view>
+            <text class="addGameCardTitle">添加新游戏</text>
+            <text class="addGameCardSub">从全网游戏库中探索并标记</text>
           </view>
 
-          <!-- 我的收藏海报网格 (同样采用精美 2 列海报，大作优先，无虚线占位) -->
-          <view class="gamesGrid" v-if="filteredMyGames.length > 0">
-            <view
-              class="gamePosterCard"
-              v-for="game in filteredMyGames"
-              :key="game.id || game.domain"
-              @click="selectGameAndJumpMods(game)"
-            >
-              <!-- 竖版封面 (2:3比例) + 专属已标记金光书签 (点击移出) -->
-              <view class="gameCoverBox">
-                <image
-                  class="gameCoverImg"
-                  :src="game.tileUrl"
-                  mode="aspectFill"
-                  lazy-load
-                />
-                <view
-                  class="gameBookmarkBadge isBookmarked"
-                  title="已加入收藏，点击移出"
-                  @click.stop="promptRemoveBookmark(game)"
-                >
-                  <text class="bookmarkIcon">🔖</text>
-                </view>
+          <!-- 已标记为「我的游戏」卡片列表 -->
+          <view
+            class="gamePosterCard"
+            v-for="game in filteredMyGames"
+            :key="game.id || game.domain"
+            @click="selectGameAndJumpMods(game)"
+          >
+            <!-- 竖版封面 (2:3比例) + 专属已标记金光书签 (点击移出) -->
+            <view class="gameCoverBox">
+              <image
+                class="gameCoverImg"
+                :src="game.tileUrl"
+                mode="aspectFill"
+                lazy-load
+              />
+              <view
+                class="gameBookmarkBadge isBookmarked"
+                title="已加入我的游戏，点击移出"
+                @click.stop="promptRemoveBookmark(game)"
+              >
+                <text class="bookmarkIcon">🔖</text>
               </view>
+            </view>
 
-              <!-- 游戏主标题 (中文名优先) -->
-              <text class="gameTitleText">{{ getGameDisplayTitle(game) }}</text>
-              <!-- 英文原名副标 -->
-              <text class="gameOriginalNameText" v-if="getGameDisplayTitle(game) !== game.name">{{ game.name }}</text>
+            <!-- 游戏主标题 (中文名优先) -->
+            <text class="gameTitleText">{{ getGameDisplayTitle(game) }}</text>
+            <!-- 英文原名副标 -->
+            <text class="gameOriginalNameText" v-if="getGameDisplayTitle(game) !== game.name">{{ game.name }}</text>
 
-              <!-- 统计指标行 -->
-              <view class="gameStatsRow">
-                <view class="statMetricItem">
-                  <text class="statGlyph">◆</text>
-                  <text class="statMetricVal">{{ game.stats ? game.stats.mods : formatCount(game.modCount) }}</text>
-                </view>
-                <view class="statMetricItem">
-                  <text class="statGlyph">▤</text>
-                  <text class="statMetricVal">{{ game.stats ? game.stats.tracking : formatCount(game.collectionCount) }}</text>
-                </view>
-                <view class="statMetricItem">
-                  <text class="statGlyph">⬇</text>
-                  <text class="statMetricVal">{{ game.stats ? game.stats.downloads : formatCount(game.downloadCount) }}</text>
-                </view>
+            <!-- 统计指标行 -->
+            <view class="gameStatsRow">
+              <view class="statMetricItem">
+                <text class="statGlyph">◆</text>
+                <text class="statMetricVal">{{ game.stats ? game.stats.mods : formatCount(game.modCount) }}</text>
+              </view>
+              <view class="statMetricItem">
+                <text class="statGlyph">▤</text>
+                <text class="statMetricVal">{{ game.stats ? game.stats.tracking : formatCount(game.collectionCount) }}</text>
+              </view>
+              <view class="statMetricItem">
+                <text class="statGlyph">⬇</text>
+                <text class="statMetricVal">{{ game.stats ? game.stats.downloads : formatCount(game.downloadCount) }}</text>
               </view>
             </view>
           </view>
+        </view>
 
-          <!-- 空态提示：未标记任何游戏 -->
-          <view class="emptyBox" v-else-if="!gameSearchText">
-            <text class="emptyEmoji">📭</text>
-            <text class="emptyTitle">暂无收藏游戏</text>
-            <text class="emptySub">在「全网热门榜」中点击游戏右上角 🔖 书签即可加入收藏</text>
-            <button class="retryBtn" @click="gamesActiveTab = 'all'">去发现热门游戏 ›</button>
-          </view>
+        <!-- 空态提示：当搜索后无匹配项 -->
+        <view class="emptyBox" v-if="filteredMyGames.length === 0 && gameSearchText">
+          <text class="emptyEmoji">🔍</text>
+          <text class="emptyTitle">未找到匹配的收藏游戏</text>
+          <text class="emptySub">可在搜索框清除关键词，或切换至「发现全网游戏」查找</text>
+        </view>
+      </view>
 
-          <!-- 空态提示：搜索无匹配 -->
-          <view class="emptyBox" v-else>
-            <text class="emptyEmoji">🔍</text>
-            <text class="emptyTitle">未找到匹配的收藏游戏</text>
-            <text class="emptySub">可清除搜索词，或切换至「全网热门榜」查找</text>
+      <!-- ------------------------------------------------------------------ -->
+      <!-- 视窗 B：发现全网游戏 (探索与即时书签标记 🔖)                         -->
+      <!-- ------------------------------------------------------------------ -->
+      <view class="allGamesSection" v-else>
+        <!-- 头部标题行 -->
+        <view class="gamesHeaderRow">
+          <view class="gamesHeaderLeft">
+            <NexusIcon name="globe" size="32rpx" color="#da6b17" style="margin-right: 8rpx;" />
+            <text class="gamesTitle">全网热门游戏库</text>
+            <text class="gamesCountSub">({{ filteredAllGames.length }} 款)</text>
           </view>
+          <text class="gamesViewAllLink" @click="switchView('mods')">浏览精选模组 ›</text>
+        </view>
+
+        <!-- 加载动画 -->
+        <view class="loadingBox" v-if="loadingAllGames && allGamesList.length === 0">
+          <view class="loadingSpinner"></view>
+          <text class="loadingText">正在从 NexusMods 动态抓取热门游戏数据...</text>
+        </view>
+
+        <!-- 全网游戏海报网格 (支持点击书签直接加入「我的游戏」) -->
+        <view class="gamesGrid" v-else>
+          <view
+            class="gamePosterCard"
+            v-for="game in filteredAllGames"
+            :key="game.id || game.domain"
+            @click="selectGameAndJumpMods(game)"
+          >
+            <!-- 竖版封面 (2:3比例) + 动态书签角标 -->
+            <view class="gameCoverBox">
+              <image
+                class="gameCoverImg"
+                :src="game.tileUrl"
+                mode="aspectFill"
+                lazy-load
+              />
+              <view
+                class="gameBookmarkBadge"
+                :class="{ isBookmarked: isGameBookmarked(game) }"
+                :title="isGameBookmarked(game) ? '已在我的游戏' : '点击标记为我的游戏'"
+                @click.stop="handleToggleBookmark(game)"
+              >
+                <text class="bookmarkIcon">🔖</text>
+              </view>
+            </view>
+
+            <!-- 游戏主标题 (中文名优先) -->
+            <text class="gameTitleText">{{ getGameDisplayTitle(game) }}</text>
+            <!-- 英文原名副标 -->
+            <text class="gameOriginalNameText" v-if="getGameDisplayTitle(game) !== game.name">{{ game.name }}</text>
+
+            <!-- 统计指标行 -->
+            <view class="gameStatsRow">
+              <view class="statMetricItem">
+                <text class="statGlyph">◆</text>
+                <text class="statMetricVal">{{ game.stats ? game.stats.mods : formatCount(game.modCount) }}</text>
+              </view>
+              <view class="statMetricItem">
+                <text class="statGlyph">▤</text>
+                <text class="statMetricVal">{{ game.stats ? game.stats.tracking : formatCount(game.collectionCount) }}</text>
+              </view>
+              <view class="statMetricItem">
+                <text class="statGlyph">⬇</text>
+                <text class="statMetricVal">{{ game.stats ? game.stats.downloads : formatCount(game.downloadCount) }}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <!-- 触底加载更多状态 -->
+        <view class="bottomNotice" v-if="allGamesList.length > 0 && !gameSearchText">
+          <text class="bottomText" v-if="loadingAllGames">正在加载更多游戏...</text>
+          <text class="bottomText" v-else-if="allGamesList.length >= allGamesTotalCount">已载入全部 {{ allGamesTotalCount }} 款热门游戏</text>
+        </view>
+
+        <!-- 空态提示：全网未检索到 -->
+        <view class="emptyBox" v-if="!loadingAllGames && filteredAllGames.length === 0">
+          <text class="emptyEmoji">🎮</text>
+          <text class="emptyTitle">未找到匹配游戏</text>
+          <text class="emptySub">换个中英文关键词再试试吧</text>
         </view>
       </view>
     </view>
@@ -606,15 +581,16 @@ export default {
       // 当前主视角: 默认优先展示全部游戏专区 ('games')，点击后进入对应游戏模组流 ('mods')
       currentView: 'games',
 
-      // 游戏库控制台与状态 (默认优先展示全网热门榜，从高到低排序)
+      // 游戏库控制台与状态 (默认优先展示发现全网游戏，从高到低排序)
       gamesActiveTab: 'all',
-      gamesTotalCount: 5569,
+      gameSearchExpanded: false,
       gameSearchText: '',
       syncingCloud: false,
 
-      // 动态游戏列表数据 (100% 动态，来自 Nexus 官方 GraphQL，按总下载量降序)
-      gamesList: [],
-      gamesLoading: false,
+      // 发现全网游戏列表数据 (100% 动态，来自 Nexus 官方 GraphQL，按总下载量从高到低排序)
+      allGamesList: [],
+      allGamesTotalCount: 5569,
+      loadingAllGames: false,
       selectedGameDomain: '',
       selectedGameName: '',
       selectedGameZhName: '',
@@ -784,11 +760,11 @@ export default {
     },
 
     /**
-     * 游戏元数据索引 Map，用于为「我的收藏」补齐真实热度指标与下载量
+     * 游戏元数据索引 Map，用于为「我的游戏」补齐真实热度指标与下载量
      */
     gamesMetaMap() {
       const map = Object.create(null);
-      this.gamesList.forEach((g) => {
+      this.allGamesList.forEach((g) => {
         if (!g) return;
         if (g.id) map[String(g.id)] = g;
         if (g.domain) map[String(g.domain).toLowerCase()] = g;
@@ -797,7 +773,7 @@ export default {
     },
 
     /**
-     * 规范化并强化「我的收藏」游戏列表 (补充真实热度数据并按下载量从高到低排序)
+     * 规范化并强化「我的游戏」列表 (补充真实热度数据并按下载量从高到低排序)
      */
     sortedMyGames() {
       const list = this.myGamesList.map((g) => {
@@ -829,7 +805,7 @@ export default {
     },
 
     /**
-     * 过滤后的「我的收藏」列表 (按热度从高到低排序，支持双语即时搜索)
+     * 过滤后的「我的游戏」列表 (按热度从高到低排序，支持双语即时搜索)
      */
     filteredMyGames() {
       const source = this.sortedMyGames;
@@ -846,9 +822,9 @@ export default {
      * 过滤后的「全网热门游戏」列表 (100% N网全库数据，按总下载量从高到低排序)
      */
     filteredAllGames() {
-      if (!this.gameSearchText.trim()) return this.gamesList;
+      if (!this.gameSearchText.trim()) return this.allGamesList;
       const kw = this.gameSearchText.trim().toLowerCase();
-      return this.gamesList.filter((g) => {
+      return this.allGamesList.filter((g) => {
         const en = (g.name || '').toLowerCase();
         const zh = (this.zhGameNameMap[g.id] || g.zhName || '').toLowerCase();
         return en.includes(kw) || zh.includes(kw);
@@ -1199,59 +1175,87 @@ export default {
     // ------------------------------------------------------------------------
 
     /**
-     * 从 Nexus 官方 GraphQL 动态抓取游戏列表 (对标图 1)
+     * 切换游戏搜索栏展开状态
      */
-    async loadGames(callback) {
-      if (this.gamesLoading) return;
-      this.gamesLoading = true;
+    toggleGameSearch() {
+      this.gameSearchExpanded = !this.gameSearchExpanded;
+      if (!this.gameSearchExpanded) {
+        this.gameSearchText = '';
+      }
+    },
+
+    /**
+     * 切换到「发现全网游戏」板块并按需加载数据
+     */
+    switchToAllGamesTab() {
+      this.gamesActiveTab = 'all';
+      if (this.allGamesList.length === 0) {
+        this.loadAllGames();
+      }
+    },
+
+    /**
+     * 从 Nexus 官方 GraphQL 动态加载热门游戏库 (按总下载量从高到低排序，100% 官方数据)
+     */
+    async loadAllGames(callback) {
+      if (this.loadingAllGames) return;
+      this.loadingAllGames = true;
       try {
         const res = await fetchNexusGames({
           count: 40,
           offset: 0,
           sort: 'downloads'
         });
-        this.gamesList = res.games || [];
-        if (res.totalCount) {
-          this.gamesTotalCount = res.totalCount;
-        }
+        const list = Array.isArray(res) ? res : (res && res.games ? res.games : []);
+        this.allGamesList = list;
+        this.allGamesTotalCount = res && res.totalCount ? res.totalCount : (list.length || 5569);
         if (this.enableAutoTranslate) {
-          this.autoTranslateGameNames(this.gamesList);
+          this.autoTranslateGameNames(list);
         }
-      } catch (e) {
-        console.warn('[MayflyIndex] 动态加载游戏列表异常:', e);
+      } catch (err) {
+        console.warn('[MayflyIndex] 加载全网热门游戏库失败:', err);
       } finally {
-        this.gamesLoading = false;
+        this.loadingAllGames = false;
         if (typeof callback === 'function') callback();
       }
     },
 
     /**
-     * 滚动触底分页动态加载更多游戏
+     * 滚动触底分页动态加载更多全网热门游戏
      */
-    async loadMoreGames() {
-      if (this.gamesLoading) return;
-      if (this.gamesTotalCount && this.gamesList.length >= this.gamesTotalCount) return;
-      this.gamesLoading = true;
+    async loadMoreAllGames() {
+      if (this.loadingAllGames) return;
+      if (this.allGamesTotalCount && this.allGamesList.length >= this.allGamesTotalCount) return;
+      this.loadingAllGames = true;
       try {
         const res = await fetchNexusGames({
           count: 30,
-          offset: this.gamesList.length,
+          offset: this.allGamesList.length,
           sort: 'downloads'
         });
-        if (res.games && res.games.length > 0) {
-          this.gamesList = [...this.gamesList, ...res.games];
-          if (res.totalCount) {
-            this.gamesTotalCount = res.totalCount;
+        const list = Array.isArray(res) ? res : (res && res.games ? res.games : []);
+        if (list.length > 0) {
+          this.allGamesList = [...this.allGamesList, ...list];
+          if (res && res.totalCount) {
+            this.allGamesTotalCount = res.totalCount;
           }
           if (this.enableAutoTranslate) {
-            this.autoTranslateGameNames(res.games);
+            this.autoTranslateGameNames(list);
           }
         }
       } catch (e) {
-        console.warn('[MayflyIndex] 加载更多游戏异常:', e);
+        console.warn('[MayflyIndex] 加载更多全网热门游戏异常:', e);
       } finally {
-        this.gamesLoading = false;
+        this.loadingAllGames = false;
       }
+    },
+
+    loadGames(callback) {
+      return this.loadAllGames(callback);
+    },
+
+    loadMoreGames() {
+      return this.loadMoreAllGames();
     },
 
     /**
@@ -2393,206 +2397,91 @@ export default {
 }
 
 /* ---------------------------------------------------------------------------- */
-/* 区域 2A：Games 视角 (100% 对标 N网官方游戏库、一体化吸顶控制台、海报网格与书签) */
+/* 区域 2A：Games 视角 (100% 对标 N网官方游戏库、双 Tab、海报网格与书签)          */
 /* ---------------------------------------------------------------------------- */
 .gamesContainer {
-  padding: 0 0 160rpx 0;
+  padding: 24rpx 24rpx 160rpx 24rpx;
   box-sizing: border-box;
 }
 
-/* 顶部吸顶控制台 (状态栏安全区 + 搜索胶囊 + 双 Tab 胶囊) */
-.gamesStickyHeader {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(18, 18, 18, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.08);
-  padding-top: calc(var(--status-bar-height, 0px) + 12rpx);
-  padding-left: 24rpx;
-  padding-right: 24rpx;
-  padding-bottom: 16rpx;
-  box-sizing: border-box;
-}
-
-/* 模式切换与快捷流入口 */
-.gamesFilterNavRow {
+/* 双 Segment Tab 控制栏 (我的游戏 vs 发现全网游戏) */
+.gamesSegmentTabs {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 14rpx;
-  gap: 16rpx;
+  background: #181a1f;
+  border-radius: 16rpx;
+  padding: 8rpx;
+  margin-bottom: 24rpx;
+  border: 1rpx solid #282c35;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.4);
 }
 
-.gamesTabPills {
+.segmentTab {
+  flex: 1;
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1rpx solid rgba(255, 255, 255, 0.08);
-  border-radius: 36rpx;
-  padding: 4rpx;
-  gap: 6rpx;
-}
-
-.gameTabPill {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  padding: 10rpx 20rpx;
-  border-radius: 32rpx;
+  justify-content: center;
+  padding: 14rpx 0;
+  border-radius: 12rpx;
+  gap: 12rpx;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
-  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.gameTabPill.active {
-  background: linear-gradient(135deg, rgba(218, 107, 23, 0.25), rgba(218, 107, 23, 0.12));
-  border: 1rpx solid rgba(218, 107, 23, 0.5);
-  box-shadow: 0 2rpx 10rpx rgba(218, 107, 23, 0.25);
+.segmentTab.active {
+  background: linear-gradient(135deg, #262933, #1f222b);
+  border: 1rpx solid #3a3f4d;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.45);
 }
 
-.gameTabPillText {
-  font-size: 24rpx;
+.segmentTabText {
+  font-size: 26rpx;
   font-weight: 600;
   color: #94a3b8;
 }
 
-.gameTabPill.active .gameTabPillText {
+.segmentTab.active .segmentTabText {
   color: #ffffff;
   font-weight: 700;
 }
 
-.gameTabCountBadge {
-  font-size: 20rpx;
-  font-weight: 700;
-  color: #64748b;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 2rpx 10rpx;
-  border-radius: 16rpx;
-}
-
-.gameTabPill.active .gameTabCountBadge {
-  color: #fbbf24;
-  background: rgba(218, 107, 23, 0.22);
-}
-
-.gamesStreamLinkBtn {
-  display: flex;
-  align-items: center;
-  padding: 10rpx 18rpx;
-  border-radius: 28rpx;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1rpx solid rgba(255, 255, 255, 0.08);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.gamesStreamLinkBtn:active {
-  background: rgba(218, 107, 23, 0.15);
-  border-color: rgba(218, 107, 23, 0.4);
-}
-
-.gamesStreamLinkText {
-  font-size: 22rpx;
-  color: #da6b17;
-  font-weight: 600;
-}
-
-/* 主内容区 */
-.gamesMainContent {
-  padding: 20rpx 24rpx 40rpx 24rpx;
-  box-sizing: border-box;
-}
-
-/* 快捷横向滑轨 (我的收藏快捷通道) */
-.myFavoritesShelf {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1rpx solid rgba(255, 255, 255, 0.06);
+.segmentCountBadge {
+  padding: 2rpx 12rpx;
   border-radius: 20rpx;
-  padding: 18rpx 18rpx 16rpx;
-  margin-bottom: 24rpx;
-}
-
-.shelfHeaderRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14rpx;
-}
-
-.shelfHeaderLeft {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-}
-
-.shelfBadgeIcon {
-  font-size: 26rpx;
-}
-
-.shelfTitle {
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #e2e8f0;
-}
-
-.shelfCount {
+  background: #2a2e38;
   font-size: 20rpx;
-  color: #64748b;
-}
-
-.shelfViewAllBtn {
-  font-size: 22rpx;
-  color: #da6b17;
+  color: #9ca3af;
   font-weight: 600;
-  cursor: pointer;
 }
 
-.shelfScrollView {
-  white-space: nowrap;
-  width: 100%;
+.segmentTab.active .segmentCountBadge {
+  background: #da6b17;
+  color: #ffffff;
+  font-weight: 700;
 }
 
-.shelfItemCard {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  width: 140rpx;
-  margin-right: 18rpx;
-  cursor: pointer;
-}
-
-.shelfCoverBox {
-  width: 140rpx;
-  height: 210rpx;
+.segmentSearchBtn {
+  width: 64rpx;
+  height: 64rpx;
   border-radius: 12rpx;
-  overflow: hidden;
-  background-color: #1a1c22;
-  border: 1rpx solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8rpx;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
-.shelfCoverImg {
-  width: 100%;
-  height: 100%;
+.segmentSearchBtn:active {
+  transform: scale(0.96);
 }
 
-.shelfGameTitle {
-  width: 140rpx;
-  font-size: 20rpx;
-  color: #cbd5e1;
-  text-align: center;
-  margin-top: 8rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 热门榜单统计指示 */
-.gamesMetaCountSub {
-  font-size: 22rpx;
-  color: #64748b;
-  font-weight: 500;
+.segmentSearchBtn.active {
+  background: rgba(218, 107, 23, 0.15);
+  border-color: rgba(218, 107, 23, 0.5);
 }
 
 /* 标题统计与快捷操作行 */
@@ -2651,6 +2540,62 @@ export default {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 20rpx;
+}
+
+/* 「+ 添加新游戏」虚线导流卡片 */
+.addGameCard {
+  background: rgba(25, 27, 31, 0.6);
+  border: 2rpx dashed #3a3f4e;
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 480rpx;
+  padding: 30rpx 20rpx;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.addGameCard:active {
+  border-color: #da6b17;
+  background: rgba(218, 107, 23, 0.08);
+  transform: scale(0.98);
+}
+
+.addGamePlusBox {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: #252830;
+  border: 2rpx solid #474d5d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20rpx;
+}
+
+.addGamePlusIcon {
+  font-size: 48rpx;
+  line-height: 1;
+  color: #da6b17;
+  font-weight: 300;
+}
+
+.addGameCardTitle {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 8rpx;
+}
+
+.addGameCardSub {
+  font-size: 20rpx;
+  color: #848d9a;
+  text-align: center;
+  line-height: 1.4;
+  padding: 0 10rpx;
 }
 
 /* 游戏海报卡片 */
