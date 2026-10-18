@@ -242,26 +242,13 @@
       <!-- 区域 2B-1：顶部吸顶固定控制台 (返回游戏库 + 搜索框 + 筛选下拉)        -->
       <!-- ==================================================================== -->
       <view class="stickySearchBarSection">
-        <!-- 区域 2B-0：返回游戏库快捷横幅 (支持一键返回游戏库 / 切换游戏) -->
-        <view class="backToGamesBar" @click="returnToGamesView">
-          <view class="backToGamesLeft">
-            <NexusIcon name="chevron-left" size="26rpx" color="#da6b17" />
-            <text class="backToGamesText">游戏库</text>
-            <text class="backToGamesDivider">·</text>
-            <text class="backToGamesCurrentTitle">🎮 {{ activeGameDisplayName || '全网精选模组' }}</text>
-          </view>
-          <view class="backToGamesRight">
-            <text class="switchGameBtnText">切换游戏 ›</text>
-          </view>
-        </view>
-
         <!-- 现代高级一体化搜索胶囊舱 (单层无嵌套、微光毛玻璃高定设计) -->
         <view class="modernSearchCapsule">
           <NexusIcon name="search" size="32rpx" color="#da6b17" style="margin-right: 14rpx; flex-shrink: 0;" />
           <input
             class="modernSearchInput"
             v-model="searchInputText"
-            placeholder="搜索模组 (输入中文自动转英文)"
+            :placeholder="activeGameDisplayName ? `搜索《${activeGameDisplayName}》模组...` : '搜索模组 (输入中文自动转英文)'"
             placeholder-class="modernSearchPlaceholder"
             confirm-type="search"
             @confirm="handleTriggerSearch"
