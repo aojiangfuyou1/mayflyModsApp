@@ -32,13 +32,15 @@ const requiredFiles = [
   'components/ModCard.vue',
   'components/NexusSelect.vue',
   'components/NexusModal.vue',
+  'components/UpgradeModal.vue',
   'services/nexus.js',
   'services/translate.js',
   'services/remote-channel.js',
   'services/history.js',
   'services/favorites.js',
   'services/games.js',
-  'services/poster.js'
+  'services/poster.js',
+  'services/upgrade.js'
 ];
 
 let hasError = false;
@@ -87,7 +89,8 @@ const vueFiles = [
   'components/PushHistoryModal.vue',
   'components/ModCard.vue',
   'components/NexusSelect.vue',
-  'components/NexusModal.vue'
+  'components/NexusModal.vue',
+  'components/UpgradeModal.vue'
 ];
 for (const vFile of vueFiles) {
   try {

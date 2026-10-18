@@ -502,6 +502,15 @@
       @cancel="confirmModal.visible = false"
       @close="confirmModal.visible = false"
     />
+
+    <!-- ==================================================================== -->
+    <!-- 区域 10：应用自动升级与热更新弹窗组件                                 -->
+    <!-- ==================================================================== -->
+    <UpgradeModal
+      :visible="upgradeModalVisible"
+      :update-info="upgradeInfo"
+      @close="upgradeModalVisible = false"
+    />
   </view>
 </template>
 
@@ -544,6 +553,7 @@ import NexusTabBar from '../../components/NexusTabBar.vue';
 import NexusIcon from '../../components/NexusIcon.vue';
 import NexusSelect from '../../components/NexusSelect.vue';
 import NexusModal from '../../components/NexusModal.vue';
+import UpgradeModal from '../../components/UpgradeModal.vue';
 
 export default {
   components: {
@@ -556,11 +566,16 @@ export default {
     NexusTabBar,
     NexusIcon,
     NexusSelect,
-    NexusModal
+    NexusModal,
+    UpgradeModal
   },
 
   data() {
     return {
+      // 自动更新升级弹窗状态
+      upgradeModalVisible: false,
+      upgradeInfo: {},
+
       // 我的游戏标记状态
       myGamesList: [],
       myGamesMap: {},
@@ -907,6 +922,14 @@ export default {
     this.refreshFavorites();
     this.refreshNexusUser();
 
+    // 监听全局版本升级广播
+    uni.$on('show-upgrade-modal', (info) => {
+      if (info && info.downloadUrl) {
+        this.upgradeInfo = info;
+        this.upgradeModalVisible = true;
+      }
+    });
+
     // 优先处理由独立专区页面 (如 games.vue) 或外部链接传入的游戏查询参数
     if (query && query.domain) {
       this.selectedGameDomain = query.domain;
@@ -1015,6 +1038,10 @@ export default {
     if (this.currentView === 'mods' && this.hasMore && !this.loading && !this.loadingMore) {
       this.loadMoreMods();
     }
+  },
+
+  onUnload() {
+    uni.$off('show-upgrade-modal');
   },
 
   methods: {

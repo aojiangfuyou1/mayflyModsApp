@@ -1,5 +1,6 @@
 <script>
 import { getNexusApiKey } from './services/nexus.js';
+import { checkAppUpgrade } from './services/upgrade.js';
 
 export default {
   onLaunch: function() {
@@ -13,6 +14,16 @@ export default {
         uni.removeStorageSync('mayfly_nexus_tracked_raw');
       }
     } catch (e) {}
+
+    // 启动时静默检查版本更新 (延时 2 秒，避开首屏加载网络竞争)
+    setTimeout(async () => {
+      try {
+        const { hasUpdate, updateInfo } = await checkAppUpgrade({ showTip: false });
+        if (hasUpdate && updateInfo) {
+          uni.$emit('show-upgrade-modal', updateInfo);
+        }
+      } catch (err) {}
+    }, 2000);
   },
   onShow: function() {
     console.log('[Mayfly] App Show');

@@ -186,6 +186,23 @@
               <text class="cardArrow">›</text>
             </view>
           </view>
+
+          <!-- 检查版本更新 (支持 wgt 热更新与 APK 整包增量检测) -->
+          <view class="prefItemRow" @click="handleCheckUpdate">
+            <view class="prefItemLeft">
+              <NexusIcon name="refresh" size="34rpx" color="#38bdf8" :class="{ 'spinIcon': isCheckingUpdate }" />
+              <view class="prefTextCol">
+                <view class="prefTitleRow">
+                  <text class="prefTitle">检查版本更新</text>
+                  <text class="versionBadge">v{{ appVersionName }}</text>
+                </view>
+                <text class="prefSub">{{ isCheckingUpdate ? '正在连接更新服务器检测中...' : '支持在线热更新与整包升级' }}</text>
+              </view>
+            </view>
+            <view class="prefRightMeta">
+              <text class="cardArrow">›</text>
+            </view>
+          </view>
         </view>
 
         <!-- ------------------------------------------------------------------ -->
@@ -195,7 +212,7 @@
           <text class="aboutTitle">Mayfly Mods 手机移动伴侣</text>
           <text class="aboutDesc">基于 NexusMods 官方公开 GraphQL 直连生态</text>
           <text class="aboutDesc">支持无感局域网与云端双模投递安装</text>
-          <text class="aboutVersion">Version 1.0.0 (Mobile App Edition)</text>
+          <text class="aboutVersion">Version {{ appVersionName }} (Build {{ appVersionCode }})</text>
         </view>
       </view>
     </scroll-view>
@@ -227,6 +244,14 @@
       @login-success="onLoginSuccess"
       @logout="onLogout"
     />
+
+    <!-- 6. 自动更新与热更新进度弹窗 -->
+    <UpgradeModal
+      :visible="upgradeModalVisible"
+      :update-info="upgradeInfo"
+      @close="upgradeModalVisible = false"
+      @done="onUpgradeDone"
+    />
   </view>
 </template>
 
@@ -239,6 +264,7 @@ import NexusTabBar from '../../components/NexusTabBar.vue';
 import NexusIcon from '../../components/NexusIcon.vue';
 import DevicePairModal from '../../components/DevicePairModal.vue';
 import NexusAuthModal from '../../components/NexusAuthModal.vue';
+import UpgradeModal from '../../components/UpgradeModal.vue';
 import {
   getDesktopConfig,
   saveDesktopConfig,
@@ -248,6 +274,10 @@ import {
 } from '../../services/nexus.js';
 import { getFavorites } from '../../services/favorites.js';
 import { getPushHistory } from '../../services/history.js';
+import {
+  checkAppUpgrade,
+  getAppLocalVersion
+} from '../../services/upgrade.js';
 
 export default {
   name: 'ProfilePage',
@@ -256,7 +286,8 @@ export default {
     NexusTabBar,
     NexusIcon,
     DevicePairModal,
-    NexusAuthModal
+    NexusAuthModal,
+    UpgradeModal
   },
 
   data() {
@@ -289,7 +320,14 @@ export default {
       },
 
       // AI 智能翻译开关
-      enableAutoTranslate: true
+      enableAutoTranslate: true,
+
+      // 版本与升级相关状态
+      appVersionName: '1.0.0',
+      appVersionCode: 100,
+      isCheckingUpdate: false,
+      upgradeModalVisible: false,
+      upgradeInfo: {}
     };
   },
 
@@ -334,6 +372,41 @@ export default {
           this.enableAutoTranslate = Boolean(tr);
         }
       } catch (e) {}
+
+      // 异步读取本地原生版本号与 BuildCode
+      getAppLocalVersion().then((v) => {
+        if (v && v.versionName) {
+          this.appVersionName = v.versionName;
+          this.appVersionCode = v.versionCode;
+        }
+      });
+    },
+
+    /**
+     * 手动检查应用新版本
+     */
+    async handleCheckUpdate() {
+      if (this.isCheckingUpdate) return;
+      this.isCheckingUpdate = true;
+      try {
+        const { hasUpdate, updateInfo } = await checkAppUpgrade({ showTip: true });
+        if (hasUpdate && updateInfo) {
+          this.upgradeInfo = updateInfo;
+          this.upgradeModalVisible = true;
+        }
+      } catch (e) {
+        uni.showToast({ title: '检查更新遇到问题', icon: 'none' });
+      } finally {
+        this.isCheckingUpdate = false;
+      }
+    },
+
+    /**
+     * 更新完成或关闭回调
+     */
+    onUpgradeDone() {
+      this.upgradeModalVisible = false;
+      this.refreshAllData();
     },
 
     /**
@@ -984,5 +1057,30 @@ export default {
   color: #334155;
   font-family: monospace;
   margin-top: 8rpx;
+}
+
+/* 版本号徽章与旋转动画 */
+.versionBadge {
+  font-size: 18rpx;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1rpx solid rgba(56, 189, 248, 0.25);
+  padding: 2rpx 10rpx;
+  border-radius: 8rpx;
+  font-weight: 600;
+  margin-left: 8rpx;
+}
+
+.spinIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
