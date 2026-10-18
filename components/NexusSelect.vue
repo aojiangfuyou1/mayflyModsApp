@@ -4,7 +4,7 @@
   <!-- 功能描述：完全替代原生丑陋的白色滚轮 Picker，提供与 Mayfly 暗黑风格   -->
   <!--           无缝契合的 Floating Dropdown 与 Bottom Action Sheet 两种形态 -->
   <!-- ======================================================================== -->
-  <view class="nexusSelectContainer" :class="[modeClass]">
+  <view class="nexusSelectContainer" :class="[modeClass, { 'is-block': block }]">
     <!-- 1. 触发区 (支持插槽自定义触发，或默认暗黑按钮触发) -->
     <view class="selectTriggerWrap" @click="handleToggleOpen">
       <slot>
@@ -139,6 +139,16 @@ export default {
     dropdownWidth: {
       type: String,
       default: ''
+    },
+    /** 是否占满宽度 */
+    block: {
+      type: Boolean,
+      default: false
+    },
+    /** 下拉面板水平对齐方式: 'left' | 'right' | 'center' */
+    align: {
+      type: String,
+      default: 'left'
     }
   },
 
@@ -154,10 +164,16 @@ export default {
     },
 
     dropdownStyle() {
+      const styles = [];
       if (this.dropdownWidth) {
-        return `min-width: ${this.dropdownWidth};`;
+        styles.push(`min-width: ${this.dropdownWidth}`);
       }
-      return '';
+      if (this.align === 'right') {
+        styles.push('left: auto; right: 0;');
+      } else if (this.align === 'center') {
+        styles.push('left: 50%; transform: translateX(-50%);');
+      }
+      return styles.join('; ');
     },
 
     normalizedOptions() {
@@ -237,6 +253,15 @@ export default {
   display: inline-block;
 }
 
+.nexusSelectContainer.is-block {
+  display: block;
+  width: 100%;
+}
+
+.nexusSelectContainer.is-block .selectTriggerWrap {
+  width: 100%;
+}
+
 .selectTriggerWrap {
   cursor: pointer;
 }
@@ -298,13 +323,16 @@ export default {
   top: calc(100% + 8rpx);
   left: 0;
   min-width: 240rpx;
-  max-width: 80vw;
+  max-width: 85vw;
+  max-height: 520rpx;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   background: #181b22;
   border: 1rpx solid #2e374a;
   border-radius: 14rpx;
   box-shadow: 0 16rpx 40rpx rgba(0, 0, 0, 0.7);
   z-index: 999;
-  overflow: hidden;
   animation: dropFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

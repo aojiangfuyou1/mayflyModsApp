@@ -148,94 +148,65 @@
         <text class="modsViewAllLink" @click="clearGameFilterAndBack">{{ enableAutoTranslate ? '全部游戏专区 ›' : 'View all games' }}</text>
       </view>
 
-      <!-- 排序选项卡 (100% 对标图 2: New | Updated | Trending | Popular | Favorites) -->
-      <scroll-view class="filterPillsScroll" scroll-x show-scrollbar="false">
-        <view class="filterPillsList">
-          <!-- New (活跃态为白底黑字胶囊) -->
-          <view
-            class="filterPill"
-            :class="{ active: currentSort === 'createdAt' }"
-            @click="changeSort('createdAt')"
+      <!-- ==================================================================== -->
+      <!-- 统一三联下拉筛选栏 (排序方式 | 模组分类 | 时间范围，告别繁琐横向滑动) -->
+      <!-- ==================================================================== -->
+      <view class="filtersDropdownBar">
+        <!-- 1. 排序下拉 (最新发布 / 最近更新 / 飙升排行 / 热门下载 / 心愿单) -->
+        <view class="filterCol">
+          <NexusSelect
+            :options="sortOptions"
+            :value="currentSort"
+            title="选择排序方式"
+            mode="dropdown"
+            block
+            dropdown-width="280rpx"
+            @change="onSortSelectChange"
           >
-            <text class="pillLabel">{{ enableAutoTranslate ? '最新发布' : 'New' }}</text>
-          </view>
-
-          <!-- Updated -->
-          <view
-            class="filterPill"
-            :class="{ active: currentSort === 'updatedAt' }"
-            @click="changeSort('updatedAt')"
-          >
-            <text class="pillLabel">{{ enableAutoTranslate ? '最近更新' : 'Updated' }}</text>
-          </view>
-
-          <!-- Trending -->
-          <view
-            class="filterPill"
-            :class="{ active: currentSort === 'trending' }"
-            @click="changeSort('trending')"
-          >
-            <text class="pillLabel">{{ enableAutoTranslate ? '飙升排行' : 'Trending' }}</text>
-          </view>
-
-          <!-- Popular -->
-          <view
-            class="filterPill"
-            :class="{ active: currentSort === 'downloads' }"
-            @click="changeSort('downloads')"
-          >
-            <text class="pillLabel">{{ enableAutoTranslate ? '热门下载' : 'Popular' }}</text>
-          </view>
-
-          <!-- Favorites (装机心愿单) -->
-          <view
-            class="filterPill"
-            :class="{ active: currentSort === 'favorites' }"
-            @click="changeSort('favorites')"
-          >
-            <NexusIcon name="heart-fill" size="24rpx" :color="currentSort === 'favorites' ? '#ef4444' : '#94a3b8'" style="margin-right: 6rpx;" />
-            <text class="pillLabel">{{ enableAutoTranslate ? '心愿单' : 'Favorites' }}{{ favoritesCount > 0 ? ` (${favoritesCount})` : '' }}</text>
-          </view>
+            <view class="filterSelectBox" :class="{ active: currentSort !== 'createdAt' }">
+              <text class="filterSelectLabel">{{ currentSortLabel }}</text>
+              <text class="filterSelectArrow">↕</text>
+            </view>
+          </NexusSelect>
         </view>
-      </scroll-view>
 
-      <!-- N网官方实时动态分类胶囊栏 (100% 动态，来自 Nexus facetsData，零硬编码) -->
-      <scroll-view class="categoryPillsScroll" scroll-x show-scrollbar="false" v-if="dynamicCategories.length > 0">
-        <view class="categoryPillsList">
-          <view
-            class="catPill"
-            :class="{ active: !selectedCategory }"
-            @click="selectCategory('')"
+        <!-- 2. N网官方实时分类下拉 (动态聚合，告别两排横滑) -->
+        <view class="filterCol">
+          <NexusSelect
+            :options="categoryOptions"
+            :value="selectedCategory"
+            title="选择模组分类"
+            mode="dropdown"
+            block
+            align="center"
+            dropdown-width="380rpx"
+            @change="onCategorySelectChange"
           >
-            <text class="catPillText">{{ enableAutoTranslate ? '全部分类' : 'All' }}</text>
-          </view>
-          <view
-            class="catPill"
-            v-for="cat in dynamicCategories"
-            :key="cat.name"
-            :class="{ active: selectedCategory === cat.name }"
-            @click="selectCategory(cat.name)"
-          >
-            <text class="catPillText">{{ getCategoryPillTitle(cat) }}</text>
-            <text class="catPillCount" v-if="cat.count">{{ formatCount(cat.count) }}</text>
-          </view>
+            <view class="filterSelectBox" :class="{ active: Boolean(selectedCategory) }">
+              <text class="filterSelectLabel">{{ currentCategoryLabel }}</text>
+              <text class="filterSelectArrow">↕</text>
+            </view>
+          </NexusSelect>
         </view>
-      </scroll-view>
 
-      <!-- 时间范围下拉筛选行 (自研暗黑风格选择器) -->
-      <view class="timeFilterRow">
-        <NexusSelect
-          :options="currentTimeFilterOptions"
-          :value="timeFilterIndex"
-          title="选择时间范围"
-          mode="dropdown"
-          @change="onTimeFilterChange"
-        >
-          <view class="timeSelectBox">
-            <text class="timeSelectLabel">{{ currentTimeFilterOptions[timeFilterIndex] }}</text>
-            <text class="timeSelectArrow">↕</text>
-          </view>
-        </NexusSelect>
+        <!-- 3. 时间范围下拉 (全部时间 / 过去 24 小时 / 过去 7 天 / 过去 30 天 等) -->
+        <view class="filterCol">
+          <NexusSelect
+            :options="currentTimeFilterOptions"
+            :value="timeFilterIndex"
+            title="选择时间范围"
+            mode="dropdown"
+            block
+            align="right"
+            dropdown-width="260rpx"
+            @change="onTimeFilterChange"
+          >
+            <view class="filterSelectBox" :class="{ active: timeFilterIndex > 0 }">
+              <text class="filterSelectLabel">{{ currentTimeFilterOptions[timeFilterIndex] }}</text>
+              <text class="filterSelectArrow">↕</text>
+            </view>
+          </NexusSelect>
+        </view>
       </view>
 
       <!-- 心愿单模式批量操作工具条 (支持按当前选中游戏过滤，杜绝跨游戏乱跑) -->
@@ -635,6 +606,68 @@ export default {
     },
 
     /**
+     * 排序下拉选项列表
+     */
+    sortOptions() {
+      const isZh = this.enableAutoTranslate;
+      return [
+        { label: isZh ? '最新发布' : 'New', value: 'createdAt', icon: 'sparkle' },
+        { label: isZh ? '最近更新' : 'Updated', value: 'updatedAt', icon: 'refresh' },
+        { label: isZh ? '飙升排行' : 'Trending', value: 'trending', icon: 'fire' },
+        { label: isZh ? '热门下载' : 'Popular', value: 'downloads', icon: 'download' },
+        {
+          label: (isZh ? '装机心愿单' : 'Favorites') + (this.favoritesCount > 0 ? ` (${this.favoritesCount})` : ''),
+          value: 'favorites',
+          icon: 'heart-fill'
+        }
+      ];
+    },
+
+    /**
+     * 当前选中的排序文本展示
+     */
+    currentSortLabel() {
+      const found = this.sortOptions.find((o) => o.value === this.currentSort);
+      return found ? found.label : (this.enableAutoTranslate ? '最新发布' : 'New');
+    },
+
+    /**
+     * 官方动态分类下拉选项列表
+     */
+    categoryOptions() {
+      const isZh = this.enableAutoTranslate;
+      const allLabel = isZh ? '全部分类' : 'All Categories';
+      const list = [{ label: allLabel, value: '' }];
+
+      if (Array.isArray(this.dynamicCategories)) {
+        this.dynamicCategories.forEach((cat) => {
+          if (!cat || !cat.name) return;
+          const count = cat.count ? ` (${this.formatCount(cat.count)})` : '';
+          const name = this.getCategoryPillTitle(cat) || cat.name;
+          list.push({
+            label: `${name}${count}`,
+            value: cat.name
+          });
+        });
+      }
+      return list;
+    },
+
+    /**
+     * 当前选中的分类文本展示
+     */
+    currentCategoryLabel() {
+      if (!this.selectedCategory) {
+        return this.enableAutoTranslate ? '全部分类' : 'All Categories';
+      }
+      const match = this.dynamicCategories.find((c) => c.name === this.selectedCategory);
+      if (match) {
+        return this.getCategoryPillTitle(match);
+      }
+      return this.selectedCategory;
+    },
+
+    /**
      * 当前时间筛选文案 (跟随智能翻译模式，杜绝硬编码英文)
      */
     currentTimeFilterOptions() {
@@ -873,6 +906,22 @@ export default {
     selectCategory(catName) {
       this.selectedCategory = catName === this.selectedCategory ? '' : catName;
       this.resetAndLoad();
+    },
+
+    /**
+     * 排序下拉选项响应
+     */
+    onSortSelectChange(e) {
+      const targetVal = e.value !== undefined ? e.value : (this.sortOptions[e.index]?.value || 'createdAt');
+      this.changeSort(targetVal);
+    },
+
+    /**
+     * 分类下拉选项响应
+     */
+    onCategorySelectChange(e) {
+      const targetCat = e.value !== undefined ? e.value : (this.categoryOptions[e.index]?.value ?? '');
+      this.selectCategory(targetCat);
     },
 
     /**
@@ -2227,7 +2276,74 @@ export default {
   font-weight: 800;
 }
 
-/* Time Filter Dropdown: All time ↕ (对标图 2) */
+/* ============================================================================ */
+/* 统一三联下拉筛选栏 (排序方式 | 模组分类 | 时间范围，告别繁琐横滑)             */
+/* ============================================================================ */
+.filtersDropdownBar {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.filterCol {
+  flex: 1;
+  min-width: 0;
+}
+
+.filterSelectBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #16181d;
+  border: 1rpx solid #272c36;
+  border-radius: 12rpx;
+  padding: 14rpx 14rpx;
+  box-sizing: border-box;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.filterSelectBox:active {
+  background-color: #20242e;
+}
+
+.filterSelectBox.active {
+  background-color: #1d2028;
+  border-color: rgba(218, 107, 23, 0.7);
+  box-shadow: 0 0 10rpx rgba(218, 107, 23, 0.15);
+}
+
+.filterSelectLabel {
+  font-size: 22rpx;
+  font-weight: 600;
+  color: #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 6rpx;
+}
+
+.filterSelectBox.active .filterSelectLabel {
+  color: #da6b17;
+  font-weight: 700;
+}
+
+.filterSelectArrow {
+  font-size: 20rpx;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.filterSelectBox.active .filterSelectArrow {
+  color: #da6b17;
+}
+
+/* 兼容保留旧类名 */
 .timeFilterRow {
   margin-bottom: 24rpx;
 }
