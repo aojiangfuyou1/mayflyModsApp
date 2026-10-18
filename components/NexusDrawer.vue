@@ -140,11 +140,11 @@
           <text class="drawerNavArrow">›</text>
         </view>
 
-        <!-- AI 智能双语图鉴 (优雅灵动星芒) -->
+        <!-- 免费自动翻译 -->
         <view class="drawerNavItem" @click="$emit('toggle-translate')">
           <view class="navItemLeft">
-            <NexusIcon name="ai" size="34rpx" color="#f59e0b" />
-            <text class="itemText">AI 智能双语图鉴</text>
+            <NexusIcon name="globe" size="34rpx" color="#38bdf8" />
+            <text class="itemText">免费自动翻译</text>
           </view>
           <view class="navItemRight">
             <text class="itemSwitchTag" :class="{ on: enableAutoTranslate }">

@@ -75,6 +75,10 @@
               <NexusIcon name="wifi" size="28rpx" color="#cbd5e1" style="margin-right: 8rpx;" />
               <text class="btnText">测试连接</text>
             </button>
+            <button class="actionBtn downloadBtn" @click="openClientDownload">
+              <NexusIcon name="download" size="28rpx" color="#38bdf8" style="margin-right: 8rpx;" />
+              <text class="btnText">客户端下载</text>
+            </button>
           </view>
         </view>
 
@@ -125,16 +129,16 @@
             </view>
           </view>
 
-          <!-- AI 双语图鉴开关 (采用优雅灵动的 Sparkles 星芒图标) -->
+          <!-- 免费自动翻译开关 (纯净自动双语，零虚假宣传) -->
           <view class="prefItemRow" @click="toggleTranslate">
             <view class="prefItemLeft">
-              <view class="aiIconHighlightBox">
-                <NexusIcon name="ai" size="36rpx" color="#f59e0b" />
+              <view class="translateIconBox">
+                <NexusIcon name="globe" size="36rpx" color="#38bdf8" />
               </view>
               <view class="prefTextCol">
                 <view class="prefTitleRow">
-                  <text class="prefTitle">AI 智能双语图鉴</text>
-                  <text class="aiFeatureTag">AI 增强</text>
+                  <text class="prefTitle">免费自动翻译</text>
+                  <text class="freeFeatureTag">免费</text>
                 </view>
                 <text class="prefSub">自动将游戏名、模组标题与标签译为中文</text>
               </view>
@@ -472,17 +476,31 @@ export default {
     },
 
     /**
-     * 快速测试电脑端连接
+     * 快速测试电脑端连接 (兼顾局域网 IP、端口与 Token 自动同步)
      */
     async runQuickTest() {
       this.isTestingConnection = true;
       try {
-        const ok = await testDesktopConnection(this.desktopConfig);
-        this.desktopConfig.connected = ok;
+        const res = await testDesktopConnection(this.desktopConfig);
+        const isOk = Boolean(res && (res.online || res === true));
+        this.desktopConfig.connected = isOk;
+
+        if (isOk && res && typeof res === 'object') {
+          if (res.token && !this.desktopConfig.deviceToken) {
+            this.desktopConfig.deviceToken = res.token;
+          }
+          if (res.hostname) {
+            this.desktopConfig.hostname = res.hostname;
+          }
+          if (res.ip) {
+            this.desktopConfig.host = res.ip;
+          }
+        }
+
         saveDesktopConfig(this.desktopConfig);
         uni.showToast({
-          title: ok ? '电脑端连接成功！' : '连接失败，请检查 IP 与端口',
-          icon: ok ? 'success' : 'none'
+          title: isOk ? '电脑端连接成功！' : '连接失败，请确认电脑端已启动',
+          icon: isOk ? 'success' : 'none'
         });
       } catch (e) {
         uni.showToast({ title: '测试发生异常', icon: 'none' });
@@ -492,7 +510,22 @@ export default {
     },
 
     /**
-     * 切换 AI 双语图鉴状态
+     * 打开电脑端 Mayfly 客户端官方网盘下载地址 (夸克网盘)
+     */
+    openClientDownload() {
+      const downloadUrl = 'https://pan.quark.cn/s/37d038a566a0';
+      // #ifdef APP-PLUS
+      plus.runtime.openURL(downloadUrl);
+      // #endif
+      // #ifndef APP-PLUS
+      if (typeof window !== 'undefined') {
+        window.open(downloadUrl, '_blank');
+      }
+      // #endif
+    },
+
+    /**
+     * 切换免费自动翻译状态
      */
     toggleTranslate() {
       this.enableAutoTranslate = !this.enableAutoTranslate;
@@ -500,7 +533,7 @@ export default {
         uni.setStorageSync('mayfly_enable_auto_translate', this.enableAutoTranslate);
       } catch (e) {}
       uni.showToast({
-        title: this.enableAutoTranslate ? '已开启双语图鉴' : '已切换为英文原文',
+        title: this.enableAutoTranslate ? '已开启自动翻译' : '已切换为英文原文',
         icon: 'none'
       });
     },
@@ -863,6 +896,12 @@ export default {
   border: 1rpx solid #31384e;
 }
 
+.actionBtn.downloadBtn {
+  background-color: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1rpx solid rgba(56, 189, 248, 0.35);
+}
+
 .btnText {
   font-size: 26rpx;
 }
@@ -991,16 +1030,17 @@ export default {
   flex: 1;
 }
 
-.aiIconHighlightBox {
+.aiIconHighlightBox,
+.translateIconBox {
   width: 58rpx;
   height: 58rpx;
   border-radius: 14rpx;
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(218, 107, 23, 0.22) 100%);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12) 0%, rgba(14, 165, 233, 0.22) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1rpx solid rgba(245, 158, 11, 0.35);
-  box-shadow: 0 0 14rpx rgba(245, 158, 11, 0.2);
+  border: 1rpx solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 14rpx rgba(56, 189, 248, 0.2);
 }
 
 /* 18+ 内容开关专属高亮与提示样式 */
@@ -1027,12 +1067,13 @@ export default {
   gap: 12rpx;
 }
 
-.aiFeatureTag {
+.aiFeatureTag,
+.freeFeatureTag {
   font-size: 18rpx;
   font-weight: 700;
-  color: #f59e0b;
-  background-color: rgba(245, 158, 11, 0.15);
-  border: 1rpx solid rgba(245, 158, 11, 0.35);
+  color: #38bdf8;
+  background-color: rgba(56, 189, 248, 0.15);
+  border: 1rpx solid rgba(56, 189, 248, 0.35);
   padding: 2rpx 8rpx;
   border-radius: 6rpx;
   line-height: 1.2;

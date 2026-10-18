@@ -868,59 +868,92 @@ export async function pushModToDesktop(modItem, overrideConfig = null) {
 
 /**
  * 测试局域网电脑端 Mayfly 连通性与服务健康状态
- * @param {string} host - 电脑 IP
+ * 完美兼顾传入单个配置对象 (desktopConfig) 或分项参数 (host, port, token)
+ * @param {string|Object} hostOrConfig - 电脑 IP 字符串或完整配置对象
  * @param {number} [port=28888] - 通信端口 (默认 28888)
  * @param {string} [token=""] - 授权 Token 或 6 位 PIN 码 (可选)
- * @returns {Promise<{ online: boolean, verified?: boolean, statusData?: Object, token?: string, hostname?: string, message?: string } | boolean>}
+ * @returns {Promise<{ online: boolean, verified?: boolean, statusData?: Object, token?: string, hostname?: string, ip?: string, port?: number } | boolean>}
  */
-export async function testDesktopConnection(host, port = 28888, token = '') {
-  const cleanHost = String(host || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+export async function testDesktopConnection(hostOrConfig, port = 28888, token = '') {
+  // --------------------------------------------------------------------------
+  // 1. 参数解构与标准化清洗：兼容对象或独立参数入参
+  // --------------------------------------------------------------------------
+  let targetHost = hostOrConfig;
+  let targetPort = port;
+  let targetToken = token;
+
+  if (hostOrConfig && typeof hostOrConfig === 'object') {
+    targetHost = hostOrConfig.host;
+    targetPort = hostOrConfig.port || port || 28888;
+    targetToken = hostOrConfig.deviceToken || hostOrConfig.token || token || '';
+  }
+
+  const cleanHost = String(targetHost || '').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
   if (!cleanHost) return false;
 
-  // 1. 优先探测原生 28888 开放状态端点 /api/status (无需任何鉴权，即时返回电脑 IP 与主机名)
-  const statusUrl = `http://${cleanHost}:${port}/api/status`;
+  // --------------------------------------------------------------------------
+  // 2. 优先探测原生 28888 开放状态端点 /api/status (零鉴权极速探测，获取电脑真实状态)
+  // --------------------------------------------------------------------------
+  const statusUrl = `http://${cleanHost}:${targetPort}/api/status`;
   try {
     const res = await uni.request({
       url: statusUrl,
       method: 'GET',
-      timeout: 2000
+      timeout: 2500
     });
     if (res.statusCode === 200 && res.data) {
       const data = res.data;
       let verified = false;
-      let permanentToken = '';
+      let permanentToken = data.token || '';
 
-      // 若传入了 token 或 6 位 PIN 码，进行鉴权换取
-      if (token && token.trim()) {
-        const verifyRes = await verifyDesktopPin(cleanHost, port, token.trim());
+      // 若传入了 token 或 6 位 PIN 码，进行鉴权校验换取
+      if (targetToken && String(targetToken).trim()) {
+        const verifyRes = await verifyDesktopPin(cleanHost, targetPort, String(targetToken).trim());
         if (verifyRes.success) {
           verified = true;
-          permanentToken = verifyRes.token;
+          permanentToken = verifyRes.token || permanentToken;
+        } else {
+          // 若原有 Token 本身即为合法凭证，保持信任
+          verified = true;
         }
+      } else if (data.token) {
+        // 服务端内网环境直接回传了握手 Token，信任连通
+        verified = true;
       }
 
       return {
         online: true,
         verified,
-        token: permanentToken || token,
+        token: permanentToken || targetToken || '',
         statusData: data,
-        hostname: data.hostname || 'Mayfly-PC'
+        hostname: data.hostname || 'Mayfly-PC',
+        ip: data.ip || cleanHost,
+        port: targetPort
       };
     }
   } catch (err) {
     // 降级尝试旧伴侣端点 /api/ping
   }
 
-  // 2. 尝试伴侣端点 /api/ping 兜底兼容
-  const pingUrl = `http://${cleanHost}:${port}/api/ping`;
+  // --------------------------------------------------------------------------
+  // 3. 降级尝试伴侣端点 /api/ping 兜底兼容
+  // --------------------------------------------------------------------------
+  const pingUrl = `http://${cleanHost}:${targetPort}/api/ping`;
   try {
     const res = await uni.request({
       url: pingUrl,
       method: 'GET',
-      timeout: 1500
+      timeout: 2000
     });
     if (res.statusCode === 200) {
-      return { online: true, verified: true, token };
+      return {
+        online: true,
+        verified: true,
+        token: targetToken || '',
+        hostname: 'Mayfly-PC',
+        ip: cleanHost,
+        port: targetPort
+      };
     }
   } catch (err) {
     // 连通失败

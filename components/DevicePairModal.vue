@@ -23,7 +23,7 @@
           <view class="radarStatusRow">
             <view class="radarDot" :class="{ pulse: testingConnection, online: desktopOnline }"></view>
             <text class="radarStatusText">
-              {{ testingConnection ? '正在探测局域网电脑端...' : (desktopOnline ? `电脑在线 (${detectedHostname || form.host})` : '未检测到电脑端 (请确保在同 WiFi 下)') }}
+              {{ testingConnection ? '正在探测局域网电脑端...' : (desktopOnline ? (isPairedAndOnline ? `电脑已连接 (${detectedHostname || form.host})` : `已发现电脑 (${detectedHostname || form.host}) · 待安全验证`) : '未检测到电脑端 (请确保在同 WiFi 下)') }}
             </text>
           </view>
           <view class="radarActionRow">
@@ -40,12 +40,37 @@
         </view>
 
         <!-- ------------------------------------------------------------------ -->
-        <!-- 区域三：核心方式 - 6 位 PIN 码一秒极简配对 (推荐首选)               -->
+        <!-- 区域三：分支 A - 已配对成功状态卡片 (连接成功无需重复输动态码)       -->
         <!-- ------------------------------------------------------------------ -->
-        <view class="pinPairCard">
+        <view class="connectedStatusCard" v-if="isPairedAndOnline && !showRePairBox">
+          <view class="connHeaderRow">
+            <view class="connTitleCol">
+              <text class="connTitle">已安全连接至电脑</text>
+              <text class="connSub">主机：{{ detectedHostname || 'Mayfly-PC' }} ({{ form.host }}:{{ form.port }})</text>
+            </view>
+            <text class="connBadge">已就绪</text>
+          </view>
+          <view class="connDescBox">
+            <text class="connDescText">✅ 设备已完成安全配对。现在在手机上浏览模组，点击一键安装即可秒级投递到电脑端 Mayfly 自动下载与部署！</text>
+          </view>
+          <view class="rePairTriggerRow" @click="showRePairBox = true">
+            <text class="rePairTriggerText">🔄 更换电脑或重新输入 6 位动态码配对 ›</text>
+          </view>
+        </view>
+
+        <!-- ------------------------------------------------------------------ -->
+        <!-- 区域三：分支 B - 首次安全验证码 (PIN) 输入卡片 (解释防骚扰机制)       -->
+        <!-- ------------------------------------------------------------------ -->
+        <view class="pinPairCard" v-else>
           <view class="pinHeaderRow">
-            <text class="pinCardTitle">🔑 电脑 6 位配对动态码 (PIN)</text>
-            <text class="pinCardTip">查看电脑弹窗显示的 6 位数字</text>
+            <view class="pinTitleCol">
+              <text class="pinCardTitle">🔑 电脑 6 位配对动态码 (PIN)</text>
+              <text class="pinCardTip">安全验证机制 · 仅需首次配对一次</text>
+            </view>
+            <text class="cancelRePairBtn" v-if="isPairedAndOnline && showRePairBox" @click="showRePairBox = false">取消</text>
+          </view>
+          <view class="pinExplainBox">
+            <text class="pinExplainText">💡 为防止局域网内其他人向您的电脑推送文件，请在电脑端 Mayfly 弹出的窗口中查看 6 位动态码，输入一次即可永久免密直连：</text>
           </view>
           <view class="pinInputBox">
             <input
@@ -53,12 +78,12 @@
               type="number"
               maxlength="6"
               v-model="pinInput"
-              placeholder="例如 657095"
+              placeholder="请输入电脑显示的 6 位动态码"
               placeholder-class="pinPlaceholder"
               @confirm="handlePinPair"
             />
           </view>
-          <!-- 一键配对主按钮 (强化宽高与居中排版，杜绝挤扁) -->
+          <!-- 一键配对主按钮 -->
           <button
             class="primaryPairBtn"
             :disabled="pairingWithPin || !pinInput.trim()"
@@ -81,57 +106,17 @@
         </view>
 
         <!-- ------------------------------------------------------------------ -->
-        <!-- 区域五：高级设置 (折叠展开，支持自定义 IP 与端口)                   -->
+        <!-- 区域五：电脑端 Mayfly 客户端官方下载 (夸克网盘官方通道)              -->
         <!-- ------------------------------------------------------------------ -->
-        <view class="advancedSection">
-          <view class="advancedToggleRow" @click="showAdvanced = !showAdvanced">
-            <text class="advancedToggleText">⚙️ 高级网络设置 (自定义 IP / 端口)</text>
-            <text class="advancedArrow">{{ showAdvanced ? '▲ 收起' : '▼ 展开' }}</text>
-          </view>
-
-          <view class="advancedContent" v-if="showAdvanced">
-            <view class="formItem">
-              <text class="formLabel">电脑局域网 IP 地址</text>
-              <input
-                class="formInput"
-                v-model="form.host"
-                placeholder="例如 10.204.160.22"
-              />
-            </view>
-
-            <view class="formItem">
-              <text class="formLabel">通信端口 (默认 28888)</text>
-              <input
-                class="formInput"
-                type="number"
-                v-model="form.port"
-                placeholder="默认 28888"
-              />
-            </view>
-
-            <view class="formItem">
-              <text class="formLabel">设备持久化 Token (选填)</text>
-              <input
-                class="formInput"
-                v-model="form.deviceToken"
-                placeholder="配对成功后自动生成"
-              />
-            </view>
-
-            <!-- 高级手动保存与测试连接 -->
-            <view class="advancedBtnRow">
-              <button
-                class="testConnBtn"
-                :disabled="testingConnection"
-                @click="runTestConnection"
-              >
-                <text class="testBtnText">{{ testingConnection ? '探测中...' : '⚡ 测试连通' }}</text>
-              </button>
-              <button class="saveConfigBtn" @click="saveDeviceSettings">
-                <text class="saveBtnText">保存配置</text>
-              </button>
+        <view class="clientDownloadBanner" @click="openClientDownload">
+          <view class="downloadBannerLeft">
+            <text class="downloadBannerIcon">💻</text>
+            <view class="downloadBannerMeta">
+              <text class="downloadBannerTitle">还没有电脑端 Mayfly？</text>
+              <text class="downloadBannerSub">夸克网盘官方通道 · 点击唤起浏览器下载安装</text>
             </view>
           </view>
+          <text class="downloadBannerAction">前往下载 ›</text>
         </view>
       </view>
     </view>
@@ -206,8 +191,17 @@ export default {
       detectedHostname: '',
       testingConnection: false,
       pairingWithPin: false,
-      showAdvanced: false
+      showRePairBox: false
     };
+  },
+
+  computed: {
+    /**
+     * 判断当前设备是否已完成配对且保持在线
+     */
+    isPairedAndOnline() {
+      return Boolean(this.desktopOnline && this.form.deviceToken);
+    }
   },
 
   watch: {
@@ -231,6 +225,7 @@ export default {
             deviceToken: cfg.deviceToken || ''
           };
           this.pinInput = '';
+          this.showRePairBox = false;
 
           // 弹窗唤起时：自动检测剪贴板中是否有电脑访问链接 + 自动触发局域网雷达并发探活
           this.$nextTick(() => {
@@ -243,6 +238,21 @@ export default {
   },
 
   methods: {
+    /**
+     * 打开电脑端 Mayfly 客户端官方网盘下载地址 (夸克网盘)
+     */
+    openClientDownload() {
+      const downloadUrl = 'https://pan.quark.cn/s/37d038a566a0';
+      // #ifdef APP-PLUS
+      plus.runtime.openURL(downloadUrl);
+      // #endif
+      // #ifndef APP-PLUS
+      if (typeof window !== 'undefined') {
+        window.open(downloadUrl, '_blank');
+      }
+      // #endif
+    },
+
     /**
      * 自研暗黑对话框操作确认响应
      */
@@ -306,22 +316,43 @@ export default {
           this.form.host = scanRes.host || this.form.host;
           this.form.port = scanRes.port || 28888;
           this.detectedHostname = scanRes.hostname || '';
-          if (scanRes.token && !this.form.deviceToken) {
+          if (scanRes.token) {
             this.form.deviceToken = scanRes.token;
           }
-          // 同步落盘保存探测到的真实可用电脑 IP
-          saveDesktopConfig({
+          if (scanRes.pin && !this.pinInput) {
+            this.pinInput = scanRes.pin;
+          }
+
+          // 同步落盘保存探测到的真实可用电脑 IP 与连接态
+          const isConnected = Boolean(this.form.deviceToken);
+          const newCfg = {
             host: this.form.host,
             port: this.form.port,
             deviceToken: this.form.deviceToken,
-            connected: true
-          });
+            hostname: this.detectedHostname,
+            connected: isConnected
+          };
+          saveDesktopConfig(newCfg);
+          if (isConnected) {
+            this.$emit('saved', newCfg);
+          }
         } else {
           // 单独尝试一次当前指定的主机
           const singleRes = await testDesktopConnection(this.form.host, this.form.port, this.form.deviceToken);
-          this.desktopOnline = Boolean(singleRes && (singleRes.online || singleRes === true));
-          if (singleRes && singleRes.hostname) {
-            this.detectedHostname = singleRes.hostname;
+          const isOk = Boolean(singleRes && (singleRes.online || singleRes === true));
+          this.desktopOnline = isOk;
+          if (isOk && singleRes && typeof singleRes === 'object') {
+            if (singleRes.hostname) this.detectedHostname = singleRes.hostname;
+            if (singleRes.token && !this.form.deviceToken) {
+              this.form.deviceToken = singleRes.token;
+              saveDesktopConfig({
+                host: this.form.host,
+                port: this.form.port,
+                deviceToken: this.form.deviceToken,
+                hostname: this.detectedHostname,
+                connected: true
+              });
+            }
           }
         }
       } catch (e) {
@@ -928,109 +959,165 @@ export default {
   color: #cbd5e1;
 }
 
-/* 高级设置 */
-.advancedSection {
+/* ============================================================================ */
+/* 已连接就绪状态卡片样式                                                       */
+/* ============================================================================ */
+.connectedStatusCard {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1rpx solid rgba(52, 211, 153, 0.35);
+  border-radius: 20rpx;
+  padding: 24rpx 20rpx;
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
-  margin-top: 6rpx;
+  gap: 14rpx;
 }
 
-.advancedToggleRow {
+.connHeaderRow {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+}
+
+.connTitleCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.connTitle {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #34d399;
+}
+
+.connSub {
+  font-size: 20rpx;
+  color: #94a3b8;
+  font-family: monospace;
+}
+
+.connBadge {
+  font-size: 18rpx;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.18);
+  border: 1rpx solid rgba(52, 211, 153, 0.4);
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.connDescBox {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12rpx;
+  padding: 14rpx 16rpx;
+}
+
+.connDescText {
+  font-size: 22rpx;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.rePairTriggerRow {
+  display: flex;
+  justify-content: center;
   align-items: center;
-  padding: 8rpx 4rpx;
+  padding-top: 6rpx;
   cursor: pointer;
 }
 
-.advancedToggleText {
+.rePairTriggerText {
   font-size: 22rpx;
-  color: #64748b;
-  font-weight: 600;
+  color: #60a5fa;
+  font-weight: 500;
 }
 
-.advancedArrow {
+/* ============================================================================ */
+/* PIN 码辅助说明与取消切换                                                     */
+/* ============================================================================ */
+.pinTitleCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.pinCardSub {
   font-size: 20rpx;
-  color: #64748b;
-}
-
-.advancedContent {
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-  padding-top: 10rpx;
-  border-top: 1rpx solid #232731;
-}
-
-.formItem {
-  display: flex;
-  flex-direction: column;
-  gap: 6rpx;
-}
-
-.formLabel {
-  font-size: 22rpx;
-  font-weight: 600;
   color: #9ca3af;
 }
 
-.formInput {
-  background: #12141a;
-  border: 1rpx solid #2d3340;
+.pinExplainBox {
+  background: rgba(0, 0, 0, 0.25);
   border-radius: 12rpx;
-  padding: 14rpx 18rpx;
-  font-size: 24rpx;
-  color: #ffffff;
+  padding: 12rpx 14rpx;
 }
 
-.advancedBtnRow {
-  display: flex;
-  gap: 16rpx;
-  margin-top: 8rpx;
-}
-
-.testConnBtn {
-  flex: 1;
-  width: 100% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
-  height: 74rpx !important;
-  line-height: normal !important;
-  background: #1f242e !important;
-  border: 1rpx solid #363d4e !important;
-  border-radius: 12rpx !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.testBtnText {
-  font-size: 24rpx;
+.pinExplainText {
+  font-size: 21rpx;
   color: #cbd5e1;
-  font-weight: 600;
+  line-height: 1.4;
 }
 
-.saveConfigBtn {
+.cancelRePairBtn {
+  font-size: 22rpx;
+  color: #94a3b8;
+  padding: 4rpx 10rpx;
+  cursor: pointer;
+}
+
+/* ============================================================================ */
+/* 电脑端 Mayfly 客户端官方网盘下载横幅                                         */
+/* ============================================================================ */
+.clientDownloadBanner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #171a22;
+  border: 1rpx solid #2a3140;
+  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  cursor: pointer;
+  margin-top: 4rpx;
+  transition: all 0.2s;
+}
+
+.clientDownloadBanner:active {
+  background: #1f232e;
+  border-color: #38bdf8;
+}
+
+.downloadBannerLeft {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
   flex: 1;
-  width: 100% !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
-  height: 74rpx !important;
-  line-height: normal !important;
-  background: #334155 !important;
-  border: 1rpx solid #475569 !important;
-  border-radius: 12rpx !important;
-  margin: 0 !important;
-  padding: 0 !important;
 }
 
-.saveBtnText {
+.downloadBannerIcon {
+  font-size: 36rpx;
+}
+
+.downloadBannerMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2rpx;
+}
+
+.downloadBannerTitle {
   font-size: 24rpx;
-  color: #ffffff;
-  font-weight: 600;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.downloadBannerSub {
+  font-size: 19rpx;
+  color: #64748b;
+}
+
+.downloadBannerAction {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #38bdf8;
+  flex-shrink: 0;
 }
 </style>
