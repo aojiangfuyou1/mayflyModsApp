@@ -13,12 +13,12 @@
         <text class="headerIcon">{{ showBack ? '←' : '☰' }}</text>
       </view>
 
-      <!-- 中间区域：Nexus 官方标志性橙标方块 -->
+      <!-- 中间区域：mayflymods 官方品牌图标与标题 -->
       <view class="headerLogoArea" @click="$emit('logo-click')">
         <view class="nexusLogoBox">
-          <text class="nexusLogoGlyph">❖</text>
+          <image class="headerLogoImg" src="/static/logo.png" mode="aspectFit" />
         </view>
-        <text class="headerPageTitle" v-if="title">{{ title }}</text>
+        <text class="headerPageTitle">{{ title || 'mayflymods' }}</text>
       </view>
 
       <!-- 右侧功能区：搜索 + 电脑端指示灯 + 官方用户头像 (默认隐藏防安卓全屏打孔遮挡) -->
@@ -154,19 +154,18 @@ export default {
 }
 
 .nexusLogoBox {
-  width: 60rpx;
-  height: 60rpx;
-  background-color: #da6b17;
-  border-radius: 12rpx;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
-.nexusLogoGlyph {
-  font-size: 34rpx;
-  color: #ffffff;
-  font-weight: 900;
+.headerLogoImg {
+  width: 100%;
+  height: 100%;
 }
 
 .headerPageTitle {

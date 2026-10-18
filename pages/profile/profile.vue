@@ -228,7 +228,8 @@
         <!-- 区域 E：版本与关于说明                                              -->
         <!-- ------------------------------------------------------------------ -->
         <view class="aboutSection">
-          <text class="aboutTitle">Mayfly Mods 手机移动伴侣</text>
+          <image class="aboutLogoImg" src="/static/logo.png" mode="aspectFit" />
+          <text class="aboutTitle">mayflymods 移动伴侣</text>
           <text class="aboutDesc">基于 NexusMods 官方公开 GraphQL 直连生态</text>
           <text class="aboutDesc">支持无感局域网与云端双模投递安装</text>
           <text class="aboutVersion">Version {{ appVersionName }} (Build {{ appVersionCode }})</text>
@@ -1167,6 +1168,13 @@ export default {
   align-items: center;
   gap: 8rpx;
   padding: 30rpx 0;
+}
+
+.aboutLogoImg {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 16rpx;
+  margin-bottom: 8rpx;
 }
 
 .aboutTitle {

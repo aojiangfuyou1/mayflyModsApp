@@ -159,9 +159,12 @@
           <text class="gamesQuickJumpMods" @click="switchView('mods')">浏览精选模组流 ›</text>
         </view>
 
-        <!-- 加载动画 -->
+        <!-- 加载动画 (mayflymods 专属呼吸徽标与流光光环) -->
         <view class="loadingBox" v-if="loadingAllGames && allGamesList.length === 0">
-          <view class="loadingSpinner"></view>
+          <view class="brandLoadingBox">
+            <image class="brandLoadingLogo" src="/static/logo.png" mode="aspectFit" />
+            <view class="brandLoadingRing"></view>
+          </view>
           <text class="loadingText">正在从 NexusMods 动态抓取热门游戏数据...</text>
         </view>
 
@@ -391,7 +394,7 @@
       <!-- 重新筛选与加载时的浮动磨砂加载指示胶囊 (消除等待卡顿感) -->
       <view class="modsGridLoadingMask" v-if="loading && streamModList.length > 0">
         <view class="modsGridLoadingPill">
-          <view class="loadingSpinnerSmall"></view>
+          <image class="loadingMiniLogo" src="/static/logo.png" mode="aspectFit" />
           <text class="modsGridLoadingText">正在检索模组...</text>
         </view>
       </view>
@@ -414,10 +417,13 @@
         />
       </view>
 
-      <!-- 首次加载与空结果提示 -->
+      <!-- 首次加载与空结果提示 (mayflymods 专属呼吸徽标与流光光环) -->
       <view class="loadingBox" v-if="loading && modList.length === 0">
-        <view class="loadingSpinner"></view>
-        <text class="loadingText">正在从 NexusMods 检索模组...</text>
+        <view class="brandLoadingBox">
+          <image class="brandLoadingLogo" src="/static/logo.png" mode="aspectFit" />
+          <view class="brandLoadingRing"></view>
+        </view>
+        <text class="loadingText">正在从 NexusMods 检索精品模组...</text>
       </view>
 
       <view class="emptyBox" v-if="!loading && modList.length === 0">
@@ -3648,13 +3654,61 @@ export default {
   gap: 20rpx;
 }
 
-/* 加载与空结果 */
+/* 加载与空结果 (mayflymods 专属呼吸 Logo 旋转光环) */
 .loadingBox {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 80rpx 0;
-  gap: 16rpx;
+  gap: 20rpx;
+}
+
+.brandLoadingBox {
+  position: relative;
+  width: 96rpx;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brandLoadingLogo {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 14rpx;
+  animation: brandLogoPulse 1.5s ease-in-out infinite;
+}
+
+.brandLoadingRing {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 4rpx solid rgba(218, 107, 23, 0.2);
+  border-top-color: #da6b17;
+  border-radius: 50%;
+  box-sizing: border-box;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes brandLogoPulse {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+    filter: drop-shadow(0 0 12rpx rgba(218, 107, 23, 0.6));
+  }
+}
+
+.loadingMiniLogo {
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 8rpx;
+  animation: spin 1.2s linear infinite;
 }
 
 .loadingSpinner {
