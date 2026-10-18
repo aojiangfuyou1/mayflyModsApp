@@ -85,26 +85,27 @@
       <!-- 区域 2B-1：顶部吸顶固定控制台 (搜索框 + 排序分类时间下拉，吸顶固定不随列表滚走) -->
       <!-- ==================================================================== -->
       <view class="stickySearchBarSection">
-        <!-- 智能搜索栏 (中英文智能互转 + 自定义英文纠偏) -->
-        <view class="smartSearchBarCard">
-        <view class="smartSearchInputBox">
-          <NexusIcon name="search" size="30rpx" color="#da6b17" style="margin-right: 12rpx; flex-shrink: 0;" />
+        <!-- 现代高级一体化搜索胶囊舱 (单层无嵌套、微光毛玻璃高定设计) -->
+        <view class="modernSearchCapsule">
+          <NexusIcon name="search" size="32rpx" color="#da6b17" style="margin-right: 14rpx; flex-shrink: 0;" />
           <input
-            class="smartSearchInput"
+            class="modernSearchInput"
             v-model="searchInputText"
-            placeholder="输入中文自动转英文检索(如:护甲/武器/随从)或直接输英文"
-            placeholder-class="smartSearchPlaceholder"
+            placeholder="搜索模组 (输入中文自动转英文)"
+            placeholder-class="modernSearchPlaceholder"
             confirm-type="search"
             @confirm="handleTriggerSearch"
           />
-          <text v-if="searchInputText" class="clearSearchBtn" @click="handleClearSearch">✕</text>
-          <view class="executeSearchBtn" @click="handleTriggerSearch">
-            <text class="executeSearchBtnText">{{ isTranslatingSearch ? '转译中...' : '搜索' }}</text>
+          <view v-if="searchInputText" class="modernClearBtn" @click="handleClearSearch">
+            <text class="modernClearIcon">✕</text>
+          </view>
+          <view class="modernSearchBtn" :class="{ loading: isTranslatingSearch }" @click="handleTriggerSearch">
+            <text class="modernSearchBtnText">{{ isTranslatingSearch ? '转译中' : '搜索' }}</text>
           </view>
         </view>
 
-        <!-- 智能转译结果与纠偏栏 (当输入中文且已自动转译为英文时展示) -->
-        <view class="searchTranslateFeedbackRow" v-if="actualSearchQuery && hasChineseQuery">
+        <!-- 智能转译结果与纠偏微胶囊 (当输入中文且已自动转译为英文时展示) -->
+        <view class="searchTranslateFeedbackPill" v-if="actualSearchQuery && hasChineseQuery">
           <view class="translateFeedbackLeft">
             <text class="translateTagBadge">自动转译</text>
             <text class="translateOriginalText">“{{ originalChineseQuery }}”</text>
@@ -113,76 +114,75 @@
           </view>
           <view class="translateActionBtns">
             <view class="translateActionBtn editBtn" @click="handleEditEnglishQuery">
-              <text class="translateActionBtnText">✏️ 自定义英文</text>
+              <text class="translateActionBtnText">✏️ 纠偏</text>
             </view>
             <view class="translateActionBtn literalBtn" @click="handleUseLiteralSearch">
-              <text class="translateActionBtnText">原词直搜</text>
+              <text class="translateActionBtnText">原词</text>
             </view>
           </view>
         </view>
-      </view>
 
-      <!-- ==================================================================== -->
-      <!-- 统一三联下拉筛选栏 (排序方式 | 模组分类 | 时间范围，告别繁琐横向滑动) -->
-      <!-- ==================================================================== -->
-      <view class="filtersDropdownBar">
-        <!-- 1. 排序下拉 (最新发布 / 最近更新 / 飙升排行 / 热门下载 / 心愿单) -->
-        <view class="filterCol">
-          <NexusSelect
-            :options="sortOptions"
-            :value="currentSort"
-            title="选择排序方式"
-            mode="dropdown"
-            block
-            dropdown-width="280rpx"
-            @change="onSortSelectChange"
-          >
-            <view class="filterSelectBox" :class="{ active: currentSort !== 'createdAt' }">
-              <text class="filterSelectLabel">{{ currentSortLabel }}</text>
-              <text class="filterSelectArrow">↕</text>
-            </view>
-          </NexusSelect>
-        </view>
+        <!-- ==================================================================== -->
+        <!-- 统一三联下拉筛选栏 (排序方式 | 模组分类 | 时间范围，告别繁琐横向滑动) -->
+        <!-- ==================================================================== -->
+        <view class="filtersDropdownBar">
+          <!-- 1. 排序下拉 (最新发布 / 最近更新 / 飙升排行 / 热门下载 / 心愿单) -->
+          <view class="filterCol">
+            <NexusSelect
+              :options="sortOptions"
+              :value="currentSort"
+              title="选择排序方式"
+              mode="dropdown"
+              block
+              dropdown-width="280rpx"
+              @change="onSortSelectChange"
+            >
+              <view class="filterSelectPill" :class="{ active: currentSort !== 'createdAt' }">
+                <text class="filterSelectLabel">{{ currentSortLabel }}</text>
+                <text class="filterSelectArrow">▾</text>
+              </view>
+            </NexusSelect>
+          </view>
 
-        <!-- 2. N网官方实时分类下拉 (动态聚合，告别两排横滑) -->
-        <view class="filterCol">
-          <NexusSelect
-            :options="categoryOptions"
-            :value="selectedCategory"
-            title="选择模组分类"
-            mode="dropdown"
-            block
-            align="center"
-            dropdown-width="380rpx"
-            @change="onCategorySelectChange"
-          >
-            <view class="filterSelectBox" :class="{ active: Boolean(selectedCategory) }">
-              <text class="filterSelectLabel">{{ currentCategoryLabel }}</text>
-              <text class="filterSelectArrow">↕</text>
-            </view>
-          </NexusSelect>
-        </view>
+          <!-- 2. N网官方实时分类下拉 (动态聚合，告别两排横滑) -->
+          <view class="filterCol">
+            <NexusSelect
+              :options="categoryOptions"
+              :value="selectedCategory"
+              title="选择模组分类"
+              mode="dropdown"
+              block
+              align="center"
+              dropdown-width="380rpx"
+              @change="onCategorySelectChange"
+            >
+              <view class="filterSelectPill" :class="{ active: Boolean(selectedCategory) }">
+                <text class="filterSelectLabel">{{ currentCategoryLabel }}</text>
+                <text class="filterSelectArrow">▾</text>
+              </view>
+            </NexusSelect>
+          </view>
 
-        <!-- 3. 时间范围下拉 (全部时间 / 过去 24 小时 / 过去 7 天 / 过去 30 天 等) -->
-        <view class="filterCol">
-          <NexusSelect
-            :options="currentTimeFilterOptions"
-            :value="timeFilterIndex"
-            title="选择时间范围"
-            mode="dropdown"
-            block
-            align="right"
-            dropdown-width="260rpx"
-            @change="onTimeFilterChange"
-          >
-            <view class="filterSelectBox" :class="{ active: timeFilterIndex > 0 }">
-              <text class="filterSelectLabel">{{ currentTimeFilterOptions[timeFilterIndex] }}</text>
-              <text class="filterSelectArrow">↕</text>
-            </view>
-          </NexusSelect>
+          <!-- 3. 时间范围下拉 (全部时间 / 过去 24 小时 / 过去 7 天 / 过去 30 天 等) -->
+          <view class="filterCol">
+            <NexusSelect
+              :options="currentTimeFilterOptions"
+              :value="timeFilterIndex"
+              title="选择时间范围"
+              mode="dropdown"
+              block
+              align="right"
+              dropdown-width="260rpx"
+              @change="onTimeFilterChange"
+            >
+              <view class="filterSelectPill" :class="{ active: timeFilterIndex > 0 }">
+                <text class="filterSelectLabel">{{ currentTimeFilterOptions[timeFilterIndex] }}</text>
+                <text class="filterSelectArrow">▾</text>
+              </view>
+            </NexusSelect>
+          </view>
         </view>
-      </view>
-      <!-- 吸顶控制台结束 -->
+        <!-- 吸顶控制台结束 -->
       </view>
 
       <!-- 心愿单模式批量操作工具条 (支持按当前选中游戏过滤，杜绝跨游戏乱跑) -->
@@ -2377,89 +2377,108 @@ export default {
   top: var(--status-bar-height, 0px);
   top: calc(var(--status-bar-height, 0px) + env(safe-area-inset-top, 0px));
   z-index: 95;
-  background-color: #121212;
+  background-color: rgba(18, 18, 18, 0.96);
+  backdrop-filter: blur(20px);
   padding: 16rpx 24rpx 14rpx 24rpx;
   margin: 0 -24rpx 20rpx -24rpx;
-  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.6);
-}
-
-.stickySearchBarSection .smartSearchBarCard {
-  margin-bottom: 14rpx;
-}
-
-.stickySearchBarSection .filtersDropdownBar {
-  margin-bottom: 0;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10rpx 28rpx rgba(0, 0, 0, 0.6);
 }
 
 /* ============================================================================ */
-/* 智能搜索栏 (中英文智能互转 + 快捷词 + 自定义英文纠偏)                          */
+/* 现代高级一体化搜索胶囊舱 (单层无嵌套、微光毛玻璃设计)                         */
 /* ============================================================================ */
-.smartSearchBarCard {
-  background-color: #16181d;
-  border: 1rpx solid #282d38;
-  border-radius: 14rpx;
-  padding: 16rpx 18rpx;
-  margin-bottom: 20rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.35);
-}
-
-.smartSearchInputBox {
+.modernSearchCapsule {
   display: flex;
   align-items: center;
-  background-color: #1f222a;
-  border: 1rpx solid #353b49;
-  border-radius: 10rpx;
-  padding: 10rpx 16rpx;
-  position: relative;
+  background-color: #191c24;
+  border: 1rpx solid #2d3342;
+  border-radius: 40rpx;
+  height: 76rpx;
+  padding: 0 8rpx 0 24rpx;
+  box-sizing: border-box;
+  box-shadow: inset 0 2rpx 6rpx rgba(0, 0, 0, 0.3);
+  transition: all 0.25s ease;
 }
 
-.smartSearchInput {
+.modernSearchCapsule:focus-within {
+  border-color: rgba(218, 107, 23, 0.7);
+  background-color: #1c202a;
+  box-shadow: 0 0 16rpx rgba(218, 107, 23, 0.15), inset 0 2rpx 6rpx rgba(0, 0, 0, 0.3);
+}
+
+.modernSearchInput {
   flex: 1;
   font-size: 24rpx;
-  color: #ffffff;
-  padding: 4rpx 0;
+  color: #f1f5f9;
+  height: 100%;
 }
 
-.smartSearchPlaceholder {
+.modernSearchPlaceholder {
   color: #64748b;
-  font-size: 21rpx;
+  font-size: 23rpx;
 }
 
-.clearSearchBtn {
-  font-size: 26rpx;
-  color: #94a3b8;
-  padding: 8rpx 12rpx;
-  cursor: pointer;
-}
-
-.executeSearchBtn {
-  background: #da6b17;
-  border-radius: 8rpx;
-  padding: 8rpx 20rpx;
-  margin-left: 8rpx;
+.modernClearBtn {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12rpx;
   cursor: pointer;
   flex-shrink: 0;
 }
 
-.executeSearchBtnText {
-  font-size: 22rpx;
-  font-weight: 700;
-  color: #ffffff;
+.modernClearIcon {
+  font-size: 20rpx;
+  color: #94a3b8;
+  line-height: 1;
 }
 
-/* 智能转译结果与纠偏栏 */
-.searchTranslateFeedbackRow {
+.modernSearchBtn {
+  background: linear-gradient(135deg, #f59e0b 0%, #da6b17 100%);
+  border-radius: 32rpx;
+  height: 60rpx;
+  padding: 0 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4rpx 14rpx rgba(218, 107, 23, 0.35);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.modernSearchBtn:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+.modernSearchBtn.loading {
+  background: #475569;
+  box-shadow: none;
+}
+
+.modernSearchBtnText {
+  font-size: 23rpx;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 1rpx;
+}
+
+/* 智能转译结果与纠偏微胶囊 */
+.searchTranslateFeedbackPill {
   display: flex;
   align-items: center;
   justify-content: space-between;
   background-color: rgba(218, 107, 23, 0.08);
-  border: 1rpx dashed rgba(218, 107, 23, 0.35);
-  border-radius: 8rpx;
-  padding: 10rpx 14rpx;
+  border: 1rpx solid rgba(218, 107, 23, 0.25);
+  border-radius: 20rpx;
+  padding: 10rpx 18rpx;
+  margin-top: 12rpx;
   flex-wrap: wrap;
   gap: 8rpx;
 }
@@ -2481,7 +2500,7 @@ export default {
 }
 
 .translateOriginalText {
-  font-size: 20rpx;
+  font-size: 21rpx;
   color: #cbd5e1;
 }
 
@@ -2499,14 +2518,14 @@ export default {
 .translateActionBtns {
   display: flex;
   align-items: center;
-  gap: 10rpx;
+  gap: 8rpx;
 }
 
 .translateActionBtn {
   background-color: #242935;
   border: 1rpx solid #3c4456;
-  border-radius: 8rpx;
-  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+  padding: 4rpx 14rpx;
   cursor: pointer;
 }
 
@@ -2528,7 +2547,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 12rpx;
-  margin-bottom: 24rpx;
+  margin-top: 14rpx;
   width: 100%;
   box-sizing: border-box;
 }
@@ -2538,52 +2557,59 @@ export default {
   min-width: 0;
 }
 
+.filterSelectPill,
 .filterSelectBox {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background-color: #16181d;
-  border: 1rpx solid #272c36;
-  border-radius: 12rpx;
-  padding: 14rpx 14rpx;
+  justify-content: center;
+  background-color: #191c24;
+  border: 1rpx solid #2d3342;
+  border-radius: 30rpx;
+  height: 58rpx;
+  padding: 0 16rpx;
   box-sizing: border-box;
   width: 100%;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.filterSelectPill:active,
 .filterSelectBox:active {
-  background-color: #20242e;
+  background-color: #242a38;
 }
 
+.filterSelectPill.active,
 .filterSelectBox.active {
-  background-color: #1d2028;
-  border-color: rgba(218, 107, 23, 0.7);
-  box-shadow: 0 0 10rpx rgba(218, 107, 23, 0.15);
+  background-color: rgba(218, 107, 23, 0.12);
+  border-color: rgba(218, 107, 23, 0.6);
+  box-shadow: 0 0 12rpx rgba(218, 107, 23, 0.15);
 }
 
 .filterSelectLabel {
   font-size: 22rpx;
   font-weight: 600;
-  color: #cbd5e1;
+  color: #94a3b8;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1;
+  text-align: center;
   margin-right: 6rpx;
 }
 
+.filterSelectPill.active .filterSelectLabel,
 .filterSelectBox.active .filterSelectLabel {
-  color: #da6b17;
+  color: #f59e0b;
   font-weight: 700;
 }
 
 .filterSelectArrow {
-  font-size: 20rpx;
-  color: #6b7280;
+  font-size: 18rpx;
+  color: #64748b;
   flex-shrink: 0;
+  transition: transform 0.2s ease;
 }
 
+.filterSelectPill.active .filterSelectArrow,
 .filterSelectBox.active .filterSelectArrow {
   color: #da6b17;
 }
