@@ -571,13 +571,16 @@ export async function fetchNexusMods({
     hasFilter = true;
   }
 
+  // 关键字检索过滤：Nexus 官方 GraphQL WILDCARD 接口接收纯净关键词进行分词模糊匹配，严禁拼接星号（带 * 字符会导致官方搜索结果直接归零）
   if (searchText && searchText.trim()) {
-    const trimmed = searchText.trim();
-    filter.name = [{
-      op: 'WILDCARD',
-      value: trimmed.includes('*') ? trimmed : `*${trimmed}*`
-    }];
-    hasFilter = true;
+    const cleanKeyword = searchText.trim().replace(/\*/g, '').trim();
+    if (cleanKeyword) {
+      filter.name = [{
+        op: 'WILDCARD',
+        value: cleanKeyword
+      }];
+      hasFilter = true;
+    }
   }
 
   // 3. 构建 GraphQL 查询语句（包含封面、所属游戏名称、下载量、简介与成人标记）
