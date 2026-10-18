@@ -6,20 +6,9 @@
   <!-- ======================================================================== -->
   <view class="gamesPage">
     <!-- ==================================================================== -->
-    <!-- 区域 1：沉浸式全局顶栏 (一级 Tab 页面)                              -->
+    <!-- 区域 1：手机沉浸式纯黑状态栏安全占位 (告别全屏叠加与遮挡)             -->
     <!-- ==================================================================== -->
-    <NexusHeader
-      title="我的游戏"
-      :show-back="false"
-      :show-search="true"
-      :desktop-config="desktopConfig"
-      :nexus-user="nexusUser"
-      @drawer-click="drawerVisible = true"
-      @search-click="toggleSearch"
-      @pc-click="deviceModalVisible = true"
-      @user-click="openNexusAuth"
-      @logo-click="goToModsStream"
-    />
+    <view class="safeStatusBarSpacer"></view>
 
     <!-- ==================================================================== -->
     <!-- 区域 2：搜索扩展栏 (支持中英文双语即时过滤游戏)                      -->
@@ -61,6 +50,11 @@
           <NexusIcon name="globe" size="30rpx" :color="activeTab === 'all' ? '#da6b17' : '#94a3b8'" />
           <text class="segmentTabText">发现全网游戏</text>
           <text class="segmentCountBadge">{{ allGamesTotalCount || allGamesList.length || 'N网' }}</text>
+        </view>
+
+        <!-- 搜索触发微按钮 -->
+        <view class="segmentSearchBtn" :class="{ active: searchExpanded || searchText }" @click="toggleSearch">
+          <NexusIcon name="search" size="28rpx" :color="searchExpanded || searchText ? '#da6b17' : '#94a3b8'" />
         </view>
       </view>
 
@@ -737,6 +731,42 @@ export default {
   color: #e5e7eb;
   padding-bottom: 120rpx;
   box-sizing: border-box;
+}
+
+/* 手机原生纯黑状态栏安全占位区 */
+.safeStatusBarSpacer {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  height: var(--status-bar-height, 0px);
+  padding-top: env(safe-area-inset-top);
+  background-color: #000000;
+  box-sizing: content-box;
+}
+
+.segmentSearchBtn {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8rpx;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1rpx solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.segmentSearchBtn:active {
+  transform: scale(0.96);
+}
+
+.segmentSearchBtn.active {
+  background: rgba(218, 107, 23, 0.15);
+  border-color: rgba(218, 107, 23, 0.5);
 }
 
 /* 搜索栏展开区 */

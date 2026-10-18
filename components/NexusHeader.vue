@@ -21,8 +21,8 @@
         <text class="headerPageTitle" v-if="title">{{ title }}</text>
       </view>
 
-      <!-- 右侧功能区：搜索 + 电脑端指示灯 + 官方用户头像 -->
-      <view class="headerRightArea">
+      <!-- 右侧功能区：搜索 + 电脑端指示灯 + 官方用户头像 (默认隐藏防安卓全屏打孔遮挡) -->
+      <view class="headerRightArea" v-if="showRightIcons">
         <view class="headerBtn" v-if="showSearch" @click="$emit('search-click')">
           <NexusIcon name="search" size="36rpx" color="#cbd5e1" />
         </view>
@@ -73,6 +73,10 @@ export default {
     showSearch: {
       type: Boolean,
       default: true
+    },
+    showRightIcons: {
+      type: Boolean,
+      default: false
     },
     desktopConfig: {
       type: Object,

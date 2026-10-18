@@ -4,17 +4,8 @@
   <!-- 功能描述：独立全屏展示与管理本地收藏的 Mod，支持批量导出与一键安装到电脑 -->
   <!-- ======================================================================== -->
   <view class="favoritesPage">
-    <!-- 1. 全局沉浸式顶栏 (一级 Tab 页面) -->
-    <NexusHeader
-      title="装机心愿单"
-      :show-back="false"
-      :show-search="false"
-      :desktop-config="desktopConfig"
-      :nexus-user="nexusUser"
-      @drawer-click="drawerVisible = true"
-      @pc-click="deviceModalVisible = true"
-      @user-click="openNexusAuth"
-    />
+    <!-- 1. 手机沉浸式纯黑状态栏安全占位 (告别全屏叠加与遮挡) -->
+    <view class="safeStatusBarSpacer"></view>
 
     <view class="favContainer">
       <!-- 2. 紧凑型筛选与操作控制区 (节省垂直空间，支持游戏与热度/时间筛选) -->
@@ -667,6 +658,18 @@ export default {
   color: #e5e7eb;
   padding-bottom: 160rpx;
   box-sizing: border-box;
+}
+
+/* 手机原生纯黑状态栏安全占位区 */
+.safeStatusBarSpacer {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  height: var(--status-bar-height, 0px);
+  padding-top: env(safe-area-inset-top);
+  background-color: #000000;
+  box-sizing: content-box;
 }
 
 .favContainer {

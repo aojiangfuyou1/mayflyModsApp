@@ -4,17 +4,8 @@
   <!-- 功能描述：独立全屏展示已推送到电脑端的 Mod 历史任务，支持一键重推与清空  -->
   <!-- ======================================================================== -->
   <view class="historyPage">
-    <!-- 1. 全局沉浸式顶栏 (一级 Tab 页面) -->
-    <NexusHeader
-      title="推送任务清单"
-      :show-back="false"
-      :show-search="false"
-      :desktop-config="desktopConfig"
-      :nexus-user="nexusUser"
-      @drawer-click="drawerVisible = true"
-      @pc-click="deviceModalVisible = true"
-      @user-click="openNexusAuth"
-    />
+    <!-- 1. 手机沉浸式纯黑状态栏安全占位 (告别全屏叠加与遮挡) -->
+    <view class="safeStatusBarSpacer"></view>
 
     <view class="historyContainer">
       <!-- 2. 紧凑型顶部操作栏 (告别粗笨大卡片，极简科技胶囊 + 优雅清空按钮) -->
@@ -485,6 +476,18 @@ export default {
   color: #e5e7eb;
   padding-bottom: 160rpx;
   box-sizing: border-box;
+}
+
+/* 手机原生纯黑状态栏安全占位区 */
+.safeStatusBarSpacer {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  height: var(--status-bar-height, 0px);
+  padding-top: env(safe-area-inset-top);
+  background-color: #000000;
+  box-sizing: content-box;
 }
 
 .historyContainer {

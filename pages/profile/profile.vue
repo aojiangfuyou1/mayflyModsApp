@@ -4,16 +4,8 @@
   <!-- 功能描述：对标移动端体验，整合 Nexus 账户授权、电脑端配对、偏好设置与状态 -->
   <!-- ======================================================================== -->
   <view class="profilePage">
-    <!-- 1. 全局沉浸式顶栏 (一级 Tab 页面，无需返回键) -->
-    <NexusHeader
-      title="个人中心与设置"
-      :show-back="false"
-      :show-search="false"
-      :desktop-config="desktopConfig"
-      :nexus-user="nexusUser"
-      @pc-click="deviceModalVisible = true"
-      @user-click="openNexusAuth"
-    />
+    <!-- 1. 手机沉浸式纯黑状态栏安全占位 (告别全屏叠加与遮挡) -->
+    <view class="safeStatusBarSpacer"></view>
 
     <!-- 2. 主体可滚动内容区 (底部预留安全距离防止被 Tab 遮挡) -->
     <scroll-view class="profileScrollView" scroll-y>
@@ -452,6 +444,18 @@ export default {
   background-color: #0c0d11;
   display: flex;
   flex-direction: column;
+}
+
+/* 手机原生纯黑状态栏安全占位区 */
+.safeStatusBarSpacer {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  width: 100%;
+  height: var(--status-bar-height, 0px);
+  padding-top: env(safe-area-inset-top);
+  background-color: #000000;
+  box-sizing: content-box;
 }
 
 .profileScrollView {
