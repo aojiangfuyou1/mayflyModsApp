@@ -526,7 +526,8 @@ import {
   saveDesktopConfig,
   testDesktopConnection,
   getNexusUser,
-  getNexusApiKey
+  getNexusApiKey,
+  getShowAdultContent
 } from '../../services/nexus.js';
 import {
   batchTranslateToZh,
@@ -636,6 +637,9 @@ export default {
       zhSummaryMap: {},
       zhCategoryMap: {},
       zhGameNameMap: {},
+
+      // 18+ 成人内容显示偏好 (读取本地持久化状态，与个人中心偏好设置全局联动)
+      showAdultContent: getShowAdultContent(),
 
       // 心愿单收藏
       favoritesList: [],
@@ -975,6 +979,14 @@ export default {
       this.refreshMyGames();
     });
 
+    // 跨页面监听 18+ 成人内容偏好设置变更 (实时响应个人中心偏好切换)
+    uni.$on('setting-adult-changed', (val) => {
+      this.showAdultContent = Boolean(val);
+      if (this.currentView === 'mods') {
+        this.resetAndLoad();
+      }
+    });
+
     // 若用户已绑定 N网 Key，静默在后台同步一次云端收藏游戏
     if (this.nexusApiKey) {
       this.silentSyncCloud();
@@ -986,6 +998,16 @@ export default {
     this.refreshFavorites();
     this.refreshMyGames();
     this.refreshNexusUser();
+
+    // 检查 18+ 内容偏好设置是否有变动，保证返回前台时状态绝对一致
+    const latestAdult = getShowAdultContent();
+    if (this.showAdultContent !== latestAdult) {
+      this.showAdultContent = latestAdult;
+      if (this.currentView === 'mods') {
+        this.resetAndLoad();
+      }
+    }
+
     if (this.nexusApiKey) {
       syncFavoritesFromNexus(this.nexusApiKey).then((list) => {
         if (Array.isArray(list)) {
@@ -1042,6 +1064,8 @@ export default {
 
   onUnload() {
     uni.$off('show-upgrade-modal');
+    uni.$off('mayfly-games-updated');
+    uni.$off('setting-adult-changed');
   },
 
   methods: {
@@ -1298,7 +1322,8 @@ export default {
           sort: this.currentSort === 'favorites' ? 'downloads' : this.currentSort,
           searchText: (this.actualSearchQuery || this.searchInputText || this.searchText || '').trim(),
           gameDomain: this.selectedGameDomain || '',
-          categoryName: this.selectedCategory || ''
+          categoryName: this.selectedCategory || '',
+          includeAdult: this.showAdultContent
         });
 
         this.modList = result.items || [];
@@ -1355,7 +1380,8 @@ export default {
           sort: this.currentSort === 'favorites' ? 'downloads' : this.currentSort,
           searchText: (this.actualSearchQuery || this.searchInputText || this.searchText || '').trim(),
           gameDomain: this.selectedGameDomain || '',
-          categoryName: this.selectedCategory || ''
+          categoryName: this.selectedCategory || '',
+          includeAdult: this.showAdultContent
         });
 
         this.modList = [...this.modList, ...(result.items || [])];

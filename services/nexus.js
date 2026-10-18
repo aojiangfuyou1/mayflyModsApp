@@ -24,6 +24,38 @@ export const DEFAULT_DESKTOP_CONFIG = {
 };
 
 // ----------------------------------------------------------------------------
+// 成人/18+ 内容展示偏好 (默认安全过滤，保护用户不受不适内容打扰)
+// ----------------------------------------------------------------------------
+
+/** 本地存储是否显示 18+ 成人内容的 Key */
+export const STORAGE_KEY_SHOW_ADULT = 'mayfly_show_adult_content';
+
+/**
+ * 获取本地是否展示 18+ 成人内容的偏好设置
+ * @returns {boolean} 开启状态 (默认 false 为安全过滤模式)
+ */
+export function getShowAdultContent() {
+  try {
+    const val = uni.getStorageSync(STORAGE_KEY_SHOW_ADULT);
+    return val === true || val === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * 保存本地是否展示 18+ 成人内容的偏好设置
+ * @param {boolean} val - 是否允许展示 18+ 内容
+ */
+export function setShowAdultContent(val) {
+  try {
+    uni.setStorageSync(STORAGE_KEY_SHOW_ADULT, Boolean(val));
+  } catch (e) {
+    console.warn('[MayflyNexus] 保存 18+ 内容偏好设置失败:', e);
+  }
+}
+
+// ----------------------------------------------------------------------------
 // 游戏域名与中文简称映射字典 (防止英文游戏名过长导致移动端卡片换行挤爆)
 // ----------------------------------------------------------------------------
 export const GAME_ZH_MAP = {
@@ -489,6 +521,8 @@ export function saveDesktopConfig(config) {
  * @param {string} [options.sort="downloads"] - 排序方式: "downloads" | "updatedAt" | "createdAt"
  * @param {string} [options.searchText=""] - 搜索关键字
  * @param {string} [options.gameDomain=""] - 指定游戏域名 (可选，留空则全网聚合)
+ * @param {string} [options.categoryName=""] - 分类名称过滤 (可选)
+ * @param {boolean} [options.includeAdult=getShowAdultContent()] - 是否允许包含 18+ 成人内容 (默认读取本地偏好)
  * @returns {Promise<{ items: Array, totalCount: number, page: number, hasMore: boolean }>}
  */
 export async function fetchNexusMods({
@@ -497,7 +531,8 @@ export async function fetchNexusMods({
   sort = 'downloads',
   searchText = '',
   gameDomain = '',
-  categoryName = ''
+  categoryName = '',
+  includeAdult = getShowAdultContent()
 } = {}) {
   const safePage = Math.max(1, Number(page) || 1);
   const safePageSize = Math.min(40, Math.max(1, Number(pageSize) || 20));
@@ -507,9 +542,18 @@ export async function fetchNexusMods({
   const sortKey = sort === 'updatedAt' ? 'updatedAt' : sort === 'createdAt' ? 'createdAt' : 'downloads';
   const sortVariable = [{ [sortKey]: { direction: 'DESC' } }];
 
-  // 2. 构建过滤条件 (若有指定游戏、分类或搜索词)
+  // 2. 构建过滤条件 (若有指定游戏、分类、搜索词或成人内容过滤)
   const filter = { op: 'AND' };
   let hasFilter = false;
+
+  // 成人内容安全过滤：若用户未开启 18+ 内容显示，则强制排除 adultContent 为 true 的模组
+  if (!includeAdult) {
+    filter.adultContent = [{
+      op: 'EQUALS',
+      value: false
+    }];
+    hasFilter = true;
+  }
 
   if (gameDomain && gameDomain.trim()) {
     filter.gameDomainName = [{
@@ -536,7 +580,7 @@ export async function fetchNexusMods({
     hasFilter = true;
   }
 
-  // 3. 构建 GraphQL 查询语句（包含封面、所属游戏名称、下载量与简介）
+  // 3. 构建 GraphQL 查询语句（包含封面、所属游戏名称、下载量、简介与成人标记）
   const gqlQuery = `
     query ModsListing($count: Int = 20, $offset: Int = 0, $sort: [ModsSort!], $filter: ModsFilter, $facets: ModsFacet) {
       mods(count: $count, offset: $offset, sort: $sort, filter: $filter, facets: $facets, viewUserBlockedContent: false) {
@@ -553,6 +597,7 @@ export async function fetchNexusMods({
           endorsements
           createdAt
           updatedAt
+          adultContent
           game {
             id
             domainName
@@ -630,6 +675,7 @@ export async function fetchNexusMods({
         downloads: Number(item.downloads) || 0,
         likes: Number(item.endorsements) || 0,
         category: item.modCategory?.name || 'General',
+        adultContent: Boolean(item.adultContent),
         createdAt: item.createdAt || '',
         updatedAt: item.updatedAt || item.createdAt || '',
         timeAgo: formatTimeAgo(item.updatedAt || item.createdAt),
@@ -686,6 +732,7 @@ export async function fetchModDetail(modId, gameId) {
         createdAt
         updatedAt
         author
+        adultContent
         uploader {
           name
           avatar
@@ -744,6 +791,7 @@ export async function fetchModDetail(modId, gameId) {
       downloads: Number(item.downloads) || 0,
       likes: Number(item.endorsements) || 0,
       category: item.modCategory?.name || '综合',
+      adultContent: Boolean(item.adultContent),
       createdAt: item.createdAt || '',
       updatedAt: item.updatedAt || item.createdAt || '',
       timeAgo: formatTimeAgo(item.updatedAt || item.createdAt),

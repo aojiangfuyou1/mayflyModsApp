@@ -36,6 +36,15 @@
         <text class="modGameBadgeText">{{ item.game.shortZhName || item.game.name }}</text>
       </view>
 
+      <!-- 18+ 成人内容警示角标 (醒目安全提示，多选模式自适应右移) -->
+      <view
+        class="modAdultBadge"
+        :class="{ 'with-selectable': selectable }"
+        v-if="item.adultContent"
+      >
+        <text class="modAdultBadgeText">18+</text>
+      </view>
+
       <!-- 右上角心愿单快速加藏按钮 -->
       <view class="modActionBtn" @click.stop="$emit('favorite', item)">
         <NexusIcon
@@ -405,6 +414,32 @@ export default {
   color: #ffffff;
   font-weight: 900;
   line-height: 1;
+}
+
+/* 18+ 成人内容警示角标样式 */
+.modAdultBadge {
+  position: absolute;
+  top: 10rpx;
+  left: 10rpx;
+  background: rgba(220, 38, 38, 0.92);
+  backdrop-filter: blur(4px);
+  padding: 2rpx 10rpx;
+  border-radius: 6rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.5);
+  z-index: 4;
+}
+
+.modAdultBadge.with-selectable {
+  left: 58rpx;
+}
+
+.modAdultBadgeText {
+  font-size: 18rpx;
+  color: #ffffff;
+  font-weight: 900;
+  letter-spacing: 0.5rpx;
+  line-height: 1.2;
 }
 
 /* ---------------------------------------------------------------------------- */

@@ -144,6 +144,25 @@
             </view>
           </view>
 
+          <!-- 是否显示 18+ 成人内容开关 (保护用户默认安全环境，自主决定开启) -->
+          <view class="prefItemRow" @click="toggleAdultContent">
+            <view class="prefItemLeft">
+              <view class="adultIconHighlightBox">
+                <text class="adultIconEmoji">🔞</text>
+              </view>
+              <view class="prefTextCol">
+                <view class="prefTitleRow">
+                  <text class="prefTitle">展示 18+ 成人内容</text>
+                  <text class="adultWarningTag" v-if="showAdultContent">已解除限制</text>
+                </view>
+                <text class="prefSub">开启后将在模组列表展示含成人/清凉内容的模组</text>
+              </view>
+            </view>
+            <view class="switchBadge" :class="{ on: showAdultContent, 'adult-switch': showAdultContent }">
+              <text class="switchText">{{ showAdultContent ? '已开启' : '已过滤' }}</text>
+            </view>
+          </view>
+
           <!-- 收藏快速入口 (已移除数量角标展示) -->
           <view class="prefItemRow" @click="goToFavorites">
             <view class="prefItemLeft">
@@ -270,7 +289,9 @@ import {
   saveDesktopConfig,
   testDesktopConnection,
   getNexusUser,
-  getNexusApiKey
+  getNexusApiKey,
+  getShowAdultContent,
+  setShowAdultContent
 } from '../../services/nexus.js';
 import { getFavorites } from '../../services/favorites.js';
 import { getPushHistory } from '../../services/history.js';
@@ -322,6 +343,9 @@ export default {
       // AI 智能翻译开关
       enableAutoTranslate: true,
 
+      // 18+ 成人内容显示偏好开关 (默认安全过滤)
+      showAdultContent: false,
+
       // 版本与升级相关状态
       appVersionName: '1.0.0',
       appVersionCode: 100,
@@ -372,6 +396,9 @@ export default {
           this.enableAutoTranslate = Boolean(tr);
         }
       } catch (e) {}
+
+      // 读取 18+ 成人内容显示偏好设置 (默认 false 安全过滤)
+      this.showAdultContent = getShowAdultContent();
 
       // 异步读取本地原生版本号与 BuildCode
       getAppLocalVersion().then((v) => {
@@ -476,6 +503,26 @@ export default {
         title: this.enableAutoTranslate ? '已开启双语图鉴' : '已切换为英文原文',
         icon: 'none'
       });
+    },
+
+    /**
+     * 切换是否展示 18+ 成人内容偏好设置 (带状态持久化与全应用事件广播)
+     */
+    toggleAdultContent() {
+      // 1. 翻转布尔状态并同步至本地持久化存储
+      const nextState = !this.showAdultContent;
+      this.showAdultContent = nextState;
+      setShowAdultContent(nextState);
+
+      // 2. 界面友好提示反馈
+      uni.showToast({
+        title: nextState ? '已开启 18+ 内容显示' : '已恢复默认安全过滤',
+        icon: 'none',
+        duration: 2000
+      });
+
+      // 3. 全局广播偏好变更信令，通知首页模组流及其他页面联动重新检索
+      uni.$emit('setting-adult-changed', nextState);
     },
 
     /**
@@ -956,6 +1003,24 @@ export default {
   box-shadow: 0 0 14rpx rgba(245, 158, 11, 0.2);
 }
 
+/* 18+ 内容开关专属高亮与提示样式 */
+.adultIconHighlightBox {
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 14rpx;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12) 0%, rgba(185, 28, 28, 0.22) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid rgba(239, 68, 68, 0.35);
+  box-shadow: 0 0 14rpx rgba(239, 68, 68, 0.2);
+}
+
+.adultIconEmoji {
+  font-size: 32rpx;
+  line-height: 1;
+}
+
 .prefTitleRow {
   display: flex;
   align-items: center;
@@ -968,6 +1033,17 @@ export default {
   color: #f59e0b;
   background-color: rgba(245, 158, 11, 0.15);
   border: 1rpx solid rgba(245, 158, 11, 0.35);
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  line-height: 1.2;
+}
+
+.adultWarningTag {
+  font-size: 18rpx;
+  font-weight: 700;
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.15);
+  border: 1rpx solid rgba(239, 68, 68, 0.35);
   padding: 2rpx 8rpx;
   border-radius: 6rpx;
   line-height: 1.2;
@@ -1005,6 +1081,11 @@ export default {
   border: 1rpx solid rgba(16, 185, 129, 0.35);
 }
 
+.switchBadge.adult-switch.on {
+  background-color: rgba(239, 68, 68, 0.15);
+  border: 1rpx solid rgba(239, 68, 68, 0.4);
+}
+
 .switchText {
   font-size: 22rpx;
   color: #8b92a5;
@@ -1013,6 +1094,10 @@ export default {
 
 .switchBadge.on .switchText {
   color: #10b981;
+}
+
+.switchBadge.adult-switch.on .switchText {
+  color: #ef4444;
 }
 
 .prefRightMeta {
