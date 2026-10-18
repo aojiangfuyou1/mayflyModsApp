@@ -182,7 +182,7 @@
           size="34rpx"
           :color="favorited ? '#ef4444' : '#94a3b8'"
         />
-        <text class="bottomIconLabel">{{ favorited ? '已追踪' : '追踪' }}</text>
+        <text class="bottomIconLabel">{{ favorited ? '已收藏' : '收藏' }}</text>
       </view>
 
       <!-- 核心大按钮：一键推送到电脑 Mayfly 安装 -->

@@ -25,8 +25,8 @@
 			"path": "pages/favorites/favorites",
 			"style": {
 				"navigationStyle": "custom",
-				"navigationBarTitleText": "装机心愿单",
-				"navigationBarBackgroundColor": "#000000",
+				"navigationBarTitleText": "我的模组收藏",
+				"navigationBarBackgroundColor": "#121212",
 				"navigationBarTextStyle": "white",
 				"backgroundColor": "#121212"
 			}
@@ -35,8 +35,8 @@
 			"path": "pages/history/history",
 			"style": {
 				"navigationStyle": "custom",
-				"navigationBarTitleText": "推送任务清单",
-				"navigationBarBackgroundColor": "#000000",
+				"navigationBarTitleText": "模组下载记录",
+				"navigationBarBackgroundColor": "#121212",
 				"navigationBarTextStyle": "white",
 				"backgroundColor": "#121212"
 			}

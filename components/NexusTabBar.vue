@@ -5,7 +5,7 @@
   <view class="nexusTabBarWrap">
     <view class="nexusTabBar">
       <!-- -------------------------------------------------------------------- -->
-      <!-- Tab 1: 首页 (精选模组流与主推荐)                                     -->
+      <!-- Tab 1: 首页 (默认进入游戏海报库，点选游戏进入该游戏模组专区)        -->
       <!-- -------------------------------------------------------------------- -->
       <view
         class="tabItem"
@@ -24,26 +24,7 @@
       </view>
 
       <!-- -------------------------------------------------------------------- -->
-      <!-- Tab 2: 热门游戏专区 (海报库与分区选择)                               -->
-      <!-- -------------------------------------------------------------------- -->
-      <view
-        class="tabItem"
-        :class="{ active: activeTab === 'games' }"
-        @click="switchTab('games')"
-      >
-        <view class="tabIconBox">
-          <NexusIcon
-            name="gamepad"
-            size="40rpx"
-            :color="activeTab === 'games' ? '#da6b17' : '#94a3b8'"
-          />
-        </view>
-        <text class="tabLabelText">游戏</text>
-        <view class="tabActiveBar" v-if="activeTab === 'games'"></view>
-      </view>
-
-      <!-- -------------------------------------------------------------------- -->
-      <!-- Tab 3: 装机心愿单 (收藏夹与批量投递)                                 -->
+      <!-- Tab 2: 收藏 (原心愿单：已标记收藏模组与批量投递)                     -->
       <!-- -------------------------------------------------------------------- -->
       <view
         class="tabItem"
@@ -56,17 +37,17 @@
             size="38rpx"
             :color="activeTab === 'favorites' ? '#f43f5e' : '#94a3b8'"
           />
-          <!-- 心愿单数量角标 Badge -->
+          <!-- 收藏数量角标 Badge -->
           <view class="tabBadge" v-if="favoritesCount > 0">
             <text class="tabBadgeText">{{ favoritesCount > 99 ? '99+' : favoritesCount }}</text>
           </view>
         </view>
-        <text class="tabLabelText">心愿单</text>
+        <text class="tabLabelText">收藏</text>
         <view class="tabActiveBar" v-if="activeTab === 'favorites'"></view>
       </view>
 
       <!-- -------------------------------------------------------------------- -->
-      <!-- Tab 4: 推送清单 (已投递任务管理与重推)                               -->
+      <!-- Tab 3: 下载 (原任务：已投递安装任务管理与重推)                       -->
       <!-- -------------------------------------------------------------------- -->
       <view
         class="tabItem"
@@ -75,21 +56,21 @@
       >
         <view class="tabIconBox">
           <NexusIcon
-            name="task"
+            name="download"
             size="38rpx"
             :color="activeTab === 'history' ? '#38bdf8' : '#94a3b8'"
           />
-          <!-- 任务历史数量角标 -->
+          <!-- 下载任务数量角标 -->
           <view class="tabBadge grayBadge" v-if="historyCount > 0">
             <text class="tabBadgeText">{{ historyCount > 99 ? '99+' : historyCount }}</text>
           </view>
         </view>
-        <text class="tabLabelText">任务</text>
+        <text class="tabLabelText">下载</text>
         <view class="tabActiveBar" v-if="activeTab === 'history'"></view>
       </view>
 
       <!-- -------------------------------------------------------------------- -->
-      <!-- Tab 5: 我的 (Nexus 账号、电脑端连接与设置中心)                       -->
+      <!-- Tab 4: 我的 (Nexus 账号、电脑端连接与设置中心)                       -->
       <!-- -------------------------------------------------------------------- -->
       <view
         class="tabItem"
@@ -177,10 +158,10 @@ export default {
         return;
       }
 
-      // 路由字典映射
+      // 路由字典映射 (首页与游戏专区完全合一)
       const routeMap = {
         home: '/pages/index/index',
-        games: '/pages/games/games',
+        games: '/pages/index/index',
         favorites: '/pages/favorites/favorites',
         history: '/pages/history/history',
         profile: '/pages/profile/profile'

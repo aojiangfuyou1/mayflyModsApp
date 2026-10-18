@@ -93,7 +93,7 @@
         <NexusIcon name="heart" size="84rpx" color="#475569" style="margin-bottom: 16rpx;" />
         <block v-if="!nexusApiKey">
           <text class="emptyFavTitle">登录同步 N网 追踪历史</text>
-          <text class="emptyFavSub">心愿单已对接 NexusMods 官方云端追踪，登录后将自动拉取您在 N网 追踪收藏的所有模组</text>
+          <text class="emptyFavSub">模组收藏已对接 NexusMods 官方云端追踪，登录后将自动拉取您在 N网 追踪收藏的所有模组</text>
           <button class="goExploreBtn" style="background: linear-gradient(135deg, #da6b17, #f97316);" @click="openNexusAuth">
             <text class="goExploreBtnText">🔑 登录 NexusMods 账号 ›</text>
           </button>
@@ -391,7 +391,7 @@ export default {
           this.confirmModal = {
             visible: true,
             title: '需要登录 NexusMods',
-            content: '心愿单模组与您的 N网 官方账号“追踪历史 (Tracked Mods)”直接云端同步。请先登录 N网 账号。',
+            content: '模组收藏与您的 N网 官方账号“追踪历史 (Tracked Mods)”直接云端同步。请先登录 N网 账号。',
             type: 'info',
             icon: 'user',
             confirmText: '去登录',
@@ -436,7 +436,7 @@ export default {
         this.confirmModal = {
           visible: true,
           title: '需要登录 NexusMods',
-          content: '加入或移出心愿单将直接与您的 N网 官方“追踪历史 (Tracked Mods)”云端双向同步，请先登录 N网 账号。',
+          content: '加入或移出收藏将直接与您的 N网 官方“追踪历史 (Tracked Mods)”云端双向同步，请先登录 N网 账号。',
           type: 'info',
           icon: 'user',
           confirmText: '去登录',
@@ -579,7 +579,7 @@ export default {
       uni.setClipboardData({
         data: text,
         success: () => {
-          uni.showToast({ title: '心愿单分享口令已复制', icon: 'success' });
+          uni.showToast({ title: '收藏分享口令已复制', icon: 'success' });
         }
       });
     },

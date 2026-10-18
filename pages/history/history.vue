@@ -12,8 +12,8 @@
       <view class="historyToolbar">
         <!-- 左侧：统计与状态胶囊 -->
         <view class="toolbarStatPill">
-          <NexusIcon name="task" size="24rpx" color="#38bdf8" />
-          <text class="statCountText">共 {{ historyList.length }} 个任务</text>
+          <NexusIcon name="download" size="24rpx" color="#38bdf8" />
+          <text class="statCountText">共 {{ historyList.length }} 项下载</text>
           <view class="liveDotWrap" v-if="desktopConfig && desktopConfig.connected">
             <view class="livePulseDot"></view>
             <text class="liveText">已联机</text>
@@ -116,8 +116,8 @@
 
       <!-- 空记录提示 (优雅大尺寸清单矢量图标) -->
       <view class="emptyHistoryBox" v-else>
-        <NexusIcon name="task" size="84rpx" color="#475569" style="margin-bottom: 16rpx;" />
-        <text class="emptyTitle">暂无推送任务记录</text>
+        <NexusIcon name="download" size="84rpx" color="#475569" style="margin-bottom: 16rpx;" />
+        <text class="emptyTitle">暂无下载记录</text>
         <text class="emptySub">在模组流中挑选心仪的 Mod，点击「推送到电脑」即可体验无感落盘安装！</text>
         <button class="goExploreBtn" @click="handleNavBack">
           <text class="goExploreBtnText">去挑选模组 ›</text>
@@ -378,7 +378,7 @@ export default {
     handleClearHistory() {
       this.confirmModal = {
         visible: true,
-        title: '清空历史任务？',
+        title: '清空下载记录？',
         content: '确定要清空手机端记录吗？不会影响电脑端已下载落盘的文件。',
         type: 'danger',
         icon: 'trash',
