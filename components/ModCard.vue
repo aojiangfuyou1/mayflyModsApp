@@ -174,8 +174,10 @@ export default {
      * @returns {string}
      */
     displayTitle() {
-      if (this.enableAutoTranslate && this.zhTitle) {
-        return this.zhTitle;
+      if (this.enableAutoTranslate) {
+        if (this.zhTitle) return this.zhTitle;
+        if (this.item && this.item.zhTitle) return this.item.zhTitle;
+        if (this.item && this.item.zhName) return this.item.zhName;
       }
       return this.item.title || '未命名模组';
     },
@@ -198,8 +200,14 @@ export default {
      */
     displaySummary() {
       let summary = '';
-      if (this.enableAutoTranslate && this.zhSummary) {
-        summary = this.zhSummary;
+      if (this.enableAutoTranslate) {
+        if (this.zhSummary) {
+          summary = this.zhSummary;
+        } else if (this.item && this.item.zhSummary) {
+          summary = this.item.zhSummary;
+        } else {
+          summary = this.item.summary || '';
+        }
       } else {
         summary = this.item.summary || '';
       }

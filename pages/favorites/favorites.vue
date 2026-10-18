@@ -4,11 +4,8 @@
   <!-- 功能描述：独立全屏展示与管理本地收藏的 Mod，支持批量导出与一键安装到电脑 -->
   <!-- ======================================================================== -->
   <view class="favoritesPage">
-    <!-- 1. 手机沉浸式纯黑状态栏安全占位 (告别全屏叠加与遮挡) -->
-    <view class="safeStatusBarSpacer"></view>
-
     <view class="favContainer">
-      <!-- 2. 紧凑型筛选与操作控制区 (双下拉筛选组合：所属游戏 + 排序方式) -->
+      <!-- 2. 紧凑型筛选与操作控制区 (吸顶固定控制台) -->
       <view class="favControlsArea">
         <!-- 紧凑工具操作行 (游戏筛选下拉 + 排序筛选下拉 + 同步 + 多选切换) -->
         <view class="favFilterBar">
@@ -79,6 +76,8 @@
           :item="item"
           :selected-game-domain="selectedGameDomain"
           :enable-auto-translate="enableAutoTranslate"
+          :zh-title="zhTitleMap[item.id] || item.zhTitle"
+          :zh-summary="zhSummaryMap[item.id] || item.zhSummary"
           :is-favorited="true"
           :is-pushing="pushingModId === item.id"
           :selectable="isMultiSelectMode"
@@ -217,6 +216,7 @@ import {
   getNexusApiKey,
   syncNexusFromDesktop
 } from '../../services/nexus.js';
+import { batchTranslateModList } from '../../services/translate.js';
 import { formatFavoritesShareText } from '../../services/poster.js';
 import NexusHeader from '../../components/NexusHeader.vue';
 import NexusDrawer from '../../components/NexusDrawer.vue';
@@ -252,6 +252,8 @@ export default {
       isMultiSelectMode: false,
       selectedModIdMap: {},
       enableAutoTranslate: true,
+      zhTitleMap: {},
+      zhSummaryMap: {},
       drawerVisible: false,
       deviceModalVisible: false,
       nexusAuthModalVisible: false,
@@ -406,6 +408,42 @@ export default {
 
     refreshFavorites() {
       this.favoritesList = getFavorites();
+      if (this.enableAutoTranslate && this.favoritesList.length > 0) {
+        this.autoTranslateFavorites(this.favoritesList);
+      }
+    },
+
+    /**
+     * 自动异步批量翻译已收藏的模组标题与简介
+     * @param {Array<Object>} items
+     */
+    async autoTranslateFavorites(items) {
+      if (!Array.isArray(items) || items.length === 0) return;
+      try {
+        const { zhTitleMap, zhSummaryMap } = await batchTranslateModList(items);
+        this.zhTitleMap = { ...this.zhTitleMap, ...zhTitleMap };
+        this.zhSummaryMap = { ...this.zhSummaryMap, ...zhSummaryMap };
+
+        // 同步富化持久化存储，确保冷启动与离线秒出中文
+        let updated = false;
+        this.favoritesList.forEach((m) => {
+          if (this.zhTitleMap[m.id] && m.zhTitle !== this.zhTitleMap[m.id]) {
+            m.zhTitle = this.zhTitleMap[m.id];
+            updated = true;
+          }
+          if (this.zhSummaryMap[m.id] && m.zhSummary !== this.zhSummaryMap[m.id]) {
+            m.zhSummary = this.zhSummaryMap[m.id];
+            updated = true;
+          }
+        });
+        if (updated) {
+          try {
+            uni.setStorageSync('mayfly_mod_favorites', this.favoritesList);
+          } catch (e) {}
+        }
+      } catch (e) {
+        console.warn('[MayflyFavorites] 自动翻译模组异常:', e);
+      }
     },
 
     /**
@@ -440,6 +478,9 @@ export default {
       try {
         const list = await syncFavoritesFromNexus(this.nexusApiKey);
         this.favoritesList = list;
+        if (this.enableAutoTranslate && this.favoritesList.length > 0) {
+          this.autoTranslateFavorites(this.favoritesList);
+        }
         if (showToast) {
           uni.showToast({
             title: `已同步 ${list.length} 个 N网追踪模组`,
@@ -717,13 +758,18 @@ export default {
 }
 
 /* ---------------------------------------------------------------------------- */
-/* 区域 2：紧凑型筛选与操作控制区                                                */
+/* 区域 2：吸顶固定控制台 (游戏专区下拉 + 排序维度 + 同步/多选)                   */
 /* ---------------------------------------------------------------------------- */
 .favControlsArea {
-  margin-bottom: 20rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
+  position: sticky;
+  top: 0;
+  z-index: 95;
+  background-color: rgba(18, 18, 18, 0.96);
+  backdrop-filter: blur(20px);
+  padding: calc(var(--status-bar-height, 0px) + 12rpx) 24rpx 14rpx 24rpx;
+  margin: 0 -24rpx 20rpx -24rpx;
+  border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.45);
 }
 
 /* 紧凑工具操作行 (游戏筛选 + 排序维度 + 同步/多选) */

@@ -7,7 +7,7 @@ import {
   getNexusApiKey,
   getGameShortZhName
 } from './nexus.js';
-import { batchTranslateToZh } from './translate.js';
+import { batchTranslateModList } from './translate.js';
 
 /** 本地持久化缓存 Key */
 export const STORAGE_KEY_FAVORITES = 'mayfly_mod_favorites';
@@ -308,20 +308,24 @@ export async function syncFavoritesFromNexus(apiKey = '') {
     }
   });
 
-  // 4. 标题自动汉化
+  // 4. 标题与简介全量自动汉化
   try {
-    const unTranslatedTitles = nextList
-      .filter((m) => !m.zhTitle || (m.zhTitle === m.title && /[a-zA-Z]{3,}/.test(m.title)))
-      .map((m) => m.title);
-    if (unTranslatedTitles.length > 0) {
-      const transMap = await batchTranslateToZh(unTranslatedTitles);
+    const unTranslatedMods = nextList.filter(
+      (m) =>
+        !m.zhTitle ||
+        !m.zhSummary ||
+        (m.zhTitle === m.title && /[a-zA-Z]{3,}/.test(m.title))
+    );
+    if (unTranslatedMods.length > 0) {
+      const { zhTitleMap, zhSummaryMap } = await batchTranslateModList(unTranslatedMods);
       nextList.forEach((m) => {
-        if (transMap.has(m.title)) {
-          m.zhTitle = transMap.get(m.title);
-        }
+        if (zhTitleMap[m.id]) m.zhTitle = zhTitleMap[m.id];
+        if (zhSummaryMap[m.id]) m.zhSummary = zhSummaryMap[m.id];
       });
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn('[MayflyFavorites] 同步追踪模组翻译异常:', e);
+  }
 
   // 5. 保存到本地持久化缓存
   try {
