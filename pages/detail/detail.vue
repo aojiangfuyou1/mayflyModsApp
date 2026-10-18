@@ -473,21 +473,26 @@ export default {
       }
     }
 
-    // 2. 页面刷新时从本地缓存恢复
+    // 2. 页面刷新时从本地缓存恢复 (严格核对 modId 一致性，杜绝脏缓存串位覆盖新点击的模组)
+    const incomingModId = String(options?.modId || options?.id || '');
     if (!targetItem) {
       try {
         const cached = uni.getStorageSync('mayfly_active_mod_cache');
         if (cached && (cached.id || cached.modId)) {
-          targetItem = cached;
+          const cachedModId = String(cached.modId || cached.id || '');
+          // 若路由显式指定了 modId，必须严格匹配才使用缓存，否则废弃旧缓存
+          if (!incomingModId || cachedModId === incomingModId) {
+            targetItem = cached;
+          }
         }
       } catch (e) {}
     }
 
-    // 3. 通过直接链接进入
-    if (!targetItem && (options?.modId || options?.id)) {
+    // 3. 通过直接链接或基础参数进入 (降级通过 modId + gameDomain/gameId 动态拉取)
+    if (!targetItem && incomingModId) {
       targetItem = {
-        id: options.modId || options.id,
-        modId: options.modId || options.id,
+        id: incomingModId,
+        modId: incomingModId,
         title: options.title || '',
         game: {
           id: Number(options.gameId) || 0,

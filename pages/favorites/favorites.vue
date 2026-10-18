@@ -524,11 +524,27 @@ export default {
       });
     },
 
+    /**
+     * 打开模组完整详情页 (精准传递完整元数据与独立标识，杜绝串位)
+     * @param {Object} item - 模组数据对象
+     */
     openDetail(item) {
-      const gDomain = item.game?.domainName || this.selectedGameDomain || '';
-      const mId = item.modId || item.id;
+      if (!item || !item.id) return;
+
+      // 1. 同步覆写当前选中的激活模组缓存
+      try {
+        uni.setStorageSync('mayfly_active_mod_cache', item);
+      } catch (e) {}
+
+      // 2. 序列化完整对象参数，与首页完全保持一致
+      const encoded = encodeURIComponent(JSON.stringify(item));
+      const modId = item.modId || item.id;
+      const gameId = item.game?.id || '';
+      const domain = item.game?.domainName || this.selectedGameDomain || '';
+
+      // 3. 携带完整 query 路由参数跳转详情页
       uni.navigateTo({
-        url: `/pages/detail/detail?modId=${mId}&gameDomain=${gDomain}`
+        url: `/pages/detail/detail?payload=${encoded}&modData=${encoded}&modId=${modId}&gameId=${gameId}&gameDomain=${domain}`
       });
     },
 
