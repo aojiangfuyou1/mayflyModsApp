@@ -5,33 +5,14 @@
     <!-- ==================================================================== -->
     <NexusHeader
       :show-back="false"
-      :show-search="true"
+      :show-search="false"
       :desktop-config="desktopConfig"
       :nexus-user="nexusUser"
       @drawer-click="toggleDrawer"
-      @search-click="toggleSearchExpand"
       @pc-click="openDeviceModal"
       @user-click="openNexusAuthModal"
       @logo-click="clearGameFilterAndBack"
     />
-
-    <!-- ==================================================================== -->
-    <!-- 区域 1.5：平滑展开的搜索输入栏 -->
-    <!-- ==================================================================== -->
-    <view class="searchExpandSection" v-if="searchExpanded || searchText">
-      <view class="searchBarBox">
-        <NexusIcon name="search" size="30rpx" color="#94a3b8" style="margin-right: 12rpx;" />
-        <input
-          class="searchInput"
-          v-model="searchText"
-          placeholder="搜索 NexusMods 任意模组或游戏..."
-          placeholder-class="searchPlaceholder"
-          confirm-type="search"
-          @confirm="onSearchConfirm"
-        />
-        <text v-if="searchText" class="clearIcon" @click="clearSearch">✕</text>
-      </view>
-    </view>
 
     <!-- ==================================================================== -->
     <!-- 区域 2A：Games 视角 (100% 对标用户截图 1 的双列竖版海报风格，动态拉取) -->
@@ -146,6 +127,63 @@
           <text class="modsTitle">{{ enableAutoTranslate ? '精选模组' : 'Mods' }}</text>
         </view>
         <text class="modsViewAllLink" @click="clearGameFilterAndBack">{{ enableAutoTranslate ? '全部游戏专区 ›' : 'View all games' }}</text>
+      </view>
+
+      <!-- ==================================================================== -->
+      <!-- 智能搜索栏 (中英文智能互转 + 快捷词 + 自定义英文纠偏)                   -->
+      <!-- ==================================================================== -->
+      <view class="smartSearchBarCard">
+        <view class="smartSearchInputBox">
+          <NexusIcon name="search" size="30rpx" color="#da6b17" style="margin-right: 12rpx; flex-shrink: 0;" />
+          <input
+            class="smartSearchInput"
+            v-model="searchInputText"
+            placeholder="输入中文自动转英文检索(如:护甲/武器/随从)或直接输英文"
+            placeholder-class="smartSearchPlaceholder"
+            confirm-type="search"
+            @confirm="handleTriggerSearch"
+          />
+          <text v-if="searchInputText" class="clearSearchBtn" @click="handleClearSearch">✕</text>
+          <view class="executeSearchBtn" @click="handleTriggerSearch">
+            <text class="executeSearchBtnText">{{ isTranslatingSearch ? '转译中...' : '搜索' }}</text>
+          </view>
+        </view>
+
+        <!-- 智能转译结果与纠偏栏 (当输入中文且已自动转译为英文时展示) -->
+        <view class="searchTranslateFeedbackRow" v-if="actualSearchQuery && hasChineseQuery">
+          <view class="translateFeedbackLeft">
+            <text class="translateTagBadge">自动转译</text>
+            <text class="translateOriginalText">“{{ originalChineseQuery }}”</text>
+            <text class="translateArrowIcon">→</text>
+            <text class="translateTargetText">“{{ actualSearchQuery }}”</text>
+          </view>
+          <view class="translateActionBtns">
+            <view class="translateActionBtn editBtn" @click="handleEditEnglishQuery">
+              <text class="translateActionBtnText">✏️ 自定义英文</text>
+            </view>
+            <view class="translateActionBtn literalBtn" @click="handleUseLiteralSearch">
+              <text class="translateActionBtnText">原词直搜</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 常用模组高频热搜快捷词标签 (点选秒搜，帮助用户快速找模组) -->
+        <view class="quickKeywordsRow" v-if="!actualSearchQuery">
+          <text class="quickKeywordLabel">快捷词:</text>
+          <scroll-view class="quickKeywordsScroll" scroll-x show-scrollbar="false">
+            <view class="quickKeywordsList">
+              <view
+                class="quickKeywordPill"
+                v-for="kw in quickKeywords"
+                :key="kw.zh"
+                @click="handleSelectQuickKeyword(kw)"
+              >
+                <text class="quickKeywordZh">{{ kw.zh }}</text>
+                <text class="quickKeywordEn">{{ kw.en }}</text>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
       </view>
 
       <!-- ==================================================================== -->
@@ -394,7 +432,8 @@ import {
 import {
   batchTranslateToZh,
   getCategoryZhName,
-  batchTranslateModList
+  batchTranslateModList,
+  translateZhToEn
 } from '../../services/translate.js';
 import { getPushHistory, clearPushHistory } from '../../services/history.js';
 import { getFavorites, toggleFavorite, syncFavoritesFromNexus } from '../../services/favorites.js';
@@ -490,7 +529,22 @@ export default {
       favoritesList: [],
       favoriteIdMap: {},
 
-      // 搜索控制
+      // 智能搜索与中英文自动转译控制 (输入中文自动转换为英文检索 N网)
+      searchInputText: '',
+      actualSearchQuery: '',
+      originalChineseQuery: '',
+      hasChineseQuery: false,
+      isTranslatingSearch: false,
+      quickKeywords: [
+        { zh: '护甲', en: 'Armor' },
+        { zh: '武器', en: 'Weapon' },
+        { zh: '随从', en: 'Follower' },
+        { zh: '发型', en: 'Hair' },
+        { zh: '美化', en: 'Preset' },
+        { zh: '动作', en: 'Animation' },
+        { zh: '界面UI', en: 'UI' },
+        { zh: '大修重制', en: 'Overhaul' }
+      ],
       searchText: '',
       searchExpanded: false,
 
@@ -998,7 +1052,7 @@ export default {
           page: 1,
           pageSize: this.pageSize,
           sort: this.currentSort === 'favorites' ? 'downloads' : this.currentSort,
-          searchText: (this.searchText || '').trim(),
+          searchText: (this.actualSearchQuery || this.searchInputText || this.searchText || '').trim(),
           gameDomain: this.selectedGameDomain || '',
           categoryName: this.selectedCategory || ''
         });
@@ -1055,7 +1109,7 @@ export default {
           page: nextPage,
           pageSize: this.pageSize,
           sort: this.currentSort === 'favorites' ? 'downloads' : this.currentSort,
-          searchText: (this.searchText || '').trim(),
+          searchText: (this.actualSearchQuery || this.searchInputText || this.searchText || '').trim(),
           gameDomain: this.selectedGameDomain || '',
           categoryName: this.selectedCategory || ''
         });
@@ -1109,20 +1163,107 @@ export default {
       this.resetAndLoad();
     },
 
+    // ------------------------------------------------------------------------
+    // 智能搜索与中英文自动转译 (对标用户需求：输入中文自动转英文检索 + 支持手动纠偏自定义)
+    // ------------------------------------------------------------------------
+
     /**
-     * 确认搜索
+     * 触发智能检索 (支持中文自动转译为英文关键词，精确打穿 N网 原生英文库)
      */
-    onSearchConfirm() {
+    async handleTriggerSearch() {
       this.currentView = 'mods';
+      const raw = (this.searchInputText || '').trim();
+      if (!raw) {
+        this.actualSearchQuery = '';
+        this.originalChineseQuery = '';
+        this.hasChineseQuery = false;
+        this.resetAndLoad();
+        return;
+      }
+
+      this.originalChineseQuery = raw;
+
+      // 智能探测：若含有中文字符，自动转译为英文检索词
+      if (/[\u4e00-\u9fa5]/.test(raw)) {
+        this.hasChineseQuery = true;
+        this.isTranslatingSearch = true;
+        try {
+          const en = await translateZhToEn(raw);
+          this.actualSearchQuery = en || raw;
+        } catch (e) {
+          this.actualSearchQuery = raw;
+        } finally {
+          this.isTranslatingSearch = false;
+        }
+      } else {
+        // 纯英文/拼音/代号直接检索
+        this.hasChineseQuery = false;
+        this.actualSearchQuery = raw;
+      }
+
       this.resetAndLoad();
+    },
+
+    /**
+     * 用户点击「✏️ 自定义英文」纠偏：允许用户直接在输入框编辑精准英文
+     */
+    handleEditEnglishQuery() {
+      if (this.actualSearchQuery) {
+        this.searchInputText = this.actualSearchQuery;
+        this.hasChineseQuery = false;
+        uni.showToast({
+          title: '已填入英文，可直接修改',
+          icon: 'none'
+        });
+      }
+    },
+
+    /**
+     * 用户点击「原词直搜」：绕过转译直接以原文检索
+     */
+    handleUseLiteralSearch() {
+      if (this.originalChineseQuery) {
+        this.actualSearchQuery = this.originalChineseQuery;
+        this.hasChineseQuery = false;
+        uni.showToast({
+          title: '已切换为原词检索',
+          icon: 'none'
+        });
+        this.resetAndLoad();
+      }
     },
 
     /**
      * 清空搜索词
      */
-    clearSearch() {
+    handleClearSearch() {
+      this.searchInputText = '';
+      this.actualSearchQuery = '';
+      this.originalChineseQuery = '';
+      this.hasChineseQuery = false;
       this.searchText = '';
       this.resetAndLoad();
+    },
+
+    /**
+     * 点击常用模组高频快捷词 (秒转对应英文极速检索)
+     */
+    handleSelectQuickKeyword(kw) {
+      if (!kw) return;
+      this.searchInputText = kw.zh;
+      this.originalChineseQuery = kw.zh;
+      this.actualSearchQuery = kw.en.toLowerCase();
+      this.hasChineseQuery = true;
+      this.currentView = 'mods';
+      this.resetAndLoad();
+    },
+
+    onSearchConfirm() {
+      this.handleTriggerSearch();
+    },
+
+    clearSearch() {
+      this.handleClearSearch();
     },
 
     // ------------------------------------------------------------------------
@@ -2274,6 +2415,187 @@ export default {
 .filterPill.active .pillLabel {
   color: #121212;
   font-weight: 800;
+}
+
+/* ============================================================================ */
+/* 智能搜索栏 (中英文智能互转 + 快捷词 + 自定义英文纠偏)                          */
+/* ============================================================================ */
+.smartSearchBarCard {
+  background-color: #16181d;
+  border: 1rpx solid #282d38;
+  border-radius: 14rpx;
+  padding: 16rpx 18rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.35);
+}
+
+.smartSearchInputBox {
+  display: flex;
+  align-items: center;
+  background-color: #1f222a;
+  border: 1rpx solid #353b49;
+  border-radius: 10rpx;
+  padding: 10rpx 16rpx;
+  position: relative;
+}
+
+.smartSearchInput {
+  flex: 1;
+  font-size: 24rpx;
+  color: #ffffff;
+  padding: 4rpx 0;
+}
+
+.smartSearchPlaceholder {
+  color: #64748b;
+  font-size: 21rpx;
+}
+
+.clearSearchBtn {
+  font-size: 26rpx;
+  color: #94a3b8;
+  padding: 8rpx 12rpx;
+  cursor: pointer;
+}
+
+.executeSearchBtn {
+  background: #da6b17;
+  border-radius: 8rpx;
+  padding: 8rpx 20rpx;
+  margin-left: 8rpx;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.executeSearchBtnText {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* 智能转译结果与纠偏栏 */
+.searchTranslateFeedbackRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: rgba(218, 107, 23, 0.08);
+  border: 1rpx dashed rgba(218, 107, 23, 0.35);
+  border-radius: 8rpx;
+  padding: 10rpx 14rpx;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.translateFeedbackLeft {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  flex-wrap: wrap;
+}
+
+.translateTagBadge {
+  font-size: 18rpx;
+  color: #da6b17;
+  background-color: rgba(218, 107, 23, 0.2);
+  border-radius: 6rpx;
+  padding: 2rpx 8rpx;
+  font-weight: 700;
+}
+
+.translateOriginalText {
+  font-size: 20rpx;
+  color: #cbd5e1;
+}
+
+.translateArrowIcon {
+  font-size: 18rpx;
+  color: #94a3b8;
+}
+
+.translateTargetText {
+  font-size: 22rpx;
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.translateActionBtns {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.translateActionBtn {
+  background-color: #242935;
+  border: 1rpx solid #3c4456;
+  border-radius: 8rpx;
+  padding: 4rpx 12rpx;
+  cursor: pointer;
+}
+
+.translateActionBtn.editBtn {
+  border-color: rgba(218, 107, 23, 0.5);
+  background-color: rgba(218, 107, 23, 0.15);
+}
+
+.translateActionBtnText {
+  font-size: 19rpx;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+/* 快捷模组关键词条 */
+.quickKeywordsRow {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  overflow: hidden;
+}
+
+.quickKeywordLabel {
+  font-size: 20rpx;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.quickKeywordsScroll {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.quickKeywordsList {
+  display: inline-flex;
+  gap: 10rpx;
+  align-items: center;
+}
+
+.quickKeywordPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  background-color: #1f232c;
+  border: 1rpx solid #2e3544;
+  border-radius: 20rpx;
+  padding: 4rpx 14rpx;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quickKeywordPill:active {
+  background-color: rgba(218, 107, 23, 0.2);
+  border-color: #da6b17;
+}
+
+.quickKeywordZh {
+  font-size: 20rpx;
+  color: #cbd5e1;
+}
+
+.quickKeywordEn {
+  font-size: 18rpx;
+  color: #64748b;
 }
 
 /* ============================================================================ */

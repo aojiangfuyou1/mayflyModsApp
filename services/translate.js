@@ -8,8 +8,11 @@
 // 区域 1：常量与内存缓存池
 // ----------------------------------------------------------------------------
 
-/** Microsoft Edge 内置翻译接口端点 */
+/** Microsoft Edge 内置翻译接口端点 (英译中) */
 const EDGE_TRANSLATE_ENDPOINT = 'https://edge.microsoft.com/translate/translatetext?to=zh-Hans&isEnterpriseClient=false';
+
+/** Microsoft Edge 内置翻译接口端点 (中译英，用于智能搜索自动转英文) */
+const EDGE_TRANSLATE_EN_ENDPOINT = 'https://edge.microsoft.com/translate/translatetext?to=en&isEnterpriseClient=false';
 
 /** 内存中的翻译文本缓存池 (减少重复网络请求) */
 const memoryTranslationCache = new Map();
@@ -266,6 +269,113 @@ export async function translateTextToZh(text) {
 
   const map = await batchTranslateToZh([clean]);
   return map.get(clean) || clean;
+}
+
+// ----------------------------------------------------------------------------
+// 区域 2.5：中文智能转英文搜索 (支持常用模组关键词秒级命中 + 微软云端智能翻译)
+// ----------------------------------------------------------------------------
+
+/** 常用模组检索中文 -> 英文关键词高速直出映射字典 (零网络延迟秒出) */
+export const COMMON_MOD_KEYWORDS_ZH_TO_EN = {
+  '护甲': 'armor',
+  '盔甲': 'armor',
+  '防具': 'armor',
+  '服装': 'outfit',
+  '衣服': 'clothing',
+  '装备': 'equipment',
+  '武器': 'weapon',
+  '剑': 'sword',
+  '大剑': 'greatsword',
+  '双手剑': 'greatsword',
+  '匕首': 'dagger',
+  '弓': 'bow',
+  '枪': 'gun',
+  '法杖': 'staff',
+  '随从': 'follower',
+  '同伴': 'companion',
+  '美化': 'beauty',
+  '发型': 'hair',
+  '头发': 'hair',
+  '捏脸': 'preset',
+  '皮肤': 'skin',
+  '身形': 'body',
+  '动作': 'animation',
+  '动画': 'animation',
+  '姿势': 'pose',
+  '房屋': 'house',
+  '住宅': 'home',
+  '地点': 'location',
+  '地图': 'map',
+  '魔法': 'magic',
+  '法术': 'spell',
+  '补丁': 'patch',
+  '修复': 'fix',
+  '重制': 'overhaul',
+  '大修': 'overhaul',
+  '界面': 'ui',
+  '天气': 'weather',
+  '环境': 'environment',
+  '材质': 'texture',
+  '纹理': 'texture',
+  '光影': 'lighting',
+  '作弊': 'cheat',
+  '音效': 'sound',
+  '音乐': 'music',
+  '汉化': 'chinese'
+};
+
+/**
+ * 智能将中文搜索词自动翻译为英文检索词 (用于向 NexusMods GraphQL 发起精确检索)
+ * 1. 纯英文输入直接放行
+ * 2. 模组高频词典 0ms 直出
+ * 3. 微软 Edge 云端智能翻译
+ * @param {string} text - 用户输入的原始搜索词
+ * @returns {Promise<string>} 转换后的英文检索词
+ */
+export async function translateZhToEn(text) {
+  const clean = String(text || '').trim();
+  if (!clean) return '';
+
+  // 1. 若纯英文/数字/符号不含中文，直接返回无需转换
+  if (!/[\u4e00-\u9fa5]/.test(clean)) {
+    return clean;
+  }
+
+  // 2. 本地高频模组词典匹配
+  if (COMMON_MOD_KEYWORDS_ZH_TO_EN[clean]) {
+    return COMMON_MOD_KEYWORDS_ZH_TO_EN[clean];
+  }
+
+  // 3. 部分词匹配
+  for (const [zh, en] of Object.entries(COMMON_MOD_KEYWORDS_ZH_TO_EN)) {
+    if (clean === zh) {
+      return en;
+    }
+  }
+
+  // 4. 调用 Microsoft Edge 官方中译英端点
+  try {
+    const res = await uni.request({
+      url: EDGE_TRANSLATE_EN_ENDPOINT,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json'
+      },
+      data: JSON.stringify([clean]),
+      timeout: 6000
+    });
+
+    if (res.statusCode === 200 && Array.isArray(res.data)) {
+      const translated = res.data[0]?.translations?.[0]?.text?.trim();
+      if (translated) {
+        return translated.toLowerCase();
+      }
+    }
+  } catch (err) {
+    console.warn('[MayflyTranslate] 中译英网络异常，启用原词检索:', err);
+  }
+
+  return clean;
 }
 
 /**

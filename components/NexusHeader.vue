@@ -2,39 +2,45 @@
   <!-- ======================================================================== -->
   <!-- NexusHeader：统一全局标准顶栏组件 (抽屉/返回 + 橙标 + 搜索/分享 + 设备 + 用户) -->
   <!-- ======================================================================== -->
-  <view class="nexusHeader">
-    <!-- 左侧区域：抽屉按钮 或 返回按钮 (仅在指定显示或二级返回时呈现) -->
-    <view class="headerBtn" v-if="showBack || showDrawer" @click="handleLeftBtnClick">
-      <text class="headerIcon">{{ showBack ? '←' : '☰' }}</text>
-    </view>
+  <view class="nexusHeaderWrapper">
+    <!-- 手机原生状态栏全黑安全占位区 (解决全屏与手机顶部时间电量叠加问题) -->
+    <view class="statusBarSpacer"></view>
 
-    <!-- 中间区域：Nexus 官方标志性橙标方块 -->
-    <view class="headerLogoArea" @click="$emit('logo-click')">
-      <view class="nexusLogoBox">
-        <text class="nexusLogoGlyph">❖</text>
+    <!-- 顶栏主体 (纯黑高定底色) -->
+    <view class="nexusHeader">
+      <!-- 左侧区域：抽屉按钮 或 返回按钮 (仅在指定显示或二级返回时呈现) -->
+      <view class="headerBtn" v-if="showBack || showDrawer" @click="handleLeftBtnClick">
+        <text class="headerIcon">{{ showBack ? '←' : '☰' }}</text>
       </view>
-      <text class="headerPageTitle" v-if="title">{{ title }}</text>
-    </view>
 
-    <!-- 右侧功能区：搜索 + 电脑端指示灯 + 官方用户头像 -->
-    <view class="headerRightArea">
-      <view class="headerBtn" v-if="showSearch" @click="$emit('search-click')">
-        <NexusIcon name="search" size="36rpx" color="#cbd5e1" />
+      <!-- 中间区域：Nexus 官方标志性橙标方块 -->
+      <view class="headerLogoArea" @click="$emit('logo-click')">
+        <view class="nexusLogoBox">
+          <text class="nexusLogoGlyph">❖</text>
+        </view>
+        <text class="headerPageTitle" v-if="title">{{ title }}</text>
       </view>
-      <view class="headerBtn pcBtn" @click="$emit('pc-click')">
-        <NexusIcon name="desktop" size="36rpx" :color="desktopConfig && desktopConfig.connected ? '#10b981' : '#94a3b8'" />
-        <view class="onlineDot" :class="{ connected: desktopConfig && desktopConfig.connected }"></view>
-      </view>
-      <view class="headerBtn userBtn" @click="$emit('user-click')">
-        <image
-          v-if="nexusUser && nexusUser.avatar"
-          class="headerAvatarImg"
-          :src="nexusUser.avatar"
-          mode="aspectFill"
-        />
-        <NexusIcon v-else name="user" size="36rpx" color="#cbd5e1" />
-        <view v-if="nexusUser && nexusUser.isPremium" class="headerPremiumBadge">👑</view>
-        <view v-else-if="!nexusUser" class="authNoticeDot"></view>
+
+      <!-- 右侧功能区：搜索 + 电脑端指示灯 + 官方用户头像 -->
+      <view class="headerRightArea">
+        <view class="headerBtn" v-if="showSearch" @click="$emit('search-click')">
+          <NexusIcon name="search" size="36rpx" color="#cbd5e1" />
+        </view>
+        <view class="headerBtn pcBtn" @click="$emit('pc-click')">
+          <NexusIcon name="desktop" size="36rpx" :color="desktopConfig && desktopConfig.connected ? '#10b981' : '#94a3b8'" />
+          <view class="onlineDot" :class="{ connected: desktopConfig && desktopConfig.connected }"></view>
+        </view>
+        <view class="headerBtn userBtn" @click="$emit('user-click')">
+          <image
+            v-if="nexusUser && nexusUser.avatar"
+            class="headerAvatarImg"
+            :src="nexusUser.avatar"
+            mode="aspectFill"
+          />
+          <NexusIcon v-else name="user" size="36rpx" color="#cbd5e1" />
+          <view v-if="nexusUser && nexusUser.isPremium" class="headerPremiumBadge">👑</view>
+          <view v-else-if="!nexusUser" class="authNoticeDot"></view>
+        </view>
       </view>
     </view>
   </view>
@@ -94,13 +100,27 @@ export default {
 /* ============================================================================ */
 /* NexusHeader 顶栏样式                                                         */
 /* ============================================================================ */
-.nexusHeader {
+.nexusHeaderWrapper {
   position: sticky;
   top: 0;
   z-index: 100;
+  width: 100%;
+  background-color: #000000;
+}
+
+/* 手机原生状态栏安全占位区 (纯黑底色，确保手机系统电量、时间清晰不遮挡) */
+.statusBarSpacer {
+  width: 100%;
+  height: var(--status-bar-height);
+  padding-top: env(safe-area-inset-top);
+  background-color: #000000;
+  box-sizing: content-box;
+}
+
+.nexusHeader {
   height: 96rpx;
-  background-color: #161616;
-  border-bottom: 1rpx solid #232323;
+  background-color: #000000;
+  border-bottom: 1rpx solid #1a1a1a;
   display: flex;
   align-items: center;
   justify-content: space-between;

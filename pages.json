@@ -5,7 +5,7 @@
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "Mayfly Mods 伴侣",
-				"navigationBarBackgroundColor": "#0b0e14",
+				"navigationBarBackgroundColor": "#000000",
 				"navigationBarTextStyle": "white",
 				"enablePullDownRefresh": true,
 				"backgroundColor": "#0b0e14"
@@ -16,7 +16,7 @@
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "热门游戏专区",
-				"navigationBarBackgroundColor": "#121212",
+				"navigationBarBackgroundColor": "#000000",
 				"navigationBarTextStyle": "white",
 				"backgroundColor": "#121212"
 			}
@@ -26,7 +26,7 @@
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "装机心愿单",
-				"navigationBarBackgroundColor": "#121212",
+				"navigationBarBackgroundColor": "#000000",
 				"navigationBarTextStyle": "white",
 				"backgroundColor": "#121212"
 			}
@@ -36,7 +36,7 @@
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "推送任务清单",
-				"navigationBarBackgroundColor": "#121212",
+				"navigationBarBackgroundColor": "#000000",
 				"navigationBarTextStyle": "white",
 				"backgroundColor": "#121212"
 			}
@@ -46,7 +46,7 @@
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "个人中心与设置",
-				"navigationBarBackgroundColor": "#0b0e14",
+				"navigationBarBackgroundColor": "#000000",
 				"navigationBarTextStyle": "white",
 				"backgroundColor": "#0b0e14"
 			}
@@ -56,7 +56,7 @@
 			"style": {
 				"navigationStyle": "custom",
 				"navigationBarTitleText": "Mayfly Nexus",
-				"navigationBarBackgroundColor": "#121212",
+				"navigationBarBackgroundColor": "#000000",
 				"navigationBarTextStyle": "white",
 				"backgroundColor": "#121212"
 			}
@@ -65,7 +65,7 @@
 	"globalStyle": {
 		"navigationBarTextStyle": "white",
 		"navigationBarTitleText": "Mayfly Mods",
-		"navigationBarBackgroundColor": "#0f1117",
+		"navigationBarBackgroundColor": "#000000",
 		"backgroundColor": "#0f1117"
 	},
 	"uniIdRouter": {}
