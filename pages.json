@@ -1,0 +1,72 @@
+{
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "mayflymods",
+				"navigationBarBackgroundColor": "#121212",
+				"navigationBarTextStyle": "white",
+				"enablePullDownRefresh": true,
+				"backgroundColor": "#121212"
+			}
+		},
+		{
+			"path": "pages/games/games",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "热门游戏专区",
+				"navigationBarBackgroundColor": "#000000",
+				"navigationBarTextStyle": "white",
+				"backgroundColor": "#121212"
+			}
+		},
+		{
+			"path": "pages/favorites/favorites",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "我的模组收藏",
+				"navigationBarBackgroundColor": "#121212",
+				"navigationBarTextStyle": "white",
+				"backgroundColor": "#121212"
+			}
+		},
+		{
+			"path": "pages/history/history",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "模组下载记录",
+				"navigationBarBackgroundColor": "#121212",
+				"navigationBarTextStyle": "white",
+				"backgroundColor": "#121212"
+			}
+		},
+		{
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "个人中心与设置",
+				"navigationBarBackgroundColor": "#000000",
+				"navigationBarTextStyle": "white",
+				"backgroundColor": "#0b0e14"
+			}
+		},
+		{
+			"path": "pages/detail/detail",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTitleText": "mayflymods",
+				"navigationBarBackgroundColor": "#000000",
+				"navigationBarTextStyle": "white",
+				"backgroundColor": "#121212"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "white",
+		"navigationBarTitleText": "mayflymods",
+		"navigationBarBackgroundColor": "#000000",
+		"backgroundColor": "#0f1117"
+	},
+	"uniIdRouter": {}
+}
